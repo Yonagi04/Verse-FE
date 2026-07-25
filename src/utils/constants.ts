@@ -1,0 +1,80 @@
+// ========== 权限原子码（与后端 PermissionEnum 对齐） ==========
+
+export const PERMISSIONS = {
+  // 用户自身
+  USER_PROFILE_READ: 'user:profile:read',
+  USER_PROFILE_WRITE: 'user:profile:write',
+  USER_PASSWORD_WRITE: 'user:password:write',
+  // 租户
+  TENANT_CREATE: 'tenant:create',
+  TENANT_DELETE: 'tenant:delete',
+  TENANT_SETTINGS_WRITE: 'tenant:settings:write',
+  TENANT_READ: 'tenant:read',
+  // 成员
+  TENANT_MEMBER_INVITE: 'tenant:member:invite',
+  TENANT_MEMBER_REMOVE: 'tenant:member:remove',
+  TENANT_MEMBER_ROLE_WRITE: 'tenant:member:role:write',
+  TENANT_MEMBER_READ: 'tenant:member:read',
+  // LLM 服务
+  TENANT_LLM_REGISTER: 'tenant:llm:register',
+  TENANT_LLM_UPDATE: 'tenant:llm:update',
+  TENANT_LLM_DELETE: 'tenant:llm:delete',
+  TENANT_LLM_READ: 'tenant:llm:read',
+  TENANT_LLM_CREDENTIAL_READ: 'tenant:llm:credential:read',
+  // Token
+  TENANT_TOKENS_READ_OWN: 'tenant:tokens:read:own',
+  TENANT_TOKENS_READ_ALL: 'tenant:tokens:read:all',
+  // 日志
+  TENANT_LOGS_READ_OWN: 'tenant:logs:read:own',
+  TENANT_LOGS_READ_ALL: 'tenant:logs:read:all',
+  // 限流
+  TENANT_RATELIMIT_WRITE: 'tenant:ratelimit:write',
+  // API Key
+  API_KEY_CREATE: 'api_key:create',
+  API_KEY_DELETE: 'api_key:delete',
+  API_KEY_READ: 'api_key:read',
+} as const
+
+export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS]
+
+// 角色 → 权限映射
+export const ROLE_PERMISSIONS: Record<string, Permission[]> = {
+  SUPER_ADMIN: Object.values(PERMISSIONS),
+  ADMIN: [
+    PERMISSIONS.USER_PROFILE_READ,
+    PERMISSIONS.USER_PROFILE_WRITE,
+    PERMISSIONS.USER_PASSWORD_WRITE,
+    PERMISSIONS.TENANT_CREATE,
+    PERMISSIONS.TENANT_SETTINGS_WRITE,
+    PERMISSIONS.TENANT_READ,
+    PERMISSIONS.TENANT_MEMBER_INVITE,
+    PERMISSIONS.TENANT_MEMBER_REMOVE,
+    PERMISSIONS.TENANT_MEMBER_READ,
+    PERMISSIONS.TENANT_LLM_REGISTER,
+    PERMISSIONS.TENANT_LLM_UPDATE,
+    PERMISSIONS.TENANT_LLM_DELETE,
+    PERMISSIONS.TENANT_LLM_READ,
+    PERMISSIONS.TENANT_LLM_CREDENTIAL_READ,
+    PERMISSIONS.TENANT_TOKENS_READ_OWN,
+    PERMISSIONS.TENANT_TOKENS_READ_ALL,
+    PERMISSIONS.TENANT_LOGS_READ_OWN,
+    PERMISSIONS.TENANT_LOGS_READ_ALL,
+    PERMISSIONS.TENANT_RATELIMIT_WRITE,
+    PERMISSIONS.API_KEY_CREATE,
+    PERMISSIONS.API_KEY_DELETE,
+    PERMISSIONS.API_KEY_READ,
+  ],
+  MEMBER: [
+    PERMISSIONS.USER_PROFILE_READ,
+    PERMISSIONS.USER_PROFILE_WRITE,
+    PERMISSIONS.USER_PASSWORD_WRITE,
+    PERMISSIONS.TENANT_READ,
+    PERMISSIONS.TENANT_MEMBER_READ,
+    PERMISSIONS.TENANT_LLM_READ,
+    PERMISSIONS.TENANT_TOKENS_READ_OWN,
+    PERMISSIONS.TENANT_LOGS_READ_OWN,
+    PERMISSIONS.API_KEY_CREATE,
+    PERMISSIONS.API_KEY_DELETE,
+    PERMISSIONS.API_KEY_READ,
+  ],
+}

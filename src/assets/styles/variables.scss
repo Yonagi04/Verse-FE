@@ -1,0 +1,36 @@
+// ========== Design Tokens ==========
+// Reference: docs/verse_frontend_design_system.md
+
+// Colors
+$color-primary: #1677ff;
+$color-bg: #ffffff;
+$color-bg-secondary: #fafafa;
+$color-border: #f0f0f0;
+$color-text-primary: #1f2328;
+$color-text-secondary: #667085;
+$color-success: #52c41a;
+$color-warning: #faad14;
+$color-danger: #ff4d4f;
+
+// Layout
+$sidebar-width: 240px;
+$sidebar-collapsed-width: 80px;
+$header-height: 64px;
+$content-padding: 24px;
+
+// Border Radius
+$radius-input: 8px;
+$radius-button: 8px;
+$radius-card: 12px;
+$radius-drawer: 16px;
+
+// Shadow
+$shadow-light: 0 2px 8px rgba(0, 0, 0, 0.06);
+
+// Font
+$font-family: 'Inter', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+$font-size-body: 14px;
+$font-size-title: 24px;
+$font-size-h2: 20px;
+$font-size-h3: 16px;
+$font-size-caption: 12px;
