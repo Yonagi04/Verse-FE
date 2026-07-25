@@ -39,12 +39,6 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true },
   },
   {
-    path: '/profile',
-    name: 'UserProfile',
-    component: () => import('@/views/user/UserProfile.vue'),
-    meta: { requiresAuth: true },
-  },
-  {
     path: '/tenants',
     name: 'TenantList',
     component: () => import('@/views/tenant/TenantList.vue'),
@@ -72,7 +66,7 @@ const router = createRouter({
 })
 
 // 全局前置守卫
-router.beforeEach((to, _from, next) => {
+router.beforeEach(async (to, _from, next) => {
   const userStore = useUserStore()
 
   if (to.meta.requiresAuth === false) {
@@ -87,6 +81,10 @@ router.beforeEach((to, _from, next) => {
     if (!userStore.isLoggedIn) {
       next('/login')
     } else {
+      // 刷新页面后 store 中 user 为 null，需要重新拉取以显示昵称等
+      if (!userStore.user && !userStore.isLoading) {
+        await userStore.fetchProfile()
+      }
       next()
     }
   }

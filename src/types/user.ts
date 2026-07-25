@@ -26,6 +26,7 @@ export interface UserUpdateReqDTO {
 }
 
 export interface UserUpdatePasswordReqDTO {
+  oldPassword: string
   password: string
 }
 

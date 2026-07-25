@@ -1,4 +1,7 @@
 // Variables are auto-injected via vite config additionalData
+//
+// NOTE: This file is unscoped SCSS — avoid style pollution.
+// Keep selectors specific to override targets.
 
 *,
 *::before,
@@ -36,4 +39,15 @@ html, body {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #bfbfbf;
+}
+
+// ========== 个人信息弹窗 — 覆盖 antd Modal 默认内边距 ==========
+.profile-modal-wrap .ant-modal-content {
+  padding: 20px 24px 16px !important;
+  border-radius: 16px !important;
+}
+
+.password-modal-wrap .ant-modal-content {
+  padding: 24px !important;
+  border-radius: 12px !important;
 }

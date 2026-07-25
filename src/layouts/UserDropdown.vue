@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
+import { useProfileModal } from '@/hooks/useProfileModal'
 import { UserOutlined, LogoutOutlined } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
 
 const router = useRouter()
 const userStore = useUserStore()
+const { open: openProfileModal } = useProfileModal()
 
 async function handleLogout() {
   await userStore.signOut()
@@ -14,7 +16,7 @@ async function handleLogout() {
 }
 
 function goProfile() {
-  router.push('/profile')
+  openProfileModal()
 }
 </script>
 

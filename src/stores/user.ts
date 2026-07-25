@@ -22,7 +22,7 @@ export const useUserStore = defineStore('user', () => {
         username: res.username,
         nickname: res.nickname,
       })
-      await fetchProfile()
+      await fetchProfile(false)
       // 返回 currentTenant 供租户 store 使用
       return res.currentTenant
     } finally {
@@ -30,9 +30,9 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
-  async function fetchProfile() {
+  async function fetchProfile(mask: boolean = true) {
     try {
-      user.value = await getCurrentUser(false)
+      user.value = await getCurrentUser(mask)
     } catch {
       // 获取用户信息失败不影响其他操作
     }
