@@ -86,3 +86,16 @@ export interface UserInfoRespDTO {
 export interface UserVerifyPhoneCodeRespDTO {
   token: string
 }
+
+// ========== 注销账号 ==========
+
+/** 注销 - 准备响应 */
+export interface CancelPrepareRespDTO {
+  warningDescription: string
+  warningTips: string[]
+}
+
+/** 注销 - 确认请求 */
+export interface CancelConfirmReqDTO {
+  code: string
+}

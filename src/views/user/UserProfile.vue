@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { reactive, ref, watch, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { useUserStore } from '@/stores/user'
 import { useProfileModal } from '@/hooks/useProfileModal'
 import { getCurrentUser, updateProfile, updatePassword } from '@/api/user'
+import CancelAccountModal from './CancelAccountModal.vue'
 import type { UserUpdateReqDTO, UserRespDTO } from '@/types/user'
 
+const router = useRouter()
 const userStore = useUserStore()
 const { visible, close } = useProfileModal()
 
@@ -162,6 +165,22 @@ async function handleUpdatePassword() {
     pwdLoading.value = false
   }
 }
+
+// ========== 注销用户 ==========
+const cancelVisible = ref(false)
+
+// 传给 CancelAccountModal 的手机号（完整），优先取 unmasked 数据，否则取 masked 数据
+const cancelPhone = computed(() => {
+  return unmaskedData.value?.phone || maskedData.value?.phone || ''
+})
+
+async function handleCancelSuccess() {
+  cancelVisible.value = false
+  close() // 关闭个人信息弹窗
+  await userStore.signOut()
+  message.success('账号已注销')
+  router.push('/login')
+}
 </script>
 
 <template>
@@ -279,6 +298,13 @@ async function handleUpdatePassword() {
       <a-button class="footer-btn footer-btn-secondary" @click="openPasswordDialog">修改密码</a-button>
     </div>
 
+    <!-- 注销用户入口 — 放在偏下位置，避免误触 -->
+    <div v-if="!isEditing" class="cancel-entry-row">
+      <a-button type="link" danger class="cancel-entry-btn" @click="cancelVisible = true">
+        注销用户
+      </a-button>
+    </div>
+
     <!-- 编辑模式 — 底部按钮 -->
     <div v-else class="modal-footer">
       <a-button class="footer-btn footer-btn-secondary" @click="cancelEdit">取 消</a-button>
@@ -327,6 +353,14 @@ async function handleUpdatePassword() {
       <a-button type="primary" class="footer-btn" :loading="pwdLoading" @click="handleUpdatePassword">确认修改</a-button>
     </div>
   </a-modal>
+
+  <!-- ========== 注销用户弹窗 ========== -->
+  <CancelAccountModal
+    :visible="cancelVisible"
+    :phone="cancelPhone"
+    @close="cancelVisible = false"
+    @success="handleCancelSuccess"
+  />
 </template>
 
 <style lang="scss" scoped>
@@ -549,5 +583,22 @@ async function handleUpdatePassword() {
   display: flex;
   gap: 12px;
   margin-top: 20px;
+}
+
+// ========== 注销用户入口 ==========
+.cancel-entry-row {
+  display: flex;
+  justify-content: center;
+  padding: 6px 0;
+}
+
+.cancel-entry-btn {
+  font-size: 13px;
+  padding: 6px 12px;
+  border-radius: $radius-button;
+
+  &:hover {
+    background: #fff1f0 !important;
+  }
 }
 </style>

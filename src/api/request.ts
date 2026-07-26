@@ -23,8 +23,13 @@ http.interceptors.response.use(
   <T>(response: AxiosResponse<Result<T>>): T => {
     const result = response.data
     if (result.code !== '0') {
-      message.error(result.message || '请求失败')
-      throw new Error(result.message || '请求失败')
+      // B000218（账号已注销）由登录页弹窗处理，此处不弹 toast
+      if (result.code !== 'B000218') {
+        message.error(result.message || '请求失败')
+      }
+      const bizError = new Error(result.message || '请求失败') as Error & { code: string }
+      bizError.code = result.code
+      throw bizError
     }
     return result.data as T
   },

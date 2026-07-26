@@ -12,6 +12,8 @@ import type {
   UserVerifyPhoneCodeReqDTO,
   UserVerifyPhoneCodeRespDTO,
   UserResetPasswordReqDTO,
+  CancelPrepareRespDTO,
+  CancelConfirmReqDTO,
 } from '@/types/user'
 
 // 检查用户名是否存在
@@ -67,4 +69,19 @@ export function verifyPhoneCode(data: UserVerifyPhoneCodeReqDTO): Promise<UserVe
 // 重置密码
 export function resetPassword(data: UserResetPasswordReqDTO): Promise<boolean> {
   return request.post('/users/password/reset', data)
+}
+
+// 获取注销警告信息
+export function getCancelPrepare(): Promise<CancelPrepareRespDTO> {
+  return request.get('/users/account/cancel/prepare')
+}
+
+// 发送注销验证码
+export function sendCancelCode(): Promise<boolean> {
+  return request.post('/users/account/cancel/sendCode')
+}
+
+// 确认注销
+export function confirmCancel(data: CancelConfirmReqDTO): Promise<boolean> {
+  return request.post('/users/account/cancel/confirm', data)
 }

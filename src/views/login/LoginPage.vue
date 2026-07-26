@@ -20,6 +20,10 @@ const form = reactive<UserLoginReqDTO>({
 
 const loading = ref(false)
 
+// ========== 已注销用户弹窗 ==========
+const deactivatedVisible = ref(false)
+const deactivatedMessage = ref('')
+
 async function handleSubmit() {
   loading.value = true
   try {
@@ -29,8 +33,13 @@ async function handleSubmit() {
     await tenantStore.fetchTenants()
     message.success('登录成功')
     router.push('/dashboard')
-  } catch {
-    // 错误已在 request 拦截器中处理
+  } catch (err: unknown) {
+    const code = (err as any)?.code
+    if (code === 'B000218') {
+      deactivatedMessage.value = (err as Error).message || ''
+      deactivatedVisible.value = true
+    }
+    // 其他错误已在 request 拦截器中 toast 处理
   } finally {
     loading.value = false
   }
@@ -96,6 +105,18 @@ async function handleSubmit() {
         </router-link>
       </div>
     </div>
+
+    <!-- ========== 已注销用户弹窗 ========== -->
+    <a-modal
+      :open="deactivatedVisible"
+      title="账号已注销"
+      :footer="null"
+      :width="440"
+      @cancel="deactivatedVisible = false"
+    >
+      <p class="deactivated-msg">{{ deactivatedMessage }}</p>
+      <a-button type="primary" block @click="deactivatedVisible = false">确认</a-button>
+    </a-modal>
   </div>
 </template>
 
@@ -138,5 +159,14 @@ async function handleSubmit() {
 .login-footer {
   display: flex;
   justify-content: space-between;
+}
+
+// ========== 已注销用户弹窗 ==========
+.deactivated-msg {
+  color: $color-text-primary;
+  font-size: 14px;
+  line-height: 1.8;
+  text-align: center;
+  padding: 8px 0;
 }
 </style>
