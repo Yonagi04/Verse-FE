@@ -5,8 +5,8 @@ import SidebarUserArea from './SidebarUserArea.vue'
 import {
   MenuUnfoldOutlined,
   MenuFoldOutlined,
-  QuestionCircleOutlined,
 } from '@ant-design/icons-vue'
+import NotificationPopover from './NotificationPopover.vue'
 
 const themeStore = useThemeStore()
 </script>
@@ -46,10 +46,7 @@ const themeStore = useThemeStore()
           />
         </div>
         <div class="header-right">
-          <a class="help-link" href="javascript:void(0)">
-            <QuestionCircleOutlined />
-            <span>帮助</span>
-          </a>
+          <NotificationPopover />
         </div>
       </a-layout-header>
       <a-layout-content class="content">
@@ -129,23 +126,6 @@ const themeStore = useThemeStore()
     color: $color-primary;
   }
 }
-
-.help-link {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: $color-text-secondary;
-  font-size: $font-size-body;
-  padding: 6px 12px;
-  border-radius: $radius-button;
-  transition: all 0.15s;
-
-  &:hover {
-    color: $color-primary;
-    background: #f5f5f5;
-  }
-}
-
 // ========== Content ==========
 .content {
   padding: $content-padding;

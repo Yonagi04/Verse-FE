@@ -32,7 +32,6 @@ const menuItems: MenuItem[] = [
     label: '租户管理',
     children: [
       { key: '/tenants', icon: () => h(TeamOutlined), label: '我的租户' },
-      { key: '/tenants/create', icon: () => h(TeamOutlined), label: '创建租户' },
     ],
   },
   {

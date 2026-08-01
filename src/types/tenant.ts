@@ -6,17 +6,29 @@ export interface TenantCreateReqDTO {
 }
 
 export interface TenantInfoRespDTO {
-  tenantId: number
+  tenantId: string
   name: string
   type: TenantType
   description: string
 }
 
 export interface TenantInfoListRespDTO {
-  tenantId: number
+  tenantId: string
   name: string
   type: TenantType
   role: Role
   joinedAt: string
   lastAccessedAt: string
+}
+
+export interface TenantUpdateReqDTO {
+  name: string
+  description?: string
+}
+
+export interface TenantSwitchRespDTO {
+  tenantId: string
+  name: string
+  type: TenantType
+  role: Role
 }

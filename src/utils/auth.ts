@@ -2,7 +2,7 @@ const TOKEN_KEY = 'verse_token'
 const USER_KEY = 'verse_user'
 
 export interface StoredUser {
-  userId: number
+  userId: string
   username: string
   nickname: string
 }

@@ -47,7 +47,12 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/tenants/create',
     name: 'TenantCreate',
-    component: () => import('@/views/tenant/TenantCreate.vue'),
+    redirect: '/tenants?action=create',
+  },
+  {
+    path: '/tenants/:tenantId',
+    name: 'TenantDetail',
+    component: () => import('@/views/tenant/TenantDetail.vue'),
     meta: { requiresAuth: true },
   },
   {

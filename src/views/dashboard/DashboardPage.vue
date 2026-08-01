@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { onMounted } from 'vue'
 import { useUserStore } from '@/stores/user'
+import { useTenantStore } from '@/stores/tenant'
 import {
   DashboardOutlined,
   ApiOutlined,
@@ -8,6 +10,13 @@ import {
 } from '@ant-design/icons-vue'
 
 const userStore = useUserStore()
+const tenantStore = useTenantStore()
+
+onMounted(async () => {
+  if (tenantStore.tenants.length === 0) {
+    await tenantStore.fetchTenants()
+  }
+})
 </script>
 
 <template>
@@ -23,7 +32,7 @@ const userStore = useUserStore()
           <div class="stat-content">
             <TeamOutlined class="stat-icon" />
             <div>
-              <div class="stat-value">--</div>
+              <div class="stat-value">{{ tenantStore.tenants.length }}</div>
               <div class="stat-label">租户数</div>
             </div>
           </div>

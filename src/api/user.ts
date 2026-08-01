@@ -37,7 +37,7 @@ export function getCurrentUser(mask: boolean = true): Promise<UserRespDTO> {
 }
 
 // 获取其他用户信息
-export function getUserInfo(userId: number): Promise<UserInfoRespDTO> {
+export function getUserInfo(userId: string): Promise<UserInfoRespDTO> {
   return request.get('/user/getUserInfo', { params: { userId } })
 }
 

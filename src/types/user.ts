@@ -48,20 +48,20 @@ export interface UserResetPasswordReqDTO {
 // ========== 响应 DTO ==========
 
 export interface TenantInfo {
-  tenantId: number
+  tenantId: string
   name: string
   type: TenantType
   role: Role
 }
 
 export interface UserRegisterRespDTO {
-  userId: number
+  userId: string
   username: string
   nickname: string
 }
 
 export interface UserLoginRespDTO {
-  userId: number
+  userId: string
   username: string
   nickname: string
   token: string
@@ -70,7 +70,7 @@ export interface UserLoginRespDTO {
 }
 
 export interface UserRespDTO {
-  userId: number
+  userId: string
   username: string
   nickname: string
   email: string
@@ -78,7 +78,7 @@ export interface UserRespDTO {
 }
 
 export interface UserInfoRespDTO {
-  userId: number
+  userId: string
   username: string
   nickname: string
 }
