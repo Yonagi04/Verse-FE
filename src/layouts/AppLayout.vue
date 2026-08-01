@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { useThemeStore } from '@/stores/theme'
 import SideMenu from './SideMenu.vue'
-import UserDropdown from './UserDropdown.vue'
+import SidebarUserArea from './SidebarUserArea.vue'
 import {
   MenuUnfoldOutlined,
   MenuFoldOutlined,
+  QuestionCircleOutlined,
 } from '@ant-design/icons-vue'
 
 const themeStore = useThemeStore()
@@ -19,12 +20,16 @@ const themeStore = useThemeStore()
       :width="240"
       :collapsed-width="80"
       theme="light"
+      class="app-sider"
     >
       <div class="logo">
         <span v-if="!themeStore.sidebarCollapsed" class="logo-text">Verse</span>
         <span v-else class="logo-text-short">V</span>
       </div>
-      <SideMenu />
+      <div class="sider-menu-wrap">
+        <SideMenu />
+      </div>
+      <SidebarUserArea />
     </a-layout-sider>
     <a-layout>
       <a-layout-header class="header">
@@ -41,7 +46,10 @@ const themeStore = useThemeStore()
           />
         </div>
         <div class="header-right">
-          <UserDropdown />
+          <a class="help-link" href="javascript:void(0)">
+            <QuestionCircleOutlined />
+            <span>帮助</span>
+          </a>
         </div>
       </a-layout-header>
       <a-layout-content class="content">
@@ -52,12 +60,26 @@ const themeStore = useThemeStore()
 </template>
 
 <style lang="scss" scoped>
+// ========== Sider ==========
+.app-sider {
+  position: relative;
+  z-index: 1;
+
+  :deep(.ant-layout-sider-children) {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+}
+
+// ========== Logo ==========
 .logo {
   height: $header-height;
   display: flex;
   align-items: center;
   justify-content: center;
   border-bottom: 1px solid $color-border;
+  flex-shrink: 0;
 
   &-text {
     font-size: 20px;
@@ -73,6 +95,14 @@ const themeStore = useThemeStore()
   }
 }
 
+// ========== Menu wrapper ==========
+.sider-menu-wrap {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+// ========== Header ==========
 .header {
   background: $color-bg;
   padding: 0 24px;
@@ -100,6 +130,23 @@ const themeStore = useThemeStore()
   }
 }
 
+.help-link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: $color-text-secondary;
+  font-size: $font-size-body;
+  padding: 6px 12px;
+  border-radius: $radius-button;
+  transition: all 0.15s;
+
+  &:hover {
+    color: $color-primary;
+    background: #f5f5f5;
+  }
+}
+
+// ========== Content ==========
 .content {
   padding: $content-padding;
   background: $color-bg-secondary;
