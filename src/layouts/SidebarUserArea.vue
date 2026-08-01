@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { useTenantStore } from '@/stores/tenant'
 import { useThemeStore } from '@/stores/theme'
+import { usePermissionStore } from '@/stores/permission'
 import { useProfileModal } from '@/hooks/useProfileModal'
 import { message } from 'ant-design-vue'
 import {
@@ -17,6 +18,7 @@ const router = useRouter()
 const userStore = useUserStore()
 const tenantStore = useTenantStore()
 const themeStore = useThemeStore()
+const permissionStore = usePermissionStore()
 const { open: openProfileModal } = useProfileModal()
 
 // ========== State ==========
@@ -40,7 +42,7 @@ const currentTenantName = computed(() => {
 
 const tenantList = computed(() => tenantStore.tenants)
 
-function isCurrentTenant(tenantId: number) {
+function isCurrentTenant(tenantId: string) {
   return tenantStore.currentTenant?.tenantId === tenantId
 }
 
@@ -102,10 +104,18 @@ async function handleLogout() {
   router.push('/login')
 }
 
-function handleSwitchTenant(_tenantId: number, _tenantName: string) {
+async function handleSwitchTenant(tenantId: string, tenantName: string) {
   closePopover()
   tenantSubVisible.value = false
-  // TODO: 调用 switchTenant API
+  try {
+    await tenantStore.switchToTenant(tenantId)
+    const t = tenantStore.tenants.find((t) => t.tenantId === tenantId)
+    if (t) { permissionStore.setRole(t.role) } else { permissionStore.clearPermissions() }
+    message.success(`已切换到「${tenantName}」`)
+    router.push('/dashboard')
+  } catch {
+    // handled by interceptor
+  }
 }
 </script>
 
