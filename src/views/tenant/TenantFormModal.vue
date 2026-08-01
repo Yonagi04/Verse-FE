@@ -75,6 +75,8 @@ function handleCancel() {
     :confirm-loading="loading"
     :mask-closable="false"
     width="480px"
+    ok-text="确认"
+    cancel-text="取消"
     @ok="handleSubmit"
     @cancel="handleCancel"
   >

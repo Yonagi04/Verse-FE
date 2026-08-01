@@ -6,6 +6,8 @@ import { PlusOutlined } from '@ant-design/icons-vue'
 import { useTenantStore } from '@/stores/tenant'
 import { usePermissionStore } from '@/stores/permission'
 import TenantFormModal from './TenantFormModal.vue'
+import TenantJoinModal from './TenantJoinModal.vue'
+import { formatDate } from '@/utils/date'
 import type { TenantInfoListRespDTO } from '@/types/tenant'
 
 const router = useRouter()
@@ -20,6 +22,7 @@ const switchingId = ref<string | null>(null)
 // Modal state
 const createModalVisible = ref(false)
 const editModalVisible = ref(false)
+const joinModalVisible = ref(false)
 interface EditingTenant { tenantId: string; name: string; description: string }
 
 // Filtered tenants
@@ -35,7 +38,7 @@ const columns = [
   { title: '我的角色', dataIndex: 'role', key: 'role' },
   { title: '加入时间', dataIndex: 'joinedAt', key: 'joinedAt' },
   { title: '最近访问', dataIndex: 'lastAccessedAt', key: 'lastAccessedAt' },
-  { title: '操作', key: 'action', width: 160 },
+  { title: '操作', key: 'action', width: 220 },
 ]
 
 function canEdit(role: string) {
@@ -114,6 +117,9 @@ function handleCreateDone() {
           style="width: 240px"
           allow-clear
         />
+        <a-button @click="joinModalVisible = true">
+          加入租户
+        </a-button>
         <a-button type="primary" @click="createModalVisible = true">
           <PlusOutlined />
           创建租户
@@ -167,13 +173,13 @@ function handleCreateDone() {
           </template>
           <!-- 加入时间 -->
           <template v-if="column.key === 'joinedAt'">
-            {{ new Date(record.joinedAt).toLocaleDateString() }}
+            {{ formatDate(record.joinedAt) }}
           </template>
           <!-- 最近访问 -->
           <template v-if="column.key === 'lastAccessedAt'">
             {{
               record.lastAccessedAt
-                ? new Date(record.lastAccessedAt).toLocaleDateString()
+                ? formatDate(record.lastAccessedAt)
                 : '从未访问'
             }}
           </template>
@@ -188,6 +194,14 @@ function handleCreateDone() {
               >
                 进入
               </a-button>
+              <router-link
+                v-if="record.type === 'TEAM' && record.role !== 'MEMBER'"
+                :to="`/tenants/${record.tenantId}?tab=members`"
+              >
+                <a-button type="link" size="small">
+                  成员
+                </a-button>
+              </router-link>
               <a-button
                 v-if="canEdit(record.role)"
                 type="link"
@@ -239,6 +253,12 @@ function handleCreateDone() {
       :tenant-id="editingTenant?.tenantId"
       :initial-name="editingTenant?.name"
       :initial-description="editingTenant?.description"
+      @done="tenantStore.fetchTenants()"
+    />
+
+    <!-- Join Modal -->
+    <TenantJoinModal
+      v-model:visible="joinModalVisible"
       @done="tenantStore.fetchTenants()"
     />
   </div>

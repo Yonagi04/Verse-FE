@@ -5,6 +5,9 @@ import { message } from 'ant-design-vue'
 import { useTenantStore } from '@/stores/tenant'
 import { usePermissionStore } from '@/stores/permission'
 import TenantFormModal from './TenantFormModal.vue'
+import TenantCloseModal from './TenantCloseModal.vue'
+import TenantMemberTab from './TenantMemberTab.vue'
+import { formatDate, formatDateTime } from '@/utils/date'
 import type { TenantInfoRespDTO } from '@/types/tenant'
 
 const router = useRouter()
@@ -18,6 +21,15 @@ const loading = ref(true)
 const switching = ref(false)
 
 const editModalVisible = ref(false)
+const closeModalVisible = ref(false)
+
+// Tab state synced with URL query
+const activeTab = ref((route.query.tab as string) === 'members' ? 'members' : 'info')
+
+function switchTab(key: string) {
+  activeTab.value = key
+  router.replace({ query: { tab: key === 'members' ? 'members' : undefined } })
+}
 
 async function fetchDetail() {
   loading.value = true
@@ -32,7 +44,6 @@ async function fetchDetail() {
 
 onMounted(async () => {
   await fetchDetail()
-  // 确保租户列表已加载（用于角色判断和导航回列表）
   if (tenantStore.tenants.length === 0) {
     await tenantStore.fetchTenants()
   }
@@ -54,15 +65,24 @@ async function handleEnterTenant() {
   }
 }
 
-// Check if current user can edit this tenant
-// Fetch role from the tenants list or use stored role if same tenant
 const currentTenantEntry = computed(() =>
   tenantStore.tenants.find((t) => t.tenantId === tenantId)
 )
+
 const canEdit = computed(() => {
   const role = currentTenantEntry.value?.role
   return role === 'SUPER_ADMIN' || role === 'ADMIN'
 })
+
+const canClose = computed(() => {
+  const t = currentTenantEntry.value
+  return t?.role === 'SUPER_ADMIN' && tenant.value?.type === 'TEAM'
+})
+
+function handleCloseDone() {
+  tenantStore.fetchTenants()
+  router.push('/tenants')
+}
 </script>
 
 <template>
@@ -90,74 +110,108 @@ const canEdit = computed(() => {
             <a-button v-if="canEdit" @click="editModalVisible = true">
               编辑
             </a-button>
+            <a-button v-if="canClose" danger @click="closeModalVisible = true">
+              关闭租户
+            </a-button>
           </a-space>
         </div>
 
-        <!-- Info card -->
         <a-card :bordered="false" class="info-card">
-          <div class="section-title">基本信息</div>
-          <div class="info-grid">
-            <div class="info-item">
-              <span class="info-label">租户名称</span>
-              <span class="info-value">{{ tenant.name }}</span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">租户类型</span>
-              <span class="info-value">
-                <a-tag :color="tenant.type === 'PERSONAL' ? 'default' : 'blue'">
-                  {{ tenant.type === 'TEAM' ? '团队空间' : '个人空间' }}
-                </a-tag>
-              </span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">我的角色</span>
-              <span class="info-value">
-                <a-tag
-                  v-if="currentTenantEntry"
-                  :color="
-                    currentTenantEntry.role === 'SUPER_ADMIN'
-                      ? 'red'
-                      : currentTenantEntry.role === 'ADMIN'
-                        ? 'orange'
-                        : 'default'
-                  "
-                >
+          <!-- Tabs -->
+          <a-tabs :active-key="activeTab" @change="switchTab">
+            <a-tab-pane key="info" tab="基本信息" />
+
+            <a-tab-pane
+              v-if="tenant.type === 'TEAM'"
+              key="members"
+              :tab="`成员管理`"
+            />
+          </a-tabs>
+
+          <!-- Info Tab Content -->
+          <div v-if="activeTab === 'info'" class="info-tab">
+            <div class="info-grid">
+              <div class="info-item">
+                <span class="info-label">租户名称</span>
+                <span class="info-value">{{ tenant.name }}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">租户类型</span>
+                <span class="info-value">
+                  <a-tag :color="tenant.type === 'PERSONAL' ? 'default' : 'blue'">
+                    {{ tenant.type === 'TEAM' ? '团队空间' : '个人空间' }}
+                  </a-tag>
+                </span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">我的角色</span>
+                <span class="info-value">
+                  <a-tag
+                    v-if="currentTenantEntry"
+                    :color="
+                      currentTenantEntry.role === 'SUPER_ADMIN'
+                        ? 'red'
+                        : currentTenantEntry.role === 'ADMIN'
+                          ? 'orange'
+                          : 'default'
+                    "
+                  >
+                    {{
+                      currentTenantEntry.role === 'SUPER_ADMIN'
+                        ? '超级管理员'
+                        : currentTenantEntry.role === 'ADMIN'
+                          ? '管理员'
+                          : '成员'
+                    }}
+                  </a-tag>
+                </span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">加入时间</span>
+                <span class="info-value">
                   {{
-                    currentTenantEntry.role === 'SUPER_ADMIN'
-                      ? '超级管理员'
-                      : currentTenantEntry.role === 'ADMIN'
-                        ? '管理员'
-                        : '成员'
+                    currentTenantEntry?.joinedAt
+                      ? formatDate(currentTenantEntry.joinedAt)
+                      : '-'
                   }}
-                </a-tag>
-              </span>
+                </span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">最近访问</span>
+                <span class="info-value">
+                  {{
+                    currentTenantEntry?.lastAccessedAt
+                      ? formatDateTime(currentTenantEntry.lastAccessedAt)
+                      : '从未访问'
+                  }}
+                </span>
+              </div>
+              <div class="info-item info-full">
+                <span class="info-label">描述</span>
+                <span class="info-value">
+                  {{ tenant.description || '暂无描述' }}
+                </span>
+              </div>
             </div>
-            <div class="info-item">
-              <span class="info-label">加入时间</span>
-              <span class="info-value">
-                {{
-                  currentTenantEntry?.joinedAt
-                    ? new Date(currentTenantEntry.joinedAt).toLocaleDateString()
-                    : '-'
-                }}
-              </span>
+
+            <!-- Danger Zone (Team only) -->
+            <div v-if="tenant.type === 'TEAM'" class="danger-zone">
+              <div class="danger-header">危险操作</div>
+              <p v-if="canClose" class="danger-desc">
+                关闭租户后，该租户下的所有数据将不可访问，相关LLM服务将停止工作。<strong>此操作不可撤销。</strong>
+              </p>
+              <p v-else class="danger-desc">
+                仅超级管理员可关闭租户。如需关闭，请联系租户超级管理员。
+              </p>
+              <a-button v-if="canClose" danger @click="closeModalVisible = true">
+                关闭租户
+              </a-button>
             </div>
-            <div class="info-item">
-              <span class="info-label">最近访问</span>
-              <span class="info-value">
-                {{
-                  currentTenantEntry?.lastAccessedAt
-                    ? new Date(currentTenantEntry.lastAccessedAt).toLocaleDateString()
-                    : '从未访问'
-                }}
-              </span>
-            </div>
-            <div class="info-item info-full">
-              <span class="info-label">描述</span>
-              <span class="info-value">
-                {{ tenant.description || '暂无描述' }}
-              </span>
-            </div>
+          </div>
+
+          <!-- Members Tab Content -->
+          <div v-if="activeTab === 'members' && tenant.type === 'TEAM'" class="member-tab">
+            <TenantMemberTab :tenant-id="tenantId" />
           </div>
         </a-card>
       </div>
@@ -187,12 +241,21 @@ const canEdit = computed(() => {
       :initial-description="tenant.description || ''"
       @done="fetchDetail"
     />
+
+    <!-- Close Modal -->
+    <TenantCloseModal
+      v-if="tenant"
+      v-model:visible="closeModalVisible"
+      :tenant-id="tenant.tenantId"
+      :tenant-name="tenant.name"
+      @done="handleCloseDone"
+    />
   </div>
 </template>
 
 <style lang="scss" scoped>
 .tenant-detail {
-  max-width: 960px;
+  max-width: 1200px;
 }
 
 .detail-breadcrumb {
@@ -216,14 +279,14 @@ const canEdit = computed(() => {
 }
 
 .info-card {
-  .section-title {
-    font-size: 16px;
-    font-weight: 600;
-    color: $color-text-primary;
-    margin-bottom: 20px;
-    padding-bottom: 12px;
-    border-bottom: 1px solid $color-border;
+  :deep(.ant-tabs-nav) {
+    margin-bottom: 24px;
   }
+}
+
+.info-tab,
+.member-tab {
+  min-height: 200px;
 }
 
 .info-grid {
@@ -250,5 +313,26 @@ const canEdit = computed(() => {
 .info-value {
   font-size: 14px;
   color: $color-text-primary;
+}
+
+.danger-zone {
+  margin-top: 32px;
+  padding: 20px;
+  border: 1px solid #ffa39e;
+  border-radius: $radius-card;
+}
+
+.danger-header {
+  font-size: 15px;
+  font-weight: 600;
+  color: $color-danger;
+  margin-bottom: 8px;
+}
+
+.danger-desc {
+  color: $color-text-secondary;
+  font-size: 13px;
+  margin-bottom: 16px;
+  line-height: 1.6;
 }
 </style>

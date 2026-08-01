@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { listTenants, getTenantInfo, switchTenant as switchTenantApi } from '@/api/tenant'
-import type { TenantInfoListRespDTO, TenantInfoRespDTO } from '@/types/tenant'
+import { listTenants, getTenantInfo, switchTenant as switchTenantApi, getTenantMembers } from '@/api/tenant'
+import type { TenantInfoListRespDTO, TenantInfoRespDTO, TenantMembersListRespDTO } from '@/types/tenant'
 import type { TenantInfo } from '@/types/user'
 
 export const useTenantStore = defineStore('tenant', () => {
@@ -49,6 +49,11 @@ export const useTenantStore = defineStore('tenant', () => {
     }
   }
 
+  /** 获取成员列表 */
+  async function fetchMembers(tenantId: string, pageNum: number, pageSize: number): Promise<TenantMembersListRespDTO> {
+    return getTenantMembers(tenantId, pageNum, pageSize)
+  }
+
   return {
     tenants,
     currentTenant,
@@ -59,6 +64,7 @@ export const useTenantStore = defineStore('tenant', () => {
     setCurrentTenant,
     fetchTenants,
     fetchTenantInfo,
+    fetchMembers,
     switchToTenant,
   }
 })
