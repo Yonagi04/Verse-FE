@@ -50,6 +50,12 @@ const routes: RouteRecordRaw[] = [
     redirect: '/tenants?action=create',
   },
   {
+    path: '/notifications',
+    name: 'NotificationList',
+    component: () => import('@/views/notification/NotificationList.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/tenants/:tenantId',
     name: 'TenantDetail',
     component: () => import('@/views/tenant/TenantDetail.vue'),

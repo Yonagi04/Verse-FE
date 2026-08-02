@@ -1,71 +1,121 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { message } from 'ant-design-vue'
 import {
   BellOutlined,
   InfoCircleOutlined,
   WarningOutlined,
-  CheckCircleOutlined,
   CloseCircleOutlined,
 } from '@ant-design/icons-vue'
+import { listNotifications, getNotificationDetail, getUnreadCount, markAllRead } from '@/api/notification'
+import type { NotificationItem, NotificationDetail, NotificationSeverity } from '@/types/notification'
+import { relativeTime } from '@/utils/time'
+import { formatDateTime } from '@/utils/date'
 
-interface NotificationItem {
-  id: string
-  title: string
-  content: string
-  time: string
-  read: boolean
-  type: 'info' | 'warning' | 'success' | 'error'
+const router = useRouter()
+
+// 通知列表
+const notifications = ref<NotificationItem[]>([])
+const loading = ref(false)
+const unreadCount = ref(0)
+
+// 详情 Modal
+const detailVisible = ref(false)
+const detail = ref<NotificationDetail | null>(null)
+const detailLoading = ref(false)
+
+// Severity 图标映射
+const severityIconMap: Record<NotificationSeverity, typeof InfoCircleOutlined> = {
+  INFO: InfoCircleOutlined,
+  WARNING: WarningOutlined,
+  CRITICAL: CloseCircleOutlined,
 }
 
-const notifications = ref<NotificationItem[]>([
-  {
-    id: '1',
-    title: '系统通知',
-    content: '欢迎使用 Verse LLM Gateway 管理平台，请完善您的个人信息和租户配置',
-    time: '2 分钟前',
-    read: false,
-    type: 'info',
-  },
-  {
-    id: '2',
-    title: '租户变更',
-    content: '您已被管理员添加到「研发小组」租户，角色为 MEMBER',
-    time: '1 小时前',
-    read: false,
-    type: 'success',
-  },
-  {
-    id: '3',
-    title: 'API 密钥即将过期',
-    content: '您的 API 密钥 sk-xxxxxxxxxxxxx 将在 3 天后过期，请及时更新',
-    time: '3 小时前',
-    read: true,
-    type: 'warning',
-  },
-  {
-    id: '4',
-    title: '用量提醒',
-    content: '本月 Token 用量已达配额 80%，建议升级套餐以获得更多配额',
-    time: '昨天',
-    read: true,
-    type: 'error',
-  },
-])
-
-const unreadCount = computed(() => notifications.value.filter(n => !n.read).length)
-
-const iconMap = {
-  info: InfoCircleOutlined,
-  warning: WarningOutlined,
-  success: CheckCircleOutlined,
-  error: CloseCircleOutlined,
+// 类型标签
+const typeLabel: Record<string, string> = {
+  SYSTEM: '系统通知',
+  ANNOUNCEMENT: '管理员公告',
 }
 
-function markAllRead() {
-  notifications.value.forEach(n => {
-    n.read = true
-  })
+// 是否有未读
+const hasUnread = computed(() => unreadCount.value > 0)
+
+// 获取未读数量
+async function fetchUnreadCount() {
+  try {
+    const res = await getUnreadCount()
+    unreadCount.value = res.count
+  } catch {
+    // handled by interceptor
+  }
 }
+
+// 获取通知列表（Popover 展示最近 5 条）
+async function fetchNotifications() {
+  loading.value = true
+  try {
+    const res = await listNotifications(1, 5)
+    notifications.value = res.records
+  } catch {
+    // handled by interceptor
+  } finally {
+    loading.value = false
+  }
+}
+
+// 打开 Popover 时加载数据
+function handlePopoverOpen() {
+  fetchNotifications()
+  fetchUnreadCount()
+}
+
+// 全部已读
+async function handleMarkAllRead() {
+  if (unreadCount.value === 0) {
+    message.info('没有未读通知')
+    return
+  }
+  try {
+    const count = await markAllRead()
+    if (count >= 0) {
+      message.success(`已标记 ${count} 条通知为已读`)
+      unreadCount.value = 0
+      notifications.value.forEach(n => { n.isRead = true })
+    }
+  } catch {
+    // handled by interceptor
+  }
+}
+
+// 点击通知项 — 打开详情
+async function handleItemClick(item: NotificationItem) {
+  detailLoading.value = true
+  detailVisible.value = true
+  try {
+    const res = await getNotificationDetail(item.notificationId)
+    detail.value = res
+    // 标记本地为已读
+    item.isRead = true
+    if (unreadCount.value > 0) {
+      unreadCount.value--
+    }
+  } catch {
+    detailVisible.value = false
+  } finally {
+    detailLoading.value = false
+  }
+}
+
+// 查看全部通知
+function handleViewAll() {
+  router.push('/notifications')
+}
+
+// AppLayout 挂载时初始化未读数量
+onMounted(() => {
+  fetchUnreadCount()
+})
 </script>
 
 <template>
@@ -74,35 +124,50 @@ function markAllRead() {
     placement="bottomRight"
     :overlay-style="{ padding: 0 }"
     overlay-class-name="notif-popover-overlay"
+    @openChange="(open: boolean) => open && handlePopoverOpen()"
   >
     <template #content>
       <div class="notif-panel">
         <!-- Header -->
         <div class="notif-header">
-          <span class="notif-title">通知</span>
-          <a class="notif-read-all" @click="markAllRead">全部已读</a>
+          <div class="notif-header-left">
+            <span class="notif-title">通知</span>
+            <span v-if="unreadCount > 0" class="notif-title-count">({{ unreadCount }}条未读)</span>
+          </div>
+          <a class="notif-read-all" @click="handleMarkAllRead">全部已读</a>
         </div>
 
-        <!-- Body: List or Empty -->
-        <div v-if="notifications.length > 0" class="notif-body">
+        <!-- Loading -->
+        <div v-if="loading" class="notif-loading">
+          <a-spin size="small" />
+          <span>加载中...</span>
+        </div>
+
+        <!-- List -->
+        <div v-else-if="notifications.length > 0" class="notif-body">
           <div
             v-for="item in notifications"
-            :key="item.id"
+            :key="item.notificationId"
             class="notif-item"
-            :class="{ unread: !item.read }"
+            :class="{ unread: !item.isRead }"
+            @click="handleItemClick(item)"
           >
-            <span v-if="!item.read" class="notif-dot" />
-            <span class="notif-icon" :class="item.type">
-              <component :is="iconMap[item.type]" />
+            <span v-if="!item.isRead" class="notif-dot" />
+            <span class="notif-icon" :class="'severity-' + item.severity">
+              <component :is="severityIconMap[item.severity]" />
             </span>
             <div class="notif-content">
-              <div class="notif-item-title">{{ item.title }}</div>
+              <div class="notif-item-title-row">
+                <span class="notif-item-title">{{ item.title }}</span>
+                <span class="notif-type-tag" :class="'type-' + item.type">{{ typeLabel[item.type] || item.type }}</span>
+              </div>
               <div class="notif-item-desc">{{ item.content }}</div>
-              <div class="notif-item-time">{{ item.time }}</div>
+              <div class="notif-item-time">{{ relativeTime(item.createTime) }}</div>
             </div>
           </div>
         </div>
 
+        <!-- Empty -->
         <div v-else class="notif-empty">
           <span class="notif-empty-icon">
             <BellOutlined />
@@ -112,19 +177,51 @@ function markAllRead() {
 
         <!-- Footer -->
         <div v-if="notifications.length > 0" class="notif-footer">
-          <a class="notif-footer-link">查看全部通知</a>
+          <a class="notif-footer-link" @click="handleViewAll">查看全部通知</a>
         </div>
       </div>
     </template>
 
-    <a-badge :count="unreadCount" :overflow-count="99">
+    <!-- Bell button with red dot -->
+    <span class="notif-bell-wrap">
       <BellOutlined class="notif-bell" />
-    </a-badge>
+      <span v-if="hasUnread" class="notif-red-dot" />
+    </span>
   </a-popover>
+
+  <!-- Detail Modal -->
+  <a-modal
+    v-model:open="detailVisible"
+    :title="detail?.title || '通知详情'"
+    :footer="null"
+    width="560px"
+    destroyOnClose
+    :confirm-loading="detailLoading"
+  >
+    <template v-if="detail">
+      <div class="detail-meta">
+        <a-tag v-if="detail.type === 'SYSTEM'" color="blue">系统通知</a-tag>
+        <a-tag v-else color="green">管理员公告</a-tag>
+        <a-tag v-if="detail.severity === 'INFO'" color="blue">一般</a-tag>
+        <a-tag v-else-if="detail.severity === 'WARNING'" color="orange">需关注</a-tag>
+        <a-tag v-else color="red">严重</a-tag>
+        <span class="detail-time">{{ formatDateTime(detail.createTime) }}</span>
+      </div>
+      <div class="detail-content">{{ detail.content }}</div>
+    </template>
+    <div v-else class="detail-loading">
+      <a-spin />
+    </div>
+  </a-modal>
 </template>
 
 <style lang="scss" scoped>
 // ========== Bell Button ==========
+.notif-bell-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
 .notif-bell {
   font-size: 18px;
   color: $color-text-secondary;
@@ -137,6 +234,18 @@ function markAllRead() {
     color: $color-primary;
     background: #f5f5f5;
   }
+}
+
+.notif-red-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: $color-danger;
+  border: 1.5px solid $color-bg;
+  pointer-events: none;
 }
 
 // ========== Panel ==========
@@ -153,10 +262,22 @@ function markAllRead() {
   border-bottom: 1px solid $color-border;
 }
 
+.notif-header-left {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
 .notif-title {
   font-size: $font-size-h3;
   font-weight: 600;
   color: $color-text-primary;
+}
+
+.notif-title-count {
+  font-size: 13px;
+  color: $color-text-secondary;
+  font-weight: 400;
 }
 
 .notif-read-all {
@@ -170,6 +291,17 @@ function markAllRead() {
   &:hover {
     background: #e6f4ff;
   }
+}
+
+// ========== Loading ==========
+.notif-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 48px 20px;
+  color: $color-text-secondary;
+  font-size: 13px;
 }
 
 // ========== Body ==========
@@ -226,22 +358,17 @@ function markAllRead() {
   flex-shrink: 0;
   font-size: 16px;
 
-  &.info {
+  &.severity-INFO {
     background: #e6f4ff;
     color: $color-primary;
   }
 
-  &.warning {
+  &.severity-WARNING {
     background: #fff7e6;
     color: #fa8c16;
   }
 
-  &.success {
-    background: #f6ffed;
-    color: $color-success;
-  }
-
-  &.error {
+  &.severity-CRITICAL {
     background: #fff1f0;
     color: $color-danger;
   }
@@ -252,6 +379,12 @@ function markAllRead() {
   min-width: 0;
 }
 
+.notif-item-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .notif-item-title {
   font-size: $font-size-body;
   font-weight: 500;
@@ -260,6 +393,26 @@ function markAllRead() {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  flex: 1;
+}
+
+.notif-type-tag {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-weight: 500;
+  flex-shrink: 0;
+  white-space: nowrap;
+
+  &.type-SYSTEM {
+    background: #e6f4ff;
+    color: $color-primary;
+  }
+
+  &.type-ANNOUNCEMENT {
+    background: #f6ffed;
+    color: $color-success;
+  }
 }
 
 .notif-item-desc {
@@ -327,6 +480,35 @@ function markAllRead() {
     color: $color-primary;
     background: #fafafa;
   }
+}
+
+// ========== Detail Modal ==========
+.detail-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.detail-time {
+  font-size: $font-size-caption;
+  color: $color-text-secondary;
+  margin-left: auto;
+}
+
+.detail-content {
+  font-size: $font-size-body;
+  color: $color-text-primary;
+  line-height: 1.8;
+  white-space: pre-wrap;
+}
+
+.detail-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 0;
 }
 </style>
 
