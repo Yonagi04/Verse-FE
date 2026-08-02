@@ -30,9 +30,6 @@ const menuItems: MenuItem[] = [
     key: '/tenants',
     icon: () => h(TeamOutlined),
     label: '租户管理',
-    children: [
-      { key: '/tenants', icon: () => h(TeamOutlined), label: '我的租户' },
-    ],
   },
   {
     key: 'llm',

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- V -->
+  <path fill="#000"
+    d="M40 72H150L250 340L350 72H462L292 440H208L40 72Z"/>
+
+  <!-- A triangle -->
+  <path fill="#000"
+    d="M350 170L420 360H280L350 170Z"/>
+
+  <!-- A base trapezoid -->
+  <path fill="#000"
+    d="M255 392H445L470 440H230L255 392Z"/>
+</svg>
