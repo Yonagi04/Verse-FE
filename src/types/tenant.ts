@@ -84,3 +84,68 @@ export interface TenantMembersListRespDTO {
 export interface TenantMemberRoleUpdateReqDTO {
   newRole: string
 }
+
+// ========== 邀请码管理 ==========
+
+export interface TenantInviteInfo {
+  id: string
+  code: string
+  inviteUrl: string
+  createdBy: string
+  createdByUsername: string
+  usageCount: number
+  isActive: number // 0/1
+  expiresAt: string | null
+  createTime: string
+}
+
+export interface TenantInviteListRespDTO {
+  inviteCodes: TenantInviteInfo[]
+  total: number
+  totalPages: number
+  page: number
+  pageSize: number
+}
+
+// ========== 加入审批 ==========
+
+export interface TenantJoinReqInfo {
+  requestId: string
+  userId: string
+  username: string
+  inviteCode: string
+  status: 'PENDING' | 'APPROVED' | 'REJECTED'
+  reviewedBy: string | null
+  reviewComment: string | null
+  requestedAt: string
+  reviewedAt: string | null
+}
+
+export interface TenantJoinReqListRespDTO {
+  requestList: TenantJoinReqInfo[]
+  total: number
+  totalPages: number
+  page: number
+  pageSize: number
+}
+
+export interface TenantJoinRejectReqDTO {
+  reviewComment?: string
+}
+
+// ========== 加入租户响应 ==========
+
+export interface TenantJoinRespDTO {
+  pendingApproval: boolean
+}
+
+// ========== 退出租户 ==========
+
+export interface TenantLeavePrepareRespDTO {
+  warningDescription: string
+  warningTips: string[]
+}
+
+export interface TenantLeaveRespDTO {
+  targetTenantId: number
+}

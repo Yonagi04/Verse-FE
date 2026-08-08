@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { message } from 'ant-design-vue'
+import { CopyOutlined } from '@ant-design/icons-vue'
 import zhCN from 'ant-design-vue/es/date-picker/locale/zh_CN'
 import { generateInvite } from '@/api/tenant'
 import { formatDateTime } from '@/utils/date'
@@ -13,6 +14,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'update:visible', value: boolean): void
+  (e: 'done'): void
 }>()
 
 const setExpiry = ref(false)
@@ -44,6 +46,7 @@ async function handleGenerate() {
       ? { expireAt: new Date(expireAt.value).toISOString() }
       : undefined
     result.value = await generateInvite(props.tenantId, payload)
+    emit('done')
   } catch {
     // handled by interceptor
   } finally {
@@ -64,58 +67,75 @@ function handleCopy() {
 <template>
   <a-modal
     :open="visible"
-    title="生成邀请码"
-    :confirm-loading="loading"
+    :title="result ? '邀请码已生成' : '生成邀请码'"
     :mask-closable="false"
     width="440px"
-    ok-text="生成"
-    cancel-text="取消"
+    :footer="null"
     @cancel="close"
-    @ok="handleGenerate"
   >
-    <a-form layout="vertical" style="margin-top: 8px;">
-      <a-form-item>
-        <a-checkbox v-model:checked="setExpiry">设置过期时间</a-checkbox>
-      </a-form-item>
-      <a-form-item v-if="setExpiry" label="过期时间" :validate-status="expireError ? 'error' : ''" :help="expireError ? '请设置过期时间' : ''">
-        <a-date-picker
-          v-model:value="expireAt"
-          show-time
-          format="YYYY-MM-DD HH:mm:ss"
-          placeholder="选择过期时间"
-          style="width: 100%"
-          :locale="zhCN"
-          :disabled-date="(current: number) => current < Date.now() - 86400000"
-        />
-        <div style="color: #98a2b3; font-size: 12px; margin-top: 4px;">过期后邀请码将自动失效</div>
-      </a-form-item>
-      <div v-else style="color: #98a2b3; font-size: 12px; margin-bottom: 16px;">邀请码将永不过期</div>
-    </a-form>
+    <!-- Input stage -->
+    <template v-if="!result">
+      <a-form layout="vertical" style="margin-top: 8px;">
+        <a-form-item>
+          <a-checkbox v-model:checked="setExpiry">设置过期时间</a-checkbox>
+        </a-form-item>
+        <a-form-item v-if="setExpiry" label="过期时间" :validate-status="expireError ? 'error' : ''" :help="expireError ? '请设置过期时间' : ''">
+          <a-date-picker
+            v-model:value="expireAt"
+            show-time
+            format="YYYY-MM-DD HH:mm:ss"
+            placeholder="选择过期时间"
+            style="width: 100%"
+            :locale="zhCN"
+            :disabled-date="(current: number) => current < Date.now() - 86400000"
+          />
+          <div style="color: #98a2b3; font-size: 12px; margin-top: 4px;">过期后邀请码将自动失效</div>
+        </a-form-item>
+        <div v-else style="color: #98a2b3; font-size: 12px; margin-bottom: 16px;">邀请码将永不过期</div>
+      </a-form>
 
-    <!-- Result -->
-    <div
-      v-if="result"
-      class="invite-result"
-    >
-      <div class="invite-code">{{ result.inviteCode }}</div>
-      <div class="invite-expiry">
-        {{ result.expiresAt ? `过期时间：${formatDateTime(result.expiresAt)}` : '永不过期' }}
+      <div style="display: flex; justify-content: flex-end; gap: 8px;">
+        <a-button @click="close">取消</a-button>
+        <a-button type="primary" :loading="loading" @click="handleGenerate">生成</a-button>
       </div>
-      <a-button size="small" @click="handleCopy">复制</a-button>
-    </div>
+    </template>
+
+    <!-- Result stage -->
+    <template v-else>
+      <div class="invite-result">
+        <div class="invite-code-box">
+          <span class="invite-code">{{ result.inviteCode }}</span>
+          <a-button size="small" @click="handleCopy">
+            <template #icon><CopyOutlined /></template>
+            复制
+          </a-button>
+        </div>
+        <div class="invite-expiry">
+          {{ result.expiresAt ? `过期时间：${formatDateTime(result.expiresAt)}` : '永不过期' }}
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; margin-top: 16px;">
+        <a-button type="primary" @click="close">关闭</a-button>
+      </div>
+    </template>
   </a-modal>
 </template>
 
 <style lang="scss" scoped>
 .invite-result {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 12px 16px;
+  padding: 16px;
   background: #f6ffed;
   border: 1px solid #b7eb8f;
   border-radius: 8px;
   margin-top: -8px;
+}
+
+.invite-code-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
 }
 
 .invite-code {
@@ -129,6 +149,5 @@ function handleCopy() {
 .invite-expiry {
   font-size: 12px;
   color: $color-text-secondary;
-  flex: 1;
 }
 </style>

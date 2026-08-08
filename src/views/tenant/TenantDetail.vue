@@ -6,7 +6,9 @@ import { useTenantStore } from '@/stores/tenant'
 import { usePermissionStore } from '@/stores/permission'
 import TenantFormModal from './TenantFormModal.vue'
 import TenantCloseModal from './TenantCloseModal.vue'
+import TenantLeaveModal from './TenantLeaveModal.vue'
 import TenantMemberTab from './TenantMemberTab.vue'
+import TenantInviteTab from './TenantInviteTab.vue'
 import { formatDate, formatDateTime } from '@/utils/date'
 import type { TenantInfoRespDTO } from '@/types/tenant'
 
@@ -22,6 +24,7 @@ const switching = ref(false)
 
 const editModalVisible = ref(false)
 const closeModalVisible = ref(false)
+const leaveModalVisible = ref(false)
 
 // Tab state synced with URL query
 const activeTab = ref((route.query.tab as string) === 'members' ? 'members' : 'info')
@@ -79,7 +82,20 @@ const canClose = computed(() => {
   return t?.role === 'SUPER_ADMIN' && tenant.value?.type === 'TEAM'
 })
 
+const isSuperAdmin = computed(() => {
+  return currentTenantEntry.value?.role === 'SUPER_ADMIN'
+})
+
+const canLeave = computed(() => {
+  return tenant.value?.type === 'TEAM' && !isSuperAdmin.value
+})
+
 function handleCloseDone() {
+  tenantStore.fetchTenants()
+  router.push('/tenants')
+}
+
+function handleLeaveDone() {
   tenantStore.fetchTenants()
   router.push('/tenants')
 }
@@ -113,6 +129,9 @@ function handleCloseDone() {
             <a-button v-if="canClose" danger @click="closeModalVisible = true">
               关闭租户
             </a-button>
+            <a-button v-if="canLeave" danger @click="leaveModalVisible = true">
+              退出租户
+            </a-button>
           </a-space>
         </div>
 
@@ -124,7 +143,13 @@ function handleCloseDone() {
             <a-tab-pane
               v-if="tenant.type === 'TEAM'"
               key="members"
-              :tab="`成员管理`"
+              tab="成员管理"
+            />
+
+            <a-tab-pane
+              v-if="tenant.type === 'TEAM' && canEdit"
+              key="invites"
+              tab="邀请码"
             />
           </a-tabs>
 
@@ -206,12 +231,20 @@ function handleCloseDone() {
               <a-button v-if="canClose" danger @click="closeModalVisible = true">
                 关闭租户
               </a-button>
+              <a-button v-if="canLeave" danger @click="leaveModalVisible = true">
+                退出租户
+              </a-button>
             </div>
           </div>
 
           <!-- Members Tab Content -->
           <div v-if="activeTab === 'members' && tenant.type === 'TEAM'" class="member-tab">
             <TenantMemberTab :tenant-id="tenantId" />
+          </div>
+
+          <!-- Invites Tab Content -->
+          <div v-if="activeTab === 'invites' && tenant.type === 'TEAM' && canEdit" class="invite-tab">
+            <TenantInviteTab :tenant-id="tenantId" />
           </div>
         </a-card>
       </div>
@@ -250,6 +283,15 @@ function handleCloseDone() {
       :tenant-name="tenant.name"
       @done="handleCloseDone"
     />
+
+    <!-- Leave Modal -->
+    <TenantLeaveModal
+      v-if="tenant"
+      v-model:visible="leaveModalVisible"
+      :tenant-id="tenant.tenantId"
+      :tenant-name="tenant.name"
+      @done="handleLeaveDone"
+    />
   </div>
 </template>
 
@@ -285,7 +327,8 @@ function handleCloseDone() {
 }
 
 .info-tab,
-.member-tab {
+.member-tab,
+.invite-tab {
   min-height: 200px;
 }
 

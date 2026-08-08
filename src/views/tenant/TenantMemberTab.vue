@@ -3,9 +3,11 @@ import { ref, computed, watch, h } from 'vue'
 import { message, Modal } from 'ant-design-vue'
 import { ExclamationCircleOutlined } from '@ant-design/icons-vue'
 import { useTenantStore } from '@/stores/tenant'
-import { updateMemberRole, removeMember } from '@/api/tenant'
+import { useUserStore } from '@/stores/user'
+import { updateMemberRole, removeMember, getUnreviewedJoinRequestCount } from '@/api/tenant'
 import { formatDate } from '@/utils/date'
-import TenantInviteModal from './TenantInviteModal.vue'
+import TenantJoinRequestPanel from './TenantJoinRequestPanel.vue'
+import PaginationBar from '@/components/PaginationBar.vue'
 import type { TenantMemberInfo, TenantMembersListRespDTO } from '@/types/tenant'
 
 const props = defineProps<{
@@ -13,13 +15,17 @@ const props = defineProps<{
 }>()
 
 const tenantStore = useTenantStore()
+const userStore = useUserStore()
 
 const membersData = ref<TenantMembersListRespDTO | null>(null)
 const loading = ref(false)
 const pageNum = ref(1)
 const pageSize = ref(10)
-const inviteModalVisible = ref(false)
 const roleLoading = ref<number | null>(null)
+
+// Sub-tab state: only for ADMIN/SUPER_ADMIN
+const memberSubTab = ref<'members' | 'approval'>('members')
+const pendingApprovalCount = ref(0)
 
 // Role hierarchy
 const ROLE_RANK: Record<string, number> = { SUPER_ADMIN: 3, ADMIN: 2, MEMBER: 1 }
@@ -44,27 +50,19 @@ function canOperateOnRole(targetRole: string): boolean {
 function getAvailableRoles(targetRole: string): string[] {
   const myRank = ROLE_RANK[currentUserRole.value ?? ''] ?? 0
   const allRoles = Object.keys(ROLE_RANK).filter((r) => ROLE_RANK[r] < myRank)
-  // Always include the target's current role
   if (!allRoles.includes(targetRole)) allRoles.push(targetRole)
   return allRoles
 }
 
+function isCurrentUser(member: TenantMemberInfo): boolean {
+  return String(member.userId) === userStore.user?.userId
+}
+
 const columns = computed(() => {
   const cols = [
-    {
-      title: '成员',
-      key: 'member',
-      width: 240,
-    },
-    {
-      title: '角色',
-      key: 'role',
-      width: 120,
-    },
-    {
-      title: '加入时间',
-      key: 'joinedAt',
-    },
+    { title: '成员', key: 'member', width: 240 },
+    { title: '角色', key: 'role', width: 120 },
+    { title: '加入时间', key: 'joinedAt' },
   ]
   if (canManage()) {
     cols.push({ title: '操作', key: 'action', width: 200 })
@@ -83,7 +81,23 @@ async function fetchMembers() {
   }
 }
 
-watch(() => props.tenantId, () => { pageNum.value = 1; pageSize.value = 10; fetchMembers() }, { immediate: true })
+async function fetchPendingCount() {
+  if (!canManage()) return
+  try {
+    const resp = await getUnreviewedJoinRequestCount(props.tenantId)
+    pendingApprovalCount.value = resp
+  } catch {
+    // handled by interceptor
+  }
+}
+
+watch(() => props.tenantId, () => {
+  pageNum.value = 1
+  pageSize.value = 10
+  memberSubTab.value = 'members'
+  fetchMembers()
+  fetchPendingCount()
+}, { immediate: true })
 watch([pageNum, pageSize], () => { fetchMembers() })
 
 async function handleRoleChange(member: TenantMemberInfo, newRole: string) {
@@ -121,7 +135,6 @@ function handleRemove(member: TenantMemberInfo) {
       try {
         await removeMember(props.tenantId, member.userId)
         message.success(`已将「${member.nickname || member.username}」移出租户`)
-        // Go to previous page if current page is empty
         if (membersData.value && membersData.value.tenantMembers.length === 1 && pageNum.value > 1) {
           pageNum.value--
         } else {
@@ -134,137 +147,151 @@ function handleRemove(member: TenantMemberInfo) {
   })
 }
 
-function jumpToPage(totalPages: number) {
-  const input = document.getElementById('memberPageJump') as HTMLInputElement
-  if (!input) return
-  const page = parseInt(input.value)
-  if (isNaN(page) || page < 1 || page > totalPages) return
-  pageNum.value = page
-}
 </script>
 
 <template>
   <div class="member-tab">
-    <div class="member-toolbar">
-      <a-button @click="inviteModalVisible = true">
-        生成邀请码
-      </a-button>
+    <!-- Sub-tabs for ADMIN/SUPER_ADMIN -->
+    <div v-if="canManage()" class="member-subtabs">
+      <button
+        class="member-subtab"
+        :class="{ active: memberSubTab === 'members' }"
+        @click="memberSubTab = 'members'"
+      >
+        成员列表
+      </button>
+      <button
+        class="member-subtab"
+        :class="{ active: memberSubTab === 'approval' }"
+        @click="memberSubTab = 'approval'"
+      >
+        加入审批
+        <span v-if="pendingApprovalCount > 0" class="approval-badge">{{ pendingApprovalCount }}</span>
+      </button>
     </div>
 
-    <a-table
-      :columns="columns"
-      :data-source="membersData?.tenantMembers ?? []"
-      :loading="loading"
-      :pagination="false"
-      row-key="userId"
-    >
-      <!-- 成员 -->
-      <template #bodyCell="{ column, record }">
-        <template v-if="column.key === 'member'">
-          <div class="member-info">
-            <span class="member-name">{{ record.nickname || record.username }}</span>
-            <span v-if="record.nickname" class="member-username">@{{ record.username }}</span>
-          </div>
-        </template>
+    <!-- Member List -->
+    <template v-if="!canManage() || memberSubTab === 'members'">
+      <a-table
+        :columns="columns"
+        :data-source="membersData?.tenantMembers ?? []"
+        :loading="loading"
+        :pagination="false"
+        row-key="userId"
+      >
+        <template #bodyCell="{ column, record }">
+          <template v-if="column.key === 'member'">
+            <div class="member-info">
+              <span class="member-name">{{ record.nickname || record.username }}</span>
+              <span v-if="record.nickname" class="member-username">@{{ record.username }}</span>
+            </div>
+          </template>
 
-        <!-- 角色 -->
-        <template v-if="column.key === 'role'">
-          <a-tag
-            :color="
-              record.role === 'SUPER_ADMIN'
-                ? 'red'
-                : record.role === 'ADMIN'
-                  ? 'orange'
-                  : 'default'
-            "
-          >
-            {{ ROLE_LABELS[record.role] || record.role }}
-          </a-tag>
-        </template>
-
-        <!-- 加入时间 -->
-        <template v-if="column.key === 'joinedAt'">
-          {{ formatDate(record.joinedAt) }}
-        </template>
-
-        <!-- 操作 -->
-        <template v-if="column.key === 'action'">
-          <div v-if="record.userId === 0" class="action-placeholder">
-            当前用户
-          </div>
-          <div v-else-if="!canOperateOnRole(record.role)" class="action-placeholder">
-            无权限操作
-          </div>
-          <div v-else class="action-group">
-            <a-select
-              :value="record.role"
-              size="small"
-              style="width: 110px;"
-              :loading="roleLoading === record.userId"
-              @change="(val: string) => handleRoleChange(record, val)"
+          <template v-if="column.key === 'role'">
+            <a-tag
+              :color="
+                record.role === 'SUPER_ADMIN'
+                  ? 'red'
+                  : record.role === 'ADMIN'
+                    ? 'orange'
+                    : 'default'
+              "
             >
-              <a-select-option
-                v-for="r in getAvailableRoles(record.role)"
-                :key="r"
-                :value="r"
+              {{ ROLE_LABELS[record.role] || record.role }}
+            </a-tag>
+          </template>
+
+          <template v-if="column.key === 'joinedAt'">
+            {{ formatDate(record.joinedAt) }}
+          </template>
+
+          <template v-if="column.key === 'action'">
+            <div v-if="isCurrentUser(record)" class="action-placeholder">
+              当前用户
+            </div>
+            <div v-else-if="!canOperateOnRole(record.role)" class="action-placeholder">
+              无权限操作
+            </div>
+            <div v-else class="action-group">
+              <a-select
+                :value="record.role"
+                size="small"
+                style="width: 110px;"
+                :loading="roleLoading === record.userId"
+                @change="(val: string) => handleRoleChange(record, val)"
               >
-                {{ ROLE_LABELS[r] }}
-              </a-select-option>
-            </a-select>
-            <a-button type="link" danger size="small" @click="handleRemove(record)">
-              移除
-            </a-button>
-          </div>
+                <a-select-option
+                  v-for="r in getAvailableRoles(record.role)"
+                  :key="r"
+                  :value="r"
+                >
+                  {{ ROLE_LABELS[r] }}
+                </a-select-option>
+              </a-select>
+              <a-button type="link" danger size="small" @click="handleRemove(record)">
+                移除
+              </a-button>
+            </div>
+          </template>
         </template>
-      </template>
-    </a-table>
+      </a-table>
 
-    <!-- Pagination -->
-    <div v-if="membersData" class="member-pagination">
-      <div class="pagination-left">
-        <span class="page-size-label">每页</span>
-        <a-select
-          :value="pageSize"
-          size="small"
-          style="width: 70px;"
-          @change="(val: number) => pageSize = val"
-        >
-          <a-select-option :value="5">5</a-select-option>
-          <a-select-option :value="10">10</a-select-option>
-          <a-select-option :value="20">20</a-select-option>
-          <a-select-option :value="50">50</a-select-option>
-        </a-select>
-        <span class="page-size-label">条</span>
-      </div>
-      <div class="pagination-center">
-        <span class="page-total">共 {{ membersData.total }} 人</span>
-      </div>
-      <div class="pagination-right">
-        <span class="page-jump-label">跳至</span>
-        <a-input
-          id="memberPageJump"
-          size="small"
-          style="width: 52px; text-align: center;"
-          :placeholder="String(pageNum)"
-          @keydown.enter="jumpToPage(membersData.totalPages)"
-        />
-        <span class="page-jump-label">页</span>
-      </div>
-    </div>
+      <PaginationBar
+        v-if="membersData"
+        v-model:current-page="pageNum"
+        v-model:page-size="pageSize"
+        :total-pages="membersData.totalPages"
+        :total="membersData.total"
+        :page-size="pageSize"
+        page-jump-id="memberPageJump"
+        total-label="人"
+      />
+    </template>
 
-    <!-- Invite Modal -->
-    <TenantInviteModal
-      v-model:visible="inviteModalVisible"
-      :tenant-id="tenantId"
-    />
+    <!-- Join Request Approval (Admin only) -->
+    <template v-if="canManage() && memberSubTab === 'approval'">
+      <TenantJoinRequestPanel :tenant-id="tenantId" @changed="fetchPendingCount" />
+    </template>
+
   </div>
 </template>
 
 <style lang="scss" scoped>
-.member-toolbar {
+.member-subtabs {
   display: flex;
-  justify-content: flex-end;
+  border-bottom: 1px solid $color-border;
   margin-bottom: 16px;
+}
+
+.member-subtab {
+  position: relative;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: $color-text-secondary;
+  cursor: pointer;
+  border: none;
+  background: none;
+  font-family: inherit;
+  transition: color 0.2s;
+
+  &:hover {
+    color: $color-primary;
+  }
+
+  &.active {
+    color: $color-primary;
+    font-weight: 500;
+
+    &::after {
+      content: '';
+      position: absolute;
+      bottom: -1px;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: $color-primary;
+    }
+  }
 }
 
 .member-info {
@@ -294,31 +321,20 @@ function jumpToPage(totalPages: number) {
   gap: 8px;
 }
 
-.member-pagination {
-  display: flex;
+.approval-badge {
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  margin-top: 16px;
-  padding-top: 16px;
+  justify-content: center;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  margin-left: 4px;
+  border-radius: 7px;
+  background: $color-danger;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
 }
 
-.pagination-left,
-.pagination-center,
-.pagination-right {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.page-size-label,
-.page-jump-label {
-  font-size: 13px;
-  color: $color-text-secondary;
-}
-
-.page-total {
-  font-size: 13px;
-  color: $color-text-secondary;
-  margin-right: 8px;
-}
 </style>

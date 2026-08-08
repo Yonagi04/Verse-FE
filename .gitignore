@@ -5,5 +5,6 @@ dist/
 .env.local
 .env.*.local
 docs/
+prototype/
 openspec/
 .claude/

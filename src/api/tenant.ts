@@ -10,8 +10,14 @@ import type {
   TenantInviteRespDTO,
   TenantInviteReqDTO,
   TenantJoinReqDTO,
+  TenantJoinRespDTO,
   TenantMembersListRespDTO,
   TenantMemberRoleUpdateReqDTO,
+  TenantInviteListRespDTO,
+  TenantJoinReqListRespDTO,
+  TenantJoinRejectReqDTO,
+  TenantLeavePrepareRespDTO,
+  TenantLeaveRespDTO,
 } from '@/types/tenant'
 
 // 获取当前用户的租户列表
@@ -55,8 +61,53 @@ export function generateInvite(tenantId: string, data?: TenantInviteReqDTO): Pro
 }
 
 // 通过邀请码加入租户
-export function joinTenant(data: TenantJoinReqDTO): Promise<boolean> {
+export function joinTenant(data: TenantJoinReqDTO): Promise<TenantJoinRespDTO> {
   return request.post('/tenants/join', data)
+}
+
+// 获取邀请码列表
+export function listInviteCodes(tenantId: string, pageNum: number, pageSize: number): Promise<TenantInviteListRespDTO> {
+  return request.get(`/tenants/${tenantId}/invites`, { params: { pageNum, pageSize } })
+}
+
+// 停用邀请码
+export function deactivateInviteCode(tenantId: string, inviteCodeId: string): Promise<boolean> {
+  return request.post(`/tenants/${tenantId}/invites/${inviteCodeId}/deactivate`)
+}
+
+// 启用邀请码
+export function activateInviteCode(tenantId: string, inviteCodeId: string): Promise<boolean> {
+  return request.post(`/tenants/${tenantId}/invites/${inviteCodeId}/activate`)
+}
+
+// 获取未审批的申请单数量
+export function getUnreviewedJoinRequestCount(tenantId: string): Promise<number> {
+  return request.get(`/tenants/${tenantId}/join-requests/unreviewed-count`)
+}
+
+// 获取加入申请列表
+export function listJoinRequests(tenantId: string, pageNum: number, pageSize: number): Promise<TenantJoinReqListRespDTO> {
+  return request.get(`/tenants/${tenantId}/join-requests`, { params: { pageNum, pageSize } })
+}
+
+// 通过加入申请
+export function approveJoinRequest(tenantId: string, requestId: string): Promise<boolean> {
+  return request.post(`/tenants/${tenantId}/join-requests/${requestId}/approve`)
+}
+
+// 拒绝加入申请
+export function rejectJoinRequest(tenantId: string, requestId: string, data: TenantJoinRejectReqDTO): Promise<boolean> {
+  return request.post(`/tenants/${tenantId}/join-requests/${requestId}/reject`, data)
+}
+
+// 退出租户 — 准备阶段
+export function leaveTenantPrepare(tenantId: string): Promise<TenantLeavePrepareRespDTO> {
+  return request.post(`/tenants/${tenantId}/leave/prepare`)
+}
+
+// 退出租户 — 确认
+export function leaveTenantConfirm(tenantId: string): Promise<TenantLeaveRespDTO> {
+  return request.post(`/tenants/${tenantId}/leave/confirm`)
 }
 
 // 获取租户成员列表
