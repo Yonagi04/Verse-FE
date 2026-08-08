@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { UserOutlined, LockOutlined } from '@ant-design/icons-vue'
 import { useUserStore } from '@/stores/user'
@@ -8,6 +8,7 @@ import { useTenantStore } from '@/stores/tenant'
 import { usePermissionStore } from '@/stores/permission'
 import type { UserLoginReqDTO } from '@/types/user'
 
+const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 const tenantStore = useTenantStore()
@@ -32,7 +33,13 @@ async function handleSubmit() {
     permissionStore.setRole(currentTenant?.role ?? null)
     await tenantStore.fetchTenants()
     message.success('登录成功')
-    router.push('/dashboard')
+
+    const redirect = route.query.redirect
+    if (typeof redirect === 'string' && redirect.startsWith('/') && !redirect.startsWith('//')) {
+      router.push(redirect)
+    } else {
+      router.push('/dashboard')
+    }
   } catch (err: unknown) {
     const code = (err as any)?.code
     if (code === 'B000218') {

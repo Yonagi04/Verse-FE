@@ -50,6 +50,7 @@ export interface TenantCloseReqDTO {
 // 生成邀请码
 export interface TenantInviteRespDTO {
   inviteCode: string
+  inviteUrl: string
   expiresAt: string | null
 }
 
@@ -148,4 +149,11 @@ export interface TenantLeavePrepareRespDTO {
 
 export interface TenantLeaveRespDTO {
   targetTenantId: number
+}
+
+// ========== 邀请码公开信息（无需登录） ==========
+
+export interface TenantJoinInfoRespDTO {
+  name: string
+  inviteCode: string
 }

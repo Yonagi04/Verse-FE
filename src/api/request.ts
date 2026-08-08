@@ -39,7 +39,8 @@ http.interceptors.response.use(
 
     if (status === 401) {
       clearAuth()
-      if (window.location.pathname !== '/login') {
+      const path = window.location.pathname
+      if (path !== '/login' && !path.startsWith('/join')) {
         message.error('登录已过期，请重新登录')
         window.location.href = '/login'
       }

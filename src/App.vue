@@ -8,9 +8,12 @@ const route = useRoute()
 
 // 公开页面路径列表
 const publicPaths = ['/login', '/register', '/reset-password/send-code', '/reset-password/verify-code', '/reset-password/reset']
+const publicPrefixes = ['/join']
 
 const isPublic = computed(() => {
-  return publicPaths.includes(route.path)
+  if (publicPaths.includes(route.path)) return true
+  if (publicPrefixes.some(p => route.path.startsWith(p))) return true
+  return false
 })
 
 </script>

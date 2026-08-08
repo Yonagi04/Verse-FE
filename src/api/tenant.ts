@@ -18,6 +18,7 @@ import type {
   TenantJoinRejectReqDTO,
   TenantLeavePrepareRespDTO,
   TenantLeaveRespDTO,
+  TenantJoinInfoRespDTO,
 } from '@/types/tenant'
 
 // 获取当前用户的租户列表
@@ -98,6 +99,11 @@ export function approveJoinRequest(tenantId: string, requestId: string): Promise
 // 拒绝加入申请
 export function rejectJoinRequest(tenantId: string, requestId: string, data: TenantJoinRejectReqDTO): Promise<boolean> {
   return request.post(`/tenants/${tenantId}/join-requests/${requestId}/reject`, data)
+}
+
+// 获取邀请码公开信息（无需登录）
+export function getInviteCodeInfo(inviteCode: string): Promise<TenantJoinInfoRespDTO> {
+  return request.get(`/tenants/invites/${inviteCode}/info`)
 }
 
 // 退出租户 — 准备阶段

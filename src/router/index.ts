@@ -33,6 +33,12 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: false },
   },
   {
+    path: '/join/:code',
+    name: 'JoinByInvite',
+    component: () => import('@/views/join/JoinPage.vue'),
+    meta: { requiresAuth: false },
+  },
+  {
     path: '/dashboard',
     name: 'Dashboard',
     component: () => import('@/views/dashboard/DashboardPage.vue'),
@@ -76,21 +82,36 @@ const router = createRouter({
   routes,
 })
 
+// 检查是否为安全的内部路径
+function isSafeRedirect(path: unknown): path is string {
+  return typeof path === 'string'
+    && !path.startsWith('http://')
+    && !path.startsWith('https://')
+    && !path.startsWith('//')
+    && path.startsWith('/')
+}
+
 // 全局前置守卫
 router.beforeEach(async (to, _from, next) => {
   const userStore = useUserStore()
 
   if (to.meta.requiresAuth === false) {
-    // 公开页面：已登录则跳转到 dashboard
+    // 公开页面
     if (userStore.isLoggedIn && to.path === '/login') {
-      next('/dashboard')
+      // 登录页：已登录用户优先看 redirect 参数
+      const redirect = to.query.redirect
+      if (isSafeRedirect(redirect)) {
+        next(redirect)
+      } else {
+        next('/dashboard')
+      }
     } else {
       next()
     }
   } else {
     // 需认证页面：未登录跳转登录
     if (!userStore.isLoggedIn) {
-      next('/login')
+      next(`/login?redirect=${encodeURIComponent(to.fullPath)}`)
     } else {
       // 刷新页面后 store 中 user 为 null，需要重新拉取以显示昵称等
       if (!userStore.user && !userStore.isLoading) {
