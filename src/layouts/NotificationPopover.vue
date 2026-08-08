@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
+import { unreadCount, newNotification } from '@/composables/useWebSocketNotification'
 import {
   BellOutlined,
   InfoCircleOutlined,
@@ -15,10 +16,12 @@ import { formatDateTime } from '@/utils/date'
 
 const router = useRouter()
 
+// 本地未读数（由共享 unreadCount + API 协同驱动）
+const count = ref(0)
+
 // 通知列表
 const notifications = ref<NotificationItem[]>([])
 const loading = ref(false)
-const unreadCount = ref(0)
 
 // 详情 Modal
 const detailVisible = ref(false)
@@ -38,14 +41,14 @@ const typeLabel: Record<string, string> = {
   ANNOUNCEMENT: '管理员公告',
 }
 
-// 是否有未读
-const hasUnread = computed(() => unreadCount.value > 0)
+// 是否有未读（用本地 count，由 watch(unreadCount) 驱动更新）
+const hasUnread = computed(() => count.value > 0)
 
 // 获取未读数量
 async function fetchUnreadCount() {
   try {
     const res = await getUnreadCount()
-    unreadCount.value = res.count
+    count.value = res.count
   } catch {
     // handled by interceptor
   }
@@ -72,15 +75,15 @@ function handlePopoverOpen() {
 
 // 全部已读
 async function handleMarkAllRead() {
-  if (unreadCount.value === 0) {
+  if (count.value === 0) {
     message.info('没有未读通知')
     return
   }
   try {
-    const count = await markAllRead()
-    if (count >= 0) {
-      message.success(`已标记 ${count} 条通知为已读`)
-      unreadCount.value = 0
+    const marked = await markAllRead()
+    if (marked >= 0) {
+      message.success(`已标记 ${marked} 条通知为已读`)
+      count.value = 0
       notifications.value.forEach(n => { n.isRead = true })
     }
   } catch {
@@ -97,8 +100,8 @@ async function handleItemClick(item: NotificationItem) {
     detail.value = res
     // 标记本地为已读
     item.isRead = true
-    if (unreadCount.value > 0) {
-      unreadCount.value--
+    if (count.value > 0) {
+      count.value--
     }
   } catch {
     detailVisible.value = false
@@ -116,26 +119,41 @@ function handleViewAll() {
 onMounted(() => {
   fetchUnreadCount()
 })
+
+// 监听 WebSocket 推送的 unreadCount，同步到本地 count
+watch(unreadCount, (val) => {
+  count.value = val
+})
+
+// WebSocket 新通知到达时更新 popover 列表（红点由 hasUnread computed 驱动）
+watch(newNotification, (notif) => {
+  if (notif) {
+    notifications.value.unshift(notif)
+  }
+})
+
 </script>
 
 <template>
-  <a-popover
-    trigger="click"
-    placement="bottomRight"
-    :overlay-style="{ padding: 0 }"
-    overlay-class-name="notif-popover-overlay"
-    @openChange="(open: boolean) => open && handlePopoverOpen()"
-  >
-    <template #content>
-      <div class="notif-panel">
-        <!-- Header -->
-        <div class="notif-header">
-          <div class="notif-header-left">
-            <span class="notif-title">通知</span>
-            <span v-if="unreadCount > 0" class="notif-title-count">({{ unreadCount }}条未读)</span>
+  <!-- 红点在 a-popover 外面，避免 popover 内部 trigger slot 缓存阻止 v-if 更新 -->
+  <span class="notif-bell-wrap">
+    <a-popover
+      trigger="click"
+      placement="bottomRight"
+      :overlay-style="{ padding: 0 }"
+      overlay-class-name="notif-popover-overlay"
+      @openChange="(open: boolean) => open && handlePopoverOpen()"
+    >
+      <template #content>
+        <div class="notif-panel">
+          <!-- Header -->
+          <div class="notif-header">
+            <div class="notif-header-left">
+              <span class="notif-title">通知</span>
+              <span v-if="count > 0" class="notif-title-count">({{ count }}条未读)</span>
+            </div>
+            <a class="notif-read-all" @click="handleMarkAllRead">全部已读</a>
           </div>
-          <a class="notif-read-all" @click="handleMarkAllRead">全部已读</a>
-        </div>
 
         <!-- Loading -->
         <div v-if="loading" class="notif-loading">
@@ -182,12 +200,11 @@ onMounted(() => {
       </div>
     </template>
 
-    <!-- Bell button with red dot -->
-    <span class="notif-bell-wrap">
-      <BellOutlined class="notif-bell" />
-      <span v-if="hasUnread" class="notif-red-dot" />
-    </span>
+    <BellOutlined class="notif-bell" />
   </a-popover>
+
+  <span v-if="hasUnread" class="notif-red-dot" />
+</span>
 
   <!-- Detail Modal -->
   <a-modal

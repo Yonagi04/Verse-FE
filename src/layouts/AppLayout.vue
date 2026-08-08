@@ -1,5 +1,8 @@
 <script setup lang="ts">
+import { watch } from 'vue'
 import { useThemeStore } from '@/stores/theme'
+import { useUserStore } from '@/stores/user'
+import { useWebSocketNotification } from '@/composables/useWebSocketNotification'
 import SideMenu from './SideMenu.vue'
 import SidebarUserArea from './SidebarUserArea.vue'
 import {
@@ -9,6 +12,17 @@ import {
 import NotificationPopover from './NotificationPopover.vue'
 
 const themeStore = useThemeStore()
+const userStore = useUserStore()
+const { connect, disconnect } = useWebSocketNotification()
+
+// 登录后连接 WebSocket，登出时断开
+watch(() => userStore.token, (token) => {
+  if (token) {
+    connect()
+  } else {
+    disconnect()
+  }
+}, { immediate: true })
 </script>
 
 <template>

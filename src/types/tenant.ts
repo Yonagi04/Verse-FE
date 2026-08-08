@@ -157,3 +157,14 @@ export interface TenantJoinInfoRespDTO {
   name: string
   inviteCode: string
 }
+
+// ========== 租户通知 ==========
+
+export type ReceiverType = 1 | 2 | 3 // 1=全员, 2=仅成员, 3=仅管理员
+
+export interface TenantSendNotificationReq {
+  severity: string // INFO | WARNING | CRITICAL
+  title: string
+  content: string
+  receiverType: ReceiverType
+}

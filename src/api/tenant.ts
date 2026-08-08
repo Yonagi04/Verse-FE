@@ -19,6 +19,7 @@ import type {
   TenantLeavePrepareRespDTO,
   TenantLeaveRespDTO,
   TenantJoinInfoRespDTO,
+  TenantSendNotificationReq,
 } from '@/types/tenant'
 
 // 获取当前用户的租户列表
@@ -129,4 +130,9 @@ export function updateMemberRole(tenantId: string, memberId: number, data: Tenan
 // 移除成员
 export function removeMember(tenantId: string, memberId: number): Promise<boolean> {
   return request.delete(`/tenants/${tenantId}/members/${memberId}/remove`)
+}
+
+// 发送租户内通知
+export function sendTenantNotification(tenantId: string, data: TenantSendNotificationReq): Promise<boolean> {
+  return request.post(`/tenants/${tenantId}/notifications/send`, data)
 }

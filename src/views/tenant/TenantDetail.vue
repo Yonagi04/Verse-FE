@@ -7,6 +7,7 @@ import { usePermissionStore } from '@/stores/permission'
 import TenantFormModal from './TenantFormModal.vue'
 import TenantCloseModal from './TenantCloseModal.vue'
 import TenantLeaveModal from './TenantLeaveModal.vue'
+import TenantNotificationModal from './TenantNotificationModal.vue'
 import TenantMemberTab from './TenantMemberTab.vue'
 import TenantInviteTab from './TenantInviteTab.vue'
 import { formatDate, formatDateTime } from '@/utils/date'
@@ -23,6 +24,7 @@ const loading = ref(true)
 const switching = ref(false)
 
 const editModalVisible = ref(false)
+const notificationModalVisible = ref(false)
 const closeModalVisible = ref(false)
 const leaveModalVisible = ref(false)
 
@@ -77,6 +79,10 @@ const canEdit = computed(() => {
   return role === 'SUPER_ADMIN' || role === 'ADMIN'
 })
 
+const canNotify = computed(() => {
+  return canEdit.value && tenant.value?.type === 'TEAM'
+})
+
 const canClose = computed(() => {
   const t = currentTenantEntry.value
   return t?.role === 'SUPER_ADMIN' && tenant.value?.type === 'TEAM'
@@ -126,11 +132,8 @@ function handleLeaveDone() {
             <a-button v-if="canEdit" @click="editModalVisible = true">
               编辑
             </a-button>
-            <a-button v-if="canClose" danger @click="closeModalVisible = true">
-              关闭租户
-            </a-button>
-            <a-button v-if="canLeave" danger @click="leaveModalVisible = true">
-              退出租户
+            <a-button v-if="canNotify" @click="notificationModalVisible = true">
+              发送通知
             </a-button>
           </a-space>
         </div>
@@ -149,7 +152,7 @@ function handleLeaveDone() {
             <a-tab-pane
               v-if="tenant.type === 'TEAM' && canEdit"
               key="invites"
-              tab="邀请码"
+              tab="邀请码管理"
             />
           </a-tabs>
 
@@ -291,6 +294,12 @@ function handleLeaveDone() {
       :tenant-id="tenant.tenantId"
       :tenant-name="tenant.name"
       @done="handleLeaveDone"
+    />
+
+    <!-- Notification Modal -->
+    <TenantNotificationModal
+      v-model:visible="notificationModalVisible"
+      :tenant-id="tenantId"
     />
   </div>
 </template>

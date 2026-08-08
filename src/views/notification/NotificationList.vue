@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import {
@@ -11,13 +11,16 @@ import {
 import { listNotifications, getNotificationDetail, getUnreadCount, markAllRead } from '@/api/notification'
 import type { NotificationItem, NotificationDetail, NotificationSeverity, NotificationType } from '@/types/notification'
 import { formatDateTime } from '@/utils/date'
+import { newNotification, unreadCount } from '@/composables/useWebSocketNotification'
 
 const router = useRouter()
+
+// 本地未读数
+const count = ref(0)
 
 // 列表状态
 const loading = ref(false)
 const notifications = ref<NotificationItem[]>([])
-const unreadCount = ref(0)
 const total = ref(0)
 const currentPage = ref(1)
 const pageSize = 10
@@ -102,7 +105,7 @@ async function fetchData() {
     total.value = res.total
     // 获取未读数量
     const uc = await getUnreadCount()
-    unreadCount.value = uc.count
+    count.value = uc.count
   } catch {
     // handled by interceptor
   } finally {
@@ -124,7 +127,7 @@ function handleFilterChange() {
 
 // 全部已读
 async function handleMarkAllRead() {
-  if (unreadCount.value === 0) {
+  if (count.value === 0) {
     message.info('没有未读通知')
     return
   }
@@ -147,8 +150,8 @@ async function handleRowClick(record: NotificationItem) {
     const res = await getNotificationDetail(record.notificationId)
     detail.value = res
     record.isRead = true
-    if (unreadCount.value > 0) {
-      unreadCount.value--
+    if (count.value > 0) {
+      count.value--
     }
   } catch {
     detailVisible.value = false
@@ -165,6 +168,27 @@ function goBack() {
 onMounted(() => {
   fetchData()
 })
+
+// 检查新通知是否匹配当前筛选条件
+function matchesFilter(notif: NotificationItem): boolean {
+  if (typeFilter.value !== 'ALL' && notif.type !== typeFilter.value) return false
+  if (severityFilter.value !== 'ALL' && notif.severity !== severityFilter.value) return false
+  if (readFilter.value === 'UNREAD' && notif.isRead) return false
+  if (readFilter.value === 'READ' && !notif.isRead) return false
+  return true
+}
+
+// 监听 WebSocket 推送的 unreadCount，同步到本地 count
+watch(unreadCount, (val) => {
+  count.value = val
+})
+
+// WebSocket 新通知插入列表顶部（筛选感知）
+watch(newNotification, (notif) => {
+  if (notif && matchesFilter(notif)) {
+    notifications.value.unshift(notif)
+  }
+})
 </script>
 
 <template>
@@ -176,7 +200,7 @@ onMounted(() => {
           <ArrowLeftOutlined />
         </a-button>
         <h2 class="page-title">通知</h2>
-        <span v-if="unreadCount > 0" class="page-unread-count">({{ unreadCount }}条未读)</span>
+        <span v-if="unreadCount > 0" class="page-unread-count">({{ count }}条未读)</span>
       </div>
       <a class="page-read-all" @click="handleMarkAllRead">全部已读</a>
     </div>

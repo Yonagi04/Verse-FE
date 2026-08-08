@@ -3,6 +3,9 @@ import vue from '@vitejs/plugin-vue'
 import { fileURLToPath, URL } from 'node:url'
 
 export default defineConfig({
+  define: {
+    global: 'globalThis',
+  },
   plugins: [vue()],
   resolve: {
     alias: {
@@ -14,6 +17,11 @@ export default defineConfig({
     proxy: {
       '/api': {
         target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
+      '/ws': {
+        target: 'http://localhost:8080',
+        ws: true,
         changeOrigin: true,
       },
     },
