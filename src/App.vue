@@ -2,7 +2,6 @@
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import AppLayout from '@/layouts/AppLayout.vue'
-import ProfileModal from '@/views/user/UserProfile.vue'
 
 const route = useRoute()
 
@@ -25,6 +24,4 @@ const isPublic = computed(() => {
     </AppLayout>
     <component v-else :is="RouteComponent" />
   </router-view>
-  <!-- 个人信息弹窗 — 全局挂载，不依赖路由 -->
-  <ProfileModal />
 </template>

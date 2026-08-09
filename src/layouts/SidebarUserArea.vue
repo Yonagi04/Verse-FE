@@ -5,7 +5,6 @@ import { useUserStore } from '@/stores/user'
 import { useTenantStore } from '@/stores/tenant'
 import { useThemeStore } from '@/stores/theme'
 import { usePermissionStore } from '@/stores/permission'
-import { useProfileModal } from '@/hooks/useProfileModal'
 import { message } from 'ant-design-vue'
 import {
   UserOutlined,
@@ -19,7 +18,6 @@ const userStore = useUserStore()
 const tenantStore = useTenantStore()
 const themeStore = useThemeStore()
 const permissionStore = usePermissionStore()
-const { open: openProfileModal } = useProfileModal()
 
 // ========== State ==========
 const popoverVisible = ref(false)
@@ -94,7 +92,7 @@ function cancelHideSub() {
 // ========== Actions ==========
 function handleProfile() {
   closePopover()
-  openProfileModal()
+  router.push('/profile')
 }
 
 async function handleLogout() {

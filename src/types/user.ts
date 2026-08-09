@@ -23,6 +23,9 @@ export interface UserUpdateReqDTO {
   nickname: string
   email: string
   phone: string
+  bio?: string
+  region?: string
+  timezone?: string
 }
 
 export interface UserUpdatePasswordReqDTO {
@@ -69,12 +72,23 @@ export interface UserLoginRespDTO {
   currentTenant: TenantInfo | null
 }
 
+export interface PrivacySettings {
+  showBio: boolean
+  showRegion: boolean
+  showTimezone: boolean
+}
+
 export interface UserRespDTO {
   userId: string
   username: string
   nickname: string
   email: string
   phone: string
+  avatar?: string | null
+  bio?: string | null
+  region?: string | null
+  timezone?: string | null
+  privacy?: PrivacySettings
 }
 
 export interface UserInfoRespDTO {
@@ -98,4 +112,40 @@ export interface CancelPrepareRespDTO {
 /** 注销 - 确认请求 */
 export interface CancelConfirmReqDTO {
   code: string
+}
+
+// ========== 登录设备 ==========
+
+export interface DeviceInfo {
+  deviceId: string
+  deviceName: string
+  region: string
+  ip: string
+  lastLoginAt: string
+  online: boolean
+  currentDevice: boolean
+}
+
+// ========== 登录历史 ==========
+
+export interface LoginHistoryItem {
+  loginTime: string
+  deviceName: string
+  ip: string
+  region: string
+  result: 'SUCCESS' | 'FAIL'
+  failReason: string | null
+}
+
+export interface LoginHistoryPage {
+  total: number
+  records: LoginHistoryItem[]
+}
+
+// ========== 隐私设置更新 ==========
+
+export interface PrivacyUpdateReqDTO {
+  showBio?: boolean
+  showRegion?: boolean
+  showTimezone?: boolean
 }
