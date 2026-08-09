@@ -139,7 +139,10 @@ export interface LoginHistoryItem {
 
 export interface LoginHistoryPage {
   total: number
-  records: LoginHistoryItem[]
+  totalPages: number
+  page: number
+  pageSize: number
+  historyInfos: LoginHistoryItem[]
 }
 
 // ========== 隐私设置更新 ==========

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { getLoginHistory } from '@/api/user'
 import PaginationBar from '@/components/PaginationBar.vue'
 import type { LoginHistoryItem } from '@/types/user'
@@ -11,7 +11,7 @@ const currentPage = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
 
-const totalPages = computed(() => Math.ceil(total.value / pageSize.value) || 1)
+const totalPages = ref(1)
 
 // ========== Columns ==========
 const columns = [
@@ -55,8 +55,9 @@ async function fetchData() {
   loading.value = true
   try {
     const res = await getLoginHistory(currentPage.value, pageSize.value)
-    records.value = res.records
+    records.value = res.historyInfos
     total.value = res.total
+    totalPages.value = res.totalPages
   } catch {
     // handled by interceptor
   } finally {
