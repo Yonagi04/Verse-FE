@@ -7,6 +7,7 @@ import { useUserStore } from '@/stores/user'
 import { updateMemberRole, removeMember, getUnreviewedJoinRequestCount } from '@/api/tenant'
 import { formatDate } from '@/utils/date'
 import TenantJoinRequestPanel from './TenantJoinRequestPanel.vue'
+import UserPublicProfileModal from './UserPublicProfileModal.vue'
 import PaginationBar from '@/components/PaginationBar.vue'
 import type { TenantMemberInfo, TenantMembersListRespDTO } from '@/types/tenant'
 
@@ -26,6 +27,15 @@ const roleLoading = ref<number | null>(null)
 // Sub-tab state: only for ADMIN/SUPER_ADMIN
 const memberSubTab = ref<'members' | 'approval'>('members')
 const pendingApprovalCount = ref(0)
+
+// Public profile modal
+const profileVisible = ref(false)
+const profileUserId = ref<number | null>(null)
+
+function openProfile(member: TenantMemberInfo) {
+  profileUserId.value = member.userId
+  profileVisible.value = true
+}
 
 // Role hierarchy
 const ROLE_RANK: Record<string, number> = { SUPER_ADMIN: 3, ADMIN: 2, MEMBER: 1 }
@@ -181,7 +191,7 @@ function handleRemove(member: TenantMemberInfo) {
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'member'">
-            <div class="member-info">
+            <div class="member-info" @click="openProfile(record)">
               <span class="member-name">{{ record.nickname || record.username }}</span>
               <span v-if="record.nickname" class="member-username">@{{ record.username }}</span>
             </div>
@@ -253,6 +263,13 @@ function handleRemove(member: TenantMemberInfo) {
       <TenantJoinRequestPanel :tenant-id="tenantId" @changed="fetchPendingCount" />
     </template>
 
+    <!-- Public Profile Modal -->
+    <UserPublicProfileModal
+      :visible="profileVisible"
+      :user-id="profileUserId ?? 0"
+      @close="profileVisible = false"
+    />
+
   </div>
 </template>
 
@@ -298,11 +315,17 @@ function handleRemove(member: TenantMemberInfo) {
   display: flex;
   align-items: center;
   gap: 6px;
+  cursor: pointer;
+
+  &:hover .member-name {
+    color: $color-primary;
+  }
 }
 
 .member-name {
   font-weight: 500;
   color: $color-text-primary;
+  transition: color 0.15s;
 }
 
 .member-username {

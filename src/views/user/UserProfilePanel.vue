@@ -6,6 +6,7 @@ import { CameraOutlined, EyeOutlined, EyeInvisibleOutlined } from '@ant-design/i
 import { useUserStore } from '@/stores/user'
 import { getCurrentUser, updateProfile, updatePassword, uploadAvatar } from '@/api/user'
 import CancelAccountModal from './CancelAccountModal.vue'
+import UserAvatar from '@/components/UserAvatar.vue'
 import type { UserRespDTO } from '@/types/user'
 
 const router = useRouter()
@@ -40,12 +41,7 @@ const profile = computed(() =>
 const avatarUrl = ref<string | null>(null)
 const fileInputRef = ref<HTMLInputElement | null>(null)
 
-const avatarLetter = computed(() => {
-  const name = profile.value?.nickname || profile.value?.username || ''
-  return name.charAt(0).toUpperCase()
-})
-
-const hasAvatar = computed(() => !!avatarUrl.value)
+const avatarName = computed(() => profile.value?.nickname || profile.value?.username || '')
 
 function triggerFilePicker() {
   fileInputRef.value?.click()
@@ -74,6 +70,7 @@ async function handleAvatarChange(e: Event) {
   try {
     const url = await uploadAvatar(file)
     avatarUrl.value = url
+    await userStore.fetchProfile()
     message.success('头像上传成功')
   } catch {
     // handled by interceptor
@@ -90,10 +87,7 @@ const form = reactive({
   phone: '',
   bio: '',
   region: '',
-  timezone: '',
-  showBio: true,
-  showRegion: false,
-  showTimezone: true,
+  timezone: undefined as string | undefined,
 })
 
 // ========== Password Form ==========
@@ -169,10 +163,7 @@ async function enterEditMode() {
   form.phone = u.phone || ''
   form.bio = u.bio || ''
   form.region = u.region || ''
-  form.timezone = u.timezone || ''
-  form.showBio = u.privacy?.showBio ?? true
-  form.showRegion = u.privacy?.showRegion ?? false
-  form.showTimezone = u.privacy?.showTimezone ?? true
+  form.timezone = u.timezone || undefined
 
   isEditing.value = true
 }
@@ -262,8 +253,7 @@ async function handleCancelSuccess() {
         :class="{ uploading: avatarUploading }"
         @click="triggerFilePicker"
       >
-        <img v-if="hasAvatar" :src="avatarUrl!" class="avatar-img" alt="avatar" />
-        <span v-else class="avatar-letter">{{ avatarLetter }}</span>
+        <UserAvatar :src="avatarUrl" :name="avatarName" :size="72" />
         <div class="avatar-overlay">
           <CameraOutlined class="camera-icon" />
           <span class="overlay-text">更换头像</span>
@@ -287,7 +277,6 @@ async function handleCancelSuccess() {
           <span class="summary-divider">·</span>
           <span class="summary-uid">ID: {{ profile?.userId }}</span>
         </div>
-        <p v-if="profile?.bio" class="summary-bio">{{ profile.bio }}</p>
       </div>
 
       <!-- Fields Grid -->
@@ -311,6 +300,10 @@ async function handleCancelSuccess() {
         <div class="field-item">
           <span class="field-label">时区</span>
           <span class="field-value">{{ profile?.timezone || '未设置' }}</span>
+        </div>
+        <div v-if="profile?.bio" class="field-item field-bio">
+          <span class="field-label">个人简介</span>
+          <span class="field-value">{{ profile.bio }}</span>
         </div>
       </div>
 
@@ -367,6 +360,7 @@ async function handleCancelSuccess() {
             v-model:value="form.timezone"
             class="field-select"
             placeholder="请选择时区"
+            allow-clear
             show-search
             :filter-option="(input: string, option: any) => option.value.toLowerCase().includes(input.toLowerCase())"
             :options="TIMEZONE_OPTIONS.map(tz => ({ value: tz, label: tz }))"
@@ -385,32 +379,8 @@ async function handleCancelSuccess() {
         </div>
       </div>
 
-      <!-- Privacy Switches (in edit mode) -->
-      <div class="privacy-switches">
-        <div class="privacy-row">
-          <div class="privacy-info">
-            <span class="privacy-label">公开展示个人简介</span>
-            <span class="privacy-desc">允许其他用户在你的公开资料中查看个人简介</span>
-          </div>
-          <a-switch v-model:checked="form.showBio" />
-        </div>
-        <div class="privacy-row">
-          <div class="privacy-info">
-            <span class="privacy-label">公开展示地区</span>
-            <span class="privacy-desc">允许其他用户在你的公开资料中查看地区</span>
-          </div>
-          <a-switch v-model:checked="form.showRegion" />
-        </div>
-        <div class="privacy-row">
-          <div class="privacy-info">
-            <span class="privacy-label">公开展示时区</span>
-            <span class="privacy-desc">允许其他用户在你的公开资料中查看时区</span>
-          </div>
-          <a-switch v-model:checked="form.showTimezone" />
-        </div>
-      </div>
-
       <!-- Edit Action Buttons -->
+      <div class="divider-line"></div>
       <div class="action-row">
         <a-button @click="cancelEdit">取消</a-button>
         <a-button type="primary" :loading="loading" @click="handleUpdateProfile">保存</a-button>
@@ -478,7 +448,6 @@ async function handleCancelSuccess() {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, $color-primary 0%, #69b1ff 100%);
 
   &.uploading {
     opacity: 0.6;
@@ -488,19 +457,6 @@ async function handleCancelSuccess() {
   &:hover .avatar-overlay {
     opacity: 1;
   }
-}
-
-.avatar-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.avatar-letter {
-  color: #fff;
-  font-size: 28px;
-  font-weight: 600;
-  user-select: none;
 }
 
 .avatar-overlay {
@@ -566,13 +522,6 @@ async function handleCancelSuccess() {
 
 .summary-uid {
   color: #bfbfbf;
-}
-
-.summary-bio {
-  margin: 12px 0 0;
-  font-size: $font-size-body;
-  color: $color-text-secondary;
-  line-height: 1.6;
 }
 
 // ========== Fields Grid ==========
@@ -666,42 +615,6 @@ async function handleCancelSuccess() {
 .eye-icon {
   flex-shrink: 0;
   font-size: 16px;
-}
-
-// ========== Privacy Switches (edit mode) ==========
-.privacy-switches {
-  margin-top: 24px;
-  padding: 16px;
-  background: $color-bg-secondary;
-  border-radius: $radius-button;
-}
-
-.privacy-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 0;
-
-  & + & {
-    border-top: 1px solid $color-border;
-  }
-}
-
-.privacy-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.privacy-label {
-  font-size: $font-size-body;
-  color: $color-text-primary;
-  font-weight: 500;
-}
-
-.privacy-desc {
-  font-size: $font-size-caption;
-  color: $color-text-secondary;
 }
 
 // ========== Divider & Actions ==========

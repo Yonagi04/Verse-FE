@@ -12,6 +12,7 @@ import {
   LogoutOutlined,
   CheckOutlined,
 } from '@ant-design/icons-vue'
+import UserAvatar from '@/components/UserAvatar.vue'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -25,10 +26,7 @@ const tenantSubVisible = ref(false)
 const hideSubTimer = ref<ReturnType<typeof setTimeout> | null>(null)
 
 // ========== Computed ==========
-const avatarLetter = computed(() => {
-  const name = userStore.user?.nickname || userStore.user?.username || ''
-  return name.charAt(0).toUpperCase()
-})
+const avatarName = computed(() => userStore.user?.nickname || userStore.user?.username || '')
 
 const displayName = computed(() => {
   return userStore.user?.nickname || userStore.user?.username || '用户'
@@ -121,7 +119,7 @@ async function handleSwitchTenant(tenantId: string, tenantName: string) {
   <div class="sidebar-user-area" :class="{ collapsed: themeStore.sidebarCollapsed }">
     <!-- 触发区域 -->
     <div class="user-trigger" @click.stop="togglePopover">
-      <div class="user-avatar">{{ avatarLetter }}</div>
+      <UserAvatar :src="userStore.user?.avatar" :name="avatarName" :size="36" />
       <div v-show="!themeStore.sidebarCollapsed" class="user-info">
         <div class="user-nickname">{{ displayName }}</div>
         <div v-if="currentTenantName" class="user-tenant">{{ currentTenantName }}</div>
@@ -207,22 +205,6 @@ async function handleSwitchTenant(tenantId: string, tenantName: string) {
 .sidebar-user-area.collapsed .user-trigger {
   justify-content: center;
   padding: 12px 8px;
-}
-
-// ========== 头像 ==========
-.user-avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, $color-primary 0%, #69b1ff 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  font-size: 15px;
-  font-weight: 600;
-  flex-shrink: 0;
-  user-select: none;
 }
 
 // ========== 用户信息 ==========

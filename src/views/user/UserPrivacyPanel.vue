@@ -12,7 +12,7 @@ const userStore = useUserStore()
 const loading = ref(false)
 const privacy = reactive({
   showBio: true,
-  showRegion: false,
+  showRegion: true,
   showTimezone: true,
 })
 
@@ -22,27 +22,39 @@ const userRegion = computed(() => userStore.user?.region || '未设置')
 const userTimezone = computed(() => userStore.user?.timezone || '未设置')
 
 // ========== Initialize ==========
-onMounted(() => {
-  const user = userStore.user as any
-  if (user?.privacy) {
-    privacy.showBio = user.privacy.showBio
-    privacy.showRegion = user.privacy.showRegion
-    privacy.showTimezone = user.privacy.showTimezone
+onMounted(async () => {
+  if (!userStore.user?.privacy) {
+    await userStore.fetchProfile()
+  }
+  const p = userStore.user?.privacy
+  if (p) {
+    privacy.showBio = p.showBio
+    privacy.showRegion = p.showRegion
+    privacy.showTimezone = p.showTimezone
   }
 })
 
 // ========== Update Privacy ==========
-async function handleToggle(key: keyof PrivacyUpdateReqDTO) {
+async function handleToggle(key: keyof PrivacyUpdateReqDTO, checked: boolean) {
+  const previous = privacy[key]
+  privacy[key] = checked
   loading.value = true
   try {
-    const data: PrivacyUpdateReqDTO = {
+    await updatePrivacy({
       showBio: privacy.showBio,
       showRegion: privacy.showRegion,
       showTimezone: privacy.showTimezone,
+    })
+    if (userStore.user) {
+      userStore.user.privacy = {
+        showBio: privacy.showBio,
+        showRegion: privacy.showRegion,
+        showTimezone: privacy.showTimezone,
+      }
     }
-    await updatePrivacy(data)
     message.success('隐私设置已更新')
   } catch {
+    privacy[key] = previous
     // handled by interceptor
   } finally {
     loading.value = false
@@ -65,7 +77,7 @@ async function handleToggle(key: keyof PrivacyUpdateReqDTO) {
         <a-switch
           :checked="privacy.showBio"
           :loading="loading"
-          @change="handleToggle('showBio')"
+          @change="(checked: boolean) => handleToggle('showBio', checked)"
         />
       </div>
       <div class="toggle-row">
@@ -76,7 +88,7 @@ async function handleToggle(key: keyof PrivacyUpdateReqDTO) {
         <a-switch
           :checked="privacy.showRegion"
           :loading="loading"
-          @change="handleToggle('showRegion')"
+          @change="(checked: boolean) => handleToggle('showRegion', checked)"
         />
       </div>
       <div class="toggle-row">
@@ -87,7 +99,7 @@ async function handleToggle(key: keyof PrivacyUpdateReqDTO) {
         <a-switch
           :checked="privacy.showTimezone"
           :loading="loading"
-          @change="handleToggle('showTimezone')"
+          @change="(checked: boolean) => handleToggle('showTimezone', checked)"
         />
       </div>
     </div>

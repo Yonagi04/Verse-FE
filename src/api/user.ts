@@ -19,12 +19,6 @@ import type {
   PrivacyUpdateReqDTO,
 } from '@/types/user'
 
-// ========== Mock helpers ==========
-
-function mockDelay<T>(data: T, ms: number): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(data), ms))
-}
-
 // 检查用户名是否存在
 export function hasUsername(username: string): Promise<boolean> {
   return request.get('/users/hasUsername', { params: { username } })
@@ -46,13 +40,13 @@ export function getCurrentUser(mask: boolean = true): Promise<UserRespDTO> {
 }
 
 // 获取其他用户信息
-export function getUserInfo(userId: string): Promise<UserInfoRespDTO> {
+export function getUserInfo(userId: string | number): Promise<UserInfoRespDTO> {
   return request.get('/users/getUserInfo', { params: { userId } })
 }
 
 // 更新个人信息
 export function updateProfile(data: UserUpdateReqDTO): Promise<boolean> {
-  return request.put('/users/me', data)
+  return request.post('/users/me', data)
 }
 
 // 登出
@@ -95,14 +89,18 @@ export function confirmCancel(data: CancelConfirmReqDTO): Promise<boolean> {
   return request.post('/users/account/cancel/confirm', data)
 }
 
-// 上传头像 (mock — 后端未实现)
-export function uploadAvatar(_file: File): Promise<string> {
-  return mockDelay('https://cdn.verse.example.com/avatars/10000001/mock-avatar.webp', 500)
+// 上传头像
+export function uploadAvatar(file: File): Promise<string> {
+  const formData = new FormData()
+  formData.append('file', file)
+  return request.post('/users/me/avatar', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
 }
 
-// 更新隐私设置 (mock — 后端未实现)
-export function updatePrivacy(_data: PrivacyUpdateReqDTO): Promise<boolean> {
-  return mockDelay(true, 300)
+// 更新隐私设置
+export function updatePrivacy(data: PrivacyUpdateReqDTO): Promise<boolean> {
+  return request.post('/users/me/privacy', data)
 }
 
 // 获取登录设备列表

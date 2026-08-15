@@ -95,6 +95,11 @@ export interface UserInfoRespDTO {
   userId: string
   username: string
   nickname: string
+  avatar?: string | null
+  bio?: string | null
+  region?: string | null
+  timezone?: string | null
+  privacy?: PrivacySettings
 }
 
 export interface UserVerifyPhoneCodeRespDTO {
