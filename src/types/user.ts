@@ -133,7 +133,7 @@ export interface LoginHistoryItem {
   deviceName: string
   ip: string
   region: string
-  result: 'SUCCESS' | 'FAIL'
+  result: '成功' | '失败'
   failReason: string | null
 }
 

@@ -13,6 +13,15 @@ const total = ref(0)
 
 const totalPages = ref(1)
 
+// ========== Format Time ==========
+function formatTime(dateStr: string) {
+  if (!dateStr) return '-'
+  const d = new Date(dateStr)
+  if (Number.isNaN(d.getTime())) return dateStr
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+}
+
 // ========== Columns ==========
 const columns = [
   {
@@ -93,12 +102,15 @@ function handlePageSizeChange(size: number) {
       size="middle"
     >
       <template #bodyCell="{ column, record }">
-        <template v-if="column.key === 'result'">
-          <a-tag v-if="record.result === 'SUCCESS'" color="success">成功</a-tag>
+        <template v-if="column.key === 'loginTime'">
+          {{ formatTime(record.loginTime) }}
+        </template>
+        <template v-else-if="column.key === 'result'">
+          <a-tag v-if="record.result === '成功'" color="success">成功</a-tag>
           <a-tag v-else color="error">失败</a-tag>
         </template>
         <template v-else-if="column.key === 'failReason'">
-          <span v-if="record.result === 'FAIL' && record.failReason" class="fail-reason">
+          <span v-if="record.result === '失败' && record.failReason" class="fail-reason">
             {{ record.failReason }}
           </span>
           <span v-else style="color: #d9d9d9;">-</span>
