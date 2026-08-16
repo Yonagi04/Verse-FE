@@ -60,7 +60,7 @@ const selectedKeys = computed(() => {
 
 function handleMenuClick({ key }: { key: string }) {
   // 占位路径不做跳转
-  if (key.startsWith('/') && !key.includes('llm-services') && !key.includes('api-keys') && !key.includes('token-usage') && !key.includes('/logs')) {
+  if (key.startsWith('/') && !key.includes('llm-services') && !key.includes('token-usage') && !key.includes('/logs')) {
     router.push(key)
   }
 }

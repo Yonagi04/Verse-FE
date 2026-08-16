@@ -15,7 +15,8 @@ export default defineConfig({
   server: {
     port: 3000,
     proxy: {
-      '/api': {
+      // 仅代理 /api/v1，避免 /api-keys 等前端路由被误代理到后端导致刷新 401
+      '/api/v1': {
         target: 'http://localhost:8080',
         changeOrigin: true,
       },
