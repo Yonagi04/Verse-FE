@@ -6,6 +6,7 @@ import { useTenantStore } from '@/stores/tenant'
 import { listApiKeys, revokeApiKey } from '@/api/apikey'
 import { formatDateTime } from '@/utils/date'
 import ApiKeyCreateDrawer from './ApiKeyCreateDrawer.vue'
+import ApiKeyEditDrawer from './ApiKeyEditDrawer.vue'
 import PaginationBar from '@/components/PaginationBar.vue'
 import type { ApiKeyListRespDTO, ApiKeyPageRespDTO } from '@/types/apikey'
 
@@ -15,6 +16,8 @@ const selectedTenantId = ref<string | null>(null)
 const data = ref<ApiKeyPageRespDTO | null>(null)
 const loading = ref(false)
 const createVisible = ref(false)
+const editVisible = ref(false)
+const editingRecord = ref<ApiKeyListRespDTO | null>(null)
 const pageNum = ref(1)
 const pageSize = ref(10)
 
@@ -29,7 +32,7 @@ const columns = [
   { title: '最近使用', key: 'lastUsedAt', width: 180 },
   { title: '过期时间', key: 'expiresAt', width: 180 },
   { title: '创建时间', key: 'createTime', width: 180 },
-  { title: '操作', key: 'action', width: 80 },
+  { title: '操作', key: 'action', width: 140 },
 ]
 
 function isExpired(record: ApiKeyListRespDTO): boolean {
@@ -76,11 +79,16 @@ onMounted(async () => {
     tenantStore.currentTenant?.tenantId ?? tenantStore.tenants[0]?.tenantId ?? null
 })
 
+function handleEdit(record: ApiKeyListRespDTO) {
+  editingRecord.value = record
+  editVisible.value = true
+}
+
 function handleRevoke(record: ApiKeyListRespDTO) {
   if (!selectedTenantId.value) return
   Modal.confirm({
     title: '吊销 API Key',
-    content: `确定吊销「${record.name}」吗？吊销后该密钥立即失效，且无法恢复。`,
+    content: `确定吊销「${record.name}」吗？吊销后该 API Key 将立即失效，且无法恢复。`,
     okText: '吊销',
     okType: 'danger',
     cancelText: '取消',
@@ -150,6 +158,9 @@ function handleRevoke(record: ApiKeyListRespDTO) {
           </template>
 
           <template v-else-if="column.key === 'action'">
+            <a-button type="link" size="small" @click="handleEdit(record)">
+              编辑
+            </a-button>
             <a-button type="link" size="small" danger @click="handleRevoke(record)">
               吊销
             </a-button>
@@ -184,6 +195,14 @@ function handleRevoke(record: ApiKeyListRespDTO) {
       v-if="selectedTenantId"
       v-model:visible="createVisible"
       :tenant-id="selectedTenantId"
+      @done="fetchKeys"
+    />
+
+    <ApiKeyEditDrawer
+      v-if="selectedTenantId"
+      v-model:visible="editVisible"
+      :tenant-id="selectedTenantId"
+      :record="editingRecord"
       @done="fetchKeys"
     />
   </div>

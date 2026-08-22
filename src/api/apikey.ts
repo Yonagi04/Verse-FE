@@ -1,5 +1,5 @@
 import request from './request'
-import type { ApiKeyCreateReqDTO, ApiKeyPageRespDTO, ApiKeyRespDTO, ApiKeyRevokeReqDTO } from '@/types/apikey'
+import type { ApiKeyCreateReqDTO, ApiKeyPageRespDTO, ApiKeyRespDTO, ApiKeyRevokeReqDTO, ApiKeyUpdateReqDTO } from '@/types/apikey'
 
 // 获取当前用户在某租户下的 API Key 列表（分页）
 export function listApiKeys(tenantId: string, pageNum: number, pageSize: number): Promise<ApiKeyPageRespDTO> {
@@ -14,4 +14,9 @@ export function createApiKey(tenantId: string, data: ApiKeyCreateReqDTO): Promis
 // 吊销 API Key（软删除）
 export function revokeApiKey(tenantId: string, data: ApiKeyRevokeReqDTO): Promise<boolean> {
   return request.delete(`/api-keys/${tenantId}/delete`, { data })
+}
+
+// 编辑 API Key（名称 / 过期时间）
+export function updateApiKey(tenantId: string, apiKeyId: string, data: ApiKeyUpdateReqDTO): Promise<boolean> {
+  return request.post(`/api-keys/${tenantId}/update`, data, { params: { apiKeyId } })
 }

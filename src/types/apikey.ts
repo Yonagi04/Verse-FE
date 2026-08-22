@@ -12,8 +12,8 @@ export interface ApiKeyRespDTO {
   name: string
   expiresAt: string | null
   apiKey: string
-  keyPrefix: string
-  createdAt: string
+  createKeyMessage: string
+  createKeyTip: string
 }
 
 // 列表项（不含完整 Key）
@@ -38,4 +38,10 @@ export interface ApiKeyPageRespDTO {
 
 export interface ApiKeyRevokeReqDTO {
   apiKeyId: string
+}
+
+// 编辑请求（名称 / 过期时间）
+export interface ApiKeyUpdateReqDTO {
+  name: string
+  expiresAt?: string | null
 }

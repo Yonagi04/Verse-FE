@@ -138,9 +138,11 @@ function handleCopy() {
         type="warning"
         show-icon
         message="请立即保存此 API Key"
-        description="此密钥仅在本次显示一次，关闭后无法再次查看。若丢失需重新创建。"
+        :description="result.createKeyMessage"
         style="margin-bottom: 16px"
       />
+
+      <div class="reveal-tip">{{ result.createKeyTip }}</div>
 
       <div class="reveal-row">
         <span class="reveal-label">完整 Key</span>
@@ -184,6 +186,13 @@ function handleCopy() {
 }
 
 .reveal {
+  .reveal-tip {
+    color: $color-text-secondary;
+    font-size: 13px;
+    line-height: 1.6;
+    margin-bottom: 16px;
+  }
+
   .reveal-row {
     display: flex;
     align-items: flex-start;
