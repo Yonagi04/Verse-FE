@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@ant-design/icons-vue": "^7.0.1",
+    "@lobehub/icons-static-svg": "^1.94.0",
     "@stomp/stompjs": "^7.3.0",
     "ant-design-vue": "^4.2.6",
     "axios": "^1.7.9",

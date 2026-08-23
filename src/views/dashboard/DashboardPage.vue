@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { useTenantStore } from '@/stores/tenant'
+import { getLlmCount } from '@/api/llmService'
 import {
   DashboardOutlined,
   ApiOutlined,
@@ -12,10 +13,33 @@ import {
 const userStore = useUserStore()
 const tenantStore = useTenantStore()
 
+const llmCount = ref<number | null>(null)
+
+const activeTenantId = computed(
+  () => tenantStore.currentTenant?.tenantId ?? tenantStore.tenants[0]?.tenantId ?? null,
+)
+
+async function fetchLlmCount() {
+  if (!activeTenantId.value) {
+    llmCount.value = null
+    return
+  }
+  try {
+    llmCount.value = await getLlmCount(activeTenantId.value)
+  } catch {
+    llmCount.value = null
+  }
+}
+
 onMounted(async () => {
   if (tenantStore.tenants.length === 0) {
     await tenantStore.fetchTenants()
   }
+  await fetchLlmCount()
+})
+
+watch(activeTenantId, () => {
+  fetchLlmCount()
 })
 </script>
 
@@ -43,7 +67,7 @@ onMounted(async () => {
           <div class="stat-content">
             <ApiOutlined class="stat-icon" />
             <div>
-              <div class="stat-value">--</div>
+              <div class="stat-value">{{ llmCount ?? '--' }}</div>
               <div class="stat-label">LLM 服务</div>
             </div>
           </div>

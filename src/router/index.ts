@@ -74,6 +74,12 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true },
   },
   {
+    path: '/llm-services',
+    name: 'LlmServiceList',
+    component: () => import('@/views/llm-service/LlmServiceList.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/profile',
     name: 'UserCenter',
     component: () => import('@/views/user/UserCenter.vue'),
