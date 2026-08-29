@@ -26,6 +26,7 @@ const data = ref<LlmServiceListRespDTO | null>(null)
 const loading = ref(false)
 const pageNum = ref(1)
 const pageSize = ref(10)
+const keyword = ref('')
 
 const createVisible = ref(false)
 const editVisible = ref(false)
@@ -76,7 +77,7 @@ async function fetchServices() {
   if (!selectedTenantId.value) return
   loading.value = true
   try {
-    data.value = await listLlmServices(selectedTenantId.value, pageNum.value, pageSize.value)
+    data.value = await listLlmServices(selectedTenantId.value, pageNum.value, pageSize.value, keyword.value || undefined)
     if (data.value.serviceInfoList.length === 0 && pageNum.value > 1) {
       pageNum.value--
     }
@@ -85,6 +86,12 @@ async function fetchServices() {
   } finally {
     loading.value = false
   }
+}
+
+function handleSearch(value: string) {
+  keyword.value = value.trim()
+  pageNum.value = 1
+  fetchServices()
 }
 
 watch(selectedTenantId, (val) => {
@@ -98,6 +105,13 @@ watch(selectedTenantId, (val) => {
 
 watch([pageNum, pageSize], () => {
   if (selectedTenantId.value) fetchServices()
+})
+
+watch(keyword, (val) => {
+  if (val === '') {
+    pageNum.value = 1
+    if (selectedTenantId.value) fetchServices()
+  }
 })
 
 onMounted(async () => {
@@ -196,6 +210,16 @@ async function handleRemove(record: LlmServiceInfo) {
 
     <!-- Has tenant -->
     <a-card v-if="selectedTenantId" :bordered="false">
+      <div class="list-toolbar">
+        <a-input-search
+          v-model:value="keyword"
+          placeholder="请输入模型名称或供应商"
+          style="width: 280px"
+          allow-clear
+          @search="handleSearch"
+        />
+      </div>
+
       <a-table
         :columns="columns"
         :data-source="data?.serviceInfoList ?? []"
@@ -329,6 +353,10 @@ async function handleRemove(record: LlmServiceInfo) {
   display: flex;
   gap: 12px;
   align-items: center;
+}
+
+.list-toolbar {
+  margin-bottom: 16px;
 }
 
 .provider-cell {

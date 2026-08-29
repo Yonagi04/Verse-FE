@@ -13,9 +13,16 @@ export function addLlmService(tenantId: string, data: LlmServiceAddReqDTO): Prom
   return request.post(`/llm-service/${tenantId}/add`, data)
 }
 
-// 分页获取模型服务列表
-export function listLlmServices(tenantId: string, pageNum: number, pageSize: number): Promise<LlmServiceListRespDTO> {
-  return request.get(`/llm-service/${tenantId}/list`, { params: { pageNum, pageSize } })
+// 分页获取模型服务列表（keyword 可选，按服务别名或供应商模糊搜索）
+export function listLlmServices(
+  tenantId: string,
+  pageNum: number,
+  pageSize: number,
+  keyword?: string,
+): Promise<LlmServiceListRespDTO> {
+  return request.get(`/llm-service/${tenantId}/list`, {
+    params: { pageNum, pageSize, ...(keyword ? { keyword } : {}) },
+  })
 }
 
 // 更新模型服务（部分更新）

@@ -27,7 +27,7 @@ import azureLogo from '@lobehub/icons-static-svg/icons/azure-color.svg'
 import bedrockLogo from '@lobehub/icons-static-svg/icons/bedrock-color.svg'
 import ollamaLogo from '@lobehub/icons-static-svg/icons/ollama.svg'
 
-export type ProviderGroup = '海外' | '国内' | '聚合 / 网关'
+export type ProviderGroup = '海外' | '国内' | '聚合 / 网关' | '其他'
 
 export interface Provider {
   slug: string
@@ -97,6 +97,8 @@ const RAW_PROVIDERS: RawProvider[] = [
   ['聚合 / 网关', 'Azure OpenAI', 'Az', '#0078d4', 'azure', 'https://{resource}.openai.azure.com'],
   ['聚合 / 网关', 'AWS Bedrock', 'A', '#ff9900', 'bedrock', 'https://{region}.amazonaws.com'],
   ['聚合 / 网关', 'Ollama', 'O', '#000000', 'ollama', 'http://localhost:11434/v1'],
+  // 其他（apiUrl 留空：选择后不回填，由用户手动填写）
+  ['其他', '其他', '其', '#8c8c8c', 'other', ''],
 ]
 
 export const PROVIDERS: Provider[] = RAW_PROVIDERS.map(
@@ -112,7 +114,7 @@ export const PROVIDERS: Provider[] = RAW_PROVIDERS.map(
 )
 
 export const PROVIDER_GROUPS: { label: ProviderGroup; providers: Provider[] }[] = (
-  ['海外', '国内', '聚合 / 网关'] as ProviderGroup[]
+  ['海外', '国内', '聚合 / 网关', '其他'] as ProviderGroup[]
 ).map((label) => ({
   label,
   providers: PROVIDERS.filter((p) => p.group === label),
