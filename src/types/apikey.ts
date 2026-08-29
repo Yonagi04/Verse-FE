@@ -4,6 +4,8 @@
 export interface ApiKeyCreateReqDTO {
   name: string
   expiresAt?: string | null
+  rpm?: number | null
+  tpm?: number | null
 }
 
 // 创建响应（仅创建时一次性返回完整 Key）
@@ -24,6 +26,8 @@ export interface ApiKeyListRespDTO {
   status: number
   lastUsedAt: string | null
   expiresAt: string | null
+  rateLimitRpm: number | null
+  rateLimitTpm: number | null
   createTime: string
 }
 
@@ -40,8 +44,10 @@ export interface ApiKeyRevokeReqDTO {
   apiKeyId: string
 }
 
-// 编辑请求（名称 / 过期时间）
+// 编辑请求（名称 / 过期时间 / 限流）
 export interface ApiKeyUpdateReqDTO {
   name: string
   expiresAt?: string | null
+  rpm?: number | null
+  tpm?: number | null
 }

@@ -29,14 +29,18 @@ const columns = [
   { title: '名称', dataIndex: 'name', key: 'name' },
   { title: 'Key', key: 'key', width: 180 },
   { title: '状态', key: 'status', width: 100 },
+  { title: '限流', key: 'rateLimit', width: 160 },
   { title: '最近使用', key: 'lastUsedAt', width: 180 },
   { title: '过期时间', key: 'expiresAt', width: 180 },
   { title: '创建时间', key: 'createTime', width: 180 },
   { title: '操作', key: 'action', width: 140 },
 ]
 
-function isExpired(record: ApiKeyListRespDTO): boolean {
-  return record.status === 2
+function formatRateLimit(rpm: number | null, tpm: number | null): string {
+  const parts: string[] = []
+  if (rpm != null) parts.push(`RPM ${rpm}`)
+  if (tpm != null) parts.push(`TPM ${tpm}`)
+  return parts.length > 0 ? parts.join(' / ') : '不限'
 }
 
 async function fetchKeys() {
@@ -141,8 +145,13 @@ function handleRevoke(record: ApiKeyListRespDTO) {
           </template>
 
           <template v-else-if="column.key === 'status'">
-            <a-tag v-if="isExpired(record)" color="default">已过期</a-tag>
+            <a-tag v-if="record.status === 0" color="red">已吊销</a-tag>
+            <a-tag v-else-if="record.status === 2" color="default">已过期</a-tag>
             <a-tag v-else color="green">正常</a-tag>
+          </template>
+
+          <template v-else-if="column.key === 'rateLimit'">
+            {{ formatRateLimit(record.rateLimitRpm, record.rateLimitTpm) }}
           </template>
 
           <template v-else-if="column.key === 'lastUsedAt'">
@@ -158,12 +167,15 @@ function handleRevoke(record: ApiKeyListRespDTO) {
           </template>
 
           <template v-else-if="column.key === 'action'">
-            <a-button type="link" size="small" @click="handleEdit(record)">
-              编辑
-            </a-button>
-            <a-button type="link" size="small" danger @click="handleRevoke(record)">
-              吊销
-            </a-button>
+            <template v-if="record.status !== 0">
+              <a-button type="link" size="small" @click="handleEdit(record)">
+                编辑
+              </a-button>
+              <a-button type="link" size="small" danger @click="handleRevoke(record)">
+                吊销
+              </a-button>
+            </template>
+            <span v-else class="action-placeholder">—</span>
           </template>
         </template>
 
@@ -247,5 +259,9 @@ function handleRevoke(record: ApiKeyListRespDTO) {
   font-family: 'Courier New', monospace;
   font-size: 13px;
   color: #1677ff;
+}
+
+.action-placeholder {
+  color: $color-text-secondary;
 }
 </style>

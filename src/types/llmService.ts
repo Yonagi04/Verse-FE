@@ -7,14 +7,19 @@ export interface LlmServiceAddReqDTO {
   apiUrl: string
   apiKey: string
   modelName: string
+  rpm?: number | null
+  tpm?: number | null
 }
 
-// 更新请求（部分更新：仅提交非空字段，四个字段不能同时为空）
+// 更新请求（部分更新：仅提交非空字段；rpm/tpm/fallbackServiceId 中 0=清除，null=不修改）
 export interface LlmServiceUpdateReqDTO {
   name?: string
   apiUrl?: string
   apiKey?: string
   modelName?: string
+  rpm?: number | null
+  tpm?: number | null
+  fallbackServiceId?: string | number | null
 }
 
 // 列表项
@@ -44,6 +49,9 @@ export interface LlmServiceInfoRespDTO {
   apiKey: string
   modelName: string
   status: number
+  rateLimitRpm: number | null
+  rateLimitTpm: number | null
+  fallbackServiceId: string | null
   createdByUsername: string
   createTime: string
 }

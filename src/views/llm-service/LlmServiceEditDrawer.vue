@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { reactive, ref, watch } from 'vue'
+import { reactive, ref, watch, computed } from 'vue'
 import { message } from 'ant-design-vue'
 import type { FormInstance } from 'ant-design-vue'
-import { getLlmServiceInfo, updateLlmService } from '@/api/llmService'
+import { getLlmServiceInfo, updateLlmService, listLlmServices } from '@/api/llmService'
 import { getProviderBySlug } from '@/constants/providers'
 import ProviderLogo from '@/components/ProviderLogo.vue'
 import type { LlmServiceInfo, LlmServiceUpdateReqDTO } from '@/types/llmService'
@@ -22,6 +22,13 @@ const formRef = ref<FormInstance>()
 const loading = ref(false)
 const fetching = ref(false)
 const maskedKey = ref('')
+const fallbackServices = ref<LlmServiceInfo[]>([])
+
+const rpmEnabled = ref(false)
+const rpmValue = ref<number | null>(null)
+const tpmEnabled = ref(false)
+const tpmValue = ref<number | null>(null)
+const fallbackValue = ref<string>('none')
 
 const form = reactive({
   name: '',
@@ -34,6 +41,14 @@ const rules = {
   name: [{ max: 20, message: '不超过 20 个字符', trigger: 'blur' }],
 }
 
+const fallbackOptions = computed(() =>
+  fallbackServices.value.map((s) => ({
+    value: s.serviceId,
+    label: s.status === 0 ? `${s.name}（已停用）` : s.name,
+    disabled: s.status === 0,
+  })),
+)
+
 watch(
   () => props.visible,
   async (v) => {
@@ -43,13 +58,30 @@ watch(
     form.apiKey = ''
     form.modelName = ''
     maskedKey.value = ''
+    fallbackServices.value = []
+    rpmEnabled.value = false
+    rpmValue.value = null
+    tpmEnabled.value = false
+    tpmValue.value = null
+    fallbackValue.value = 'none'
     fetching.value = true
     try {
-      const info = await getLlmServiceInfo(props.tenantId, props.record.serviceId)
+      const [info, resp] = await Promise.all([
+        getLlmServiceInfo(props.tenantId, props.record.serviceId),
+        listLlmServices(props.tenantId, 1, 200),
+      ])
       form.name = info.name
       form.apiUrl = info.apiUrl
       form.modelName = info.modelName
       maskedKey.value = info.apiKey
+      rpmEnabled.value = info.rateLimitRpm != null
+      rpmValue.value = info.rateLimitRpm ?? null
+      tpmEnabled.value = info.rateLimitTpm != null
+      tpmValue.value = info.rateLimitTpm ?? null
+      fallbackValue.value = info.fallbackServiceId ?? 'none'
+      fallbackServices.value = (resp.serviceInfoList ?? []).filter(
+        (s) => s.serviceId !== props.record?.serviceId,
+      )
     } catch {
       // handled by interceptor
     } finally {
@@ -79,9 +111,30 @@ async function handleSave() {
   if (form.apiKey.trim()) payload.apiKey = form.apiKey.trim()
   if (form.modelName.trim()) payload.modelName = form.modelName.trim()
 
-  if (Object.keys(payload).length === 0) {
-    message.error('请至少填写一个需要更新的字段')
-    return
+  if (rpmEnabled.value) {
+    if (rpmValue.value == null || rpmValue.value < 1) {
+      message.error('请输入有效的 RPM 上限')
+      return
+    }
+    payload.rpm = rpmValue.value
+  } else {
+    payload.rpm = 0
+  }
+
+  if (tpmEnabled.value) {
+    if (tpmValue.value == null || tpmValue.value < 1) {
+      message.error('请输入有效的 TPM 上限')
+      return
+    }
+    payload.tpm = tpmValue.value
+  } else {
+    payload.tpm = 0
+  }
+
+  if (fallbackValue.value === 'none') {
+    payload.fallbackServiceId = 0
+  } else {
+    payload.fallbackServiceId = fallbackValue.value
   }
 
   if (!props.record) return
@@ -144,6 +197,44 @@ async function handleSave() {
         <a-form-item name="apiKey" label="新 API Key">
           <a-input-password v-model:value="form.apiKey" placeholder="留空表示不修改" />
           <div class="form-hint">仅在需要更换时填写，留空保持原 Key 不变</div>
+        </a-form-item>
+
+        <a-form-item label="RPM 上限">
+          <a-switch v-model:checked="rpmEnabled" />
+          <a-input-number
+            v-if="rpmEnabled"
+            v-model:value="rpmValue"
+            :min="1"
+            :precision="0"
+            placeholder="请输入 RPM 上限"
+            style="width: 100%; margin-top: 8px"
+          />
+        </a-form-item>
+
+        <a-form-item label="TPM 上限">
+          <a-switch v-model:checked="tpmEnabled" />
+          <a-input-number
+            v-if="tpmEnabled"
+            v-model:value="tpmValue"
+            :min="1"
+            :precision="0"
+            placeholder="请输入 TPM 上限"
+            style="width: 100%; margin-top: 8px"
+          />
+        </a-form-item>
+
+        <a-form-item label="备用模型">
+          <a-select v-model:value="fallbackValue" style="width: 100%">
+            <a-select-option value="none">无降级</a-select-option>
+            <a-select-option
+              v-for="o in fallbackOptions"
+              :key="o.value"
+              :value="o.value"
+              :disabled="o.disabled"
+            >
+              {{ o.label }}
+            </a-select-option>
+          </a-select>
         </a-form-item>
       </a-form>
     </a-spin>

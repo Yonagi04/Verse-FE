@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { message } from 'ant-design-vue'
 import { CopyOutlined } from '@ant-design/icons-vue'
-import { getLlmServiceInfo } from '@/api/llmService'
+import { getLlmServiceInfo, listLlmServices } from '@/api/llmService'
 import { getProviderBySlug } from '@/constants/providers'
 import { formatDateTime } from '@/utils/date'
 import ProviderLogo from '@/components/ProviderLogo.vue'
@@ -20,6 +20,24 @@ const emit = defineEmits<{
 
 const loading = ref(false)
 const info = ref<LlmServiceInfoRespDTO | null>(null)
+const services = ref<LlmServiceInfo[]>([])
+
+const rateLimitText = computed(() => {
+  const rpm = info.value?.rateLimitRpm
+  const tpm = info.value?.rateLimitTpm
+  if (rpm == null && tpm == null) return '不限'
+  const parts: string[] = []
+  if (rpm != null) parts.push(`RPM ${rpm}`)
+  if (tpm != null) parts.push(`TPM ${tpm}`)
+  return parts.join(' / ')
+})
+
+const fallbackName = computed(() => {
+  const fid = info.value?.fallbackServiceId
+  if (fid == null) return '无降级'
+  const s = services.value.find((x) => x.serviceId === fid)
+  return s ? s.name : fid
+})
 
 watch(
   () => props.visible,
@@ -27,8 +45,14 @@ watch(
     if (!v || !props.record) return
     loading.value = true
     info.value = null
+    services.value = []
     try {
-      info.value = await getLlmServiceInfo(props.tenantId, props.record.serviceId)
+      const [detail, resp] = await Promise.all([
+        getLlmServiceInfo(props.tenantId, props.record.serviceId),
+        listLlmServices(props.tenantId, 1, 200),
+      ])
+      info.value = detail
+      services.value = resp.serviceInfoList ?? []
     } catch {
       // handled by interceptor
     } finally {
@@ -109,6 +133,16 @@ function handleClose() {
             <a-tag v-if="info.status === 0" color="default">已停用</a-tag>
             <a-tag v-else color="green">启用中</a-tag>
           </span>
+        </div>
+
+        <div class="detail-item">
+          <span class="detail-label">限流</span>
+          <span class="detail-value">{{ rateLimitText }}</span>
+        </div>
+
+        <div class="detail-item">
+          <span class="detail-label">备用模型</span>
+          <span class="detail-value">{{ fallbackName }}</span>
         </div>
 
         <div class="detail-item">

@@ -27,6 +27,10 @@ const form = reactive({
 })
 const setExpiry = ref(false)
 const expireAt = ref<string | null>(null)
+const rpmEnabled = ref(false)
+const rpm = ref<number | null>(null)
+const tpmEnabled = ref(false)
+const tpm = ref<number | null>(null)
 
 const rules = {
   name: [
@@ -42,6 +46,10 @@ watch(
       form.name = ''
       setExpiry.value = false
       expireAt.value = null
+      rpmEnabled.value = false
+      rpm.value = null
+      tpmEnabled.value = false
+      tpm.value = null
       result.value = null
     }
   },
@@ -61,10 +69,22 @@ async function handleCreate() {
     message.error('请设置过期时间')
     return
   }
+  if (rpmEnabled.value && (rpm.value == null || rpm.value < 1)) {
+    message.error('请输入有效的 RPM 上限')
+    return
+  }
+  if (tpmEnabled.value && (tpm.value == null || tpm.value < 1)) {
+    message.error('请输入有效的 TPM 上限')
+    return
+  }
 
   loading.value = true
   try {
-    const payload: ApiKeyCreateReqDTO = { name: form.name }
+    const payload: ApiKeyCreateReqDTO = {
+      name: form.name,
+      rpm: rpmEnabled.value ? rpm.value : null,
+      tpm: tpmEnabled.value ? tpm.value : null,
+    }
     if (setExpiry.value && expireAt.value) {
       payload.expiresAt = new Date(expireAt.value).toISOString()
     }
@@ -129,7 +149,35 @@ function handleCopy() {
         <div class="form-hint">过期后 API Key 将自动失效</div>
       </a-form-item>
 
-      <div v-else class="form-hint">API Key 将永不过期</div>
+      <div v-else class="form-hint form-hint-gap">API Key 将永不过期</div>
+
+      <a-form-item label="RPM 上限">
+        <a-switch
+          v-model:checked="rpmEnabled"
+        />
+        <a-input-number
+          v-if="rpmEnabled"
+          v-model:value="rpm"
+          :min="1"
+          :precision="0"
+          placeholder="请输入 RPM 上限"
+          style="width: 100%; margin-top: 8px"
+        />
+      </a-form-item>
+
+      <a-form-item label="TPM 上限">
+        <a-switch
+          v-model:checked="tpmEnabled"
+        />
+        <a-input-number
+          v-if="tpmEnabled"
+          v-model:value="tpm"
+          :min="1"
+          :precision="0"
+          placeholder="请输入 TPM 上限"
+          style="width: 100%; margin-top: 8px"
+        />
+      </a-form-item>
     </a-form>
 
     <!-- Reveal stage -->
@@ -183,6 +231,10 @@ function handleCopy() {
   color: $color-text-secondary;
   font-size: 12px;
   margin-top: 4px;
+}
+
+.form-hint-gap {
+  margin-bottom: 16px;
 }
 
 .reveal {

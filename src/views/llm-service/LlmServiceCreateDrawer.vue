@@ -27,6 +27,10 @@ const form = reactive({
   apiKey: '',
   modelName: '',
 })
+const rpmEnabled = ref(false)
+const rpm = ref<number | null>(null)
+const tpmEnabled = ref(false)
+const tpm = ref<number | null>(null)
 
 const rules = {
   name: [
@@ -48,6 +52,10 @@ watch(
       form.apiUrl = ''
       form.apiKey = ''
       form.modelName = ''
+      rpmEnabled.value = false
+      rpm.value = null
+      tpmEnabled.value = false
+      tpm.value = null
     }
   },
 )
@@ -73,6 +81,15 @@ async function handleCreate() {
     return
   }
 
+  if (rpmEnabled.value && (rpm.value == null || rpm.value < 1)) {
+    message.error('请输入有效的 RPM 上限')
+    return
+  }
+  if (tpmEnabled.value && (tpm.value == null || tpm.value < 1)) {
+    message.error('请输入有效的 TPM 上限')
+    return
+  }
+
   loading.value = true
   try {
     const payload: LlmServiceAddReqDTO = {
@@ -81,6 +98,8 @@ async function handleCreate() {
       apiUrl: form.apiUrl.trim(),
       apiKey: form.apiKey.trim(),
       modelName: form.modelName.trim(),
+      rpm: rpmEnabled.value ? rpm.value : null,
+      tpm: tpmEnabled.value ? tpm.value : null,
     }
     await addLlmService(props.tenantId, payload)
     message.success('已添加')
@@ -154,6 +173,34 @@ async function handleCreate() {
 
       <a-form-item name="modelName" label="模型名">
         <a-input v-model:value="form.modelName" placeholder="供应商侧记录的模型名称" />
+      </a-form-item>
+
+      <a-form-item label="RPM 上限">
+        <a-switch
+          v-model:checked="rpmEnabled"
+        />
+        <a-input-number
+          v-if="rpmEnabled"
+          v-model:value="rpm"
+          :min="1"
+          :precision="0"
+          placeholder="请输入 RPM 上限"
+          style="width: 100%; margin-top: 8px"
+        />
+      </a-form-item>
+
+      <a-form-item label="TPM 上限">
+        <a-switch
+          v-model:checked="tpmEnabled"
+        />
+        <a-input-number
+          v-if="tpmEnabled"
+          v-model:value="tpm"
+          :min="1"
+          :precision="0"
+          placeholder="请输入 TPM 上限"
+          style="width: 100%; margin-top: 8px"
+        />
       </a-form-item>
     </a-form>
 
