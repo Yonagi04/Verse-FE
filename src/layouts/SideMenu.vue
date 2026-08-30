@@ -59,8 +59,8 @@ const selectedKeys = computed(() => {
 })
 
 function handleMenuClick({ key }: { key: string }) {
-  // 占位路径不做跳转
-  if (key.startsWith('/') && !key.includes('token-usage') && !key.includes('/logs')) {
+  // 占位路径不做跳转（token-usage 仍为占位）
+  if (key.startsWith('/') && !key.includes('token-usage')) {
     router.push(key)
   }
 }
