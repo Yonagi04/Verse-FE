@@ -45,7 +45,7 @@ const menuItems: MenuItem[] = [
     icon: () => h(BarChartOutlined),
     label: '用量',
     children: [
-      { key: '/token-usage', icon: () => h(BarChartOutlined), label: '用量与费用' },
+      { key: '/usage', icon: () => h(BarChartOutlined), label: '用量统计' },
       { key: '/logs', icon: () => h(FileTextOutlined), label: '调用日志' },
     ],
   },

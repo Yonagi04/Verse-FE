@@ -1,18 +1,26 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import Decimal from 'decimal.js'
-import type { UsageTimeseriesPoint } from '@/types/usage'
-import { formatPreciseYuan, formatYuan } from '@/utils/money'
-
-const props = defineProps<{ points: UsageTimeseriesPoint[]; metric: 'cost' | 'requests' | 'tokens' }>()
-const active = ref<UsageTimeseriesPoint | null>(null)
-const values = computed(() => props.points.map((point) => props.metric === 'cost' ? (point.estimatedCostFen == null ? null : new Decimal(point.estimatedCostFen)) : new Decimal(props.metric === 'requests' ? point.requestCount : point.totalTokens)))
-const range = computed(() => { const valid = values.value.filter((value): value is Decimal => value != null); if (!valid.length) return { min: new Decimal(0), max: new Decimal(1) }; const min = Decimal.min(...valid); const max = Decimal.max(...valid); return { min, max: max.eq(min) ? min.plus(1) : max } })
-const points = computed(() => props.points.map((point, index) => { const value = values.value[index]; const x = props.points.length < 2 ? 50 : 8 + (84 * index) / (props.points.length - 1); const y = value == null ? null : 86 - Number(value.minus(range.value.min).div(range.value.max.minus(range.value.min)).mul(72)); return { point, x, y, label: props.metric === 'cost' ? formatYuan(point.estimatedCostFen) : value?.toFixed() } }))
-const segments = computed(() => { const output: string[] = []; let current: string[] = []; points.value.forEach((point) => { if (point.y == null) { if (current.length) output.push(current.join(' ')); current = [] } else current.push(`${point.x},${point.y}`) }); if (current.length) output.push(current.join(' ')); return output })
-function precise(point: UsageTimeseriesPoint) { return props.metric === 'cost' ? formatPreciseYuan(point.estimatedCostFen) : String(props.metric === 'requests' ? point.requestCount : point.totalTokens) }
+import { computed } from 'vue'
+import VChart from 'vue-echarts'
+import { use } from 'echarts/core'
+import { CanvasRenderer } from 'echarts/renderers'
+import { LineChart } from 'echarts/charts'
+import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components'
+import type { UsagePoint } from '@/types/usage'
+use([CanvasRenderer,LineChart,GridComponent,LegendComponent,TooltipComponent])
+const props=defineProps<{points:UsagePoint[];loading?:boolean;title:string;dataDelayMinutes?:number}>()
+const option=computed(()=>({
+ tooltip:{trigger:'axis'},
+ // 图例固定在顶部，并为横轴标签预留独立的底部空间，避免在窄卡片中相互覆盖。
+ legend:{data:['输入 Token','输出 Token'],top:0,left:'center'},
+ grid:{left:56,right:20,top:52,bottom:64,containLabel:true},
+ xAxis:{
+  type:'category',
+  boundaryGap:false,
+  data:props.points.map(p=>p.bucket.replace('T',' ').slice(5,16)),
+  axisLabel:{margin:14,hideOverlap:true},
+ },
+ yAxis:{type:'value'},
+ series:[{name:'输入 Token',type:'line',smooth:true,data:props.points.map(p=>p.inputTokens)},{name:'输出 Token',type:'line',smooth:true,data:props.points.map(p=>p.outputTokens)}]}))
 </script>
-<template>
-  <div class="chart" role="region" aria-label="用量趋势图"><svg viewBox="0 0 100 100" role="img"><title>用量趋势</title><desc>可通过键盘聚焦数据点读取精确值</desc><line x1="8" x2="92" y1="86" y2="86" stroke="#f0f0f0" /><polyline v-for="(segment, index) in segments" :key="index" :points="segment" fill="none" stroke="#1677ff" stroke-width="1.2" vector-effect="non-scaling-stroke" /><circle v-for="item in points.filter((item) => item.y != null)" :key="item.point.bucketStart" :cx="item.x" :cy="item.y ?? 0" r="1.8" fill="#1677ff" tabindex="0" @focus="active = item.point" @mouseenter="active = item.point" /></svg><div v-if="active" class="tooltip">{{ active.bucketStart }}：{{ precise(active) }}；请求 {{ active.requestCount }}；不可计算 {{ active.uncalculableRequestCount }}</div><div class="sr-only"><div v-for="point in props.points" :key="point.bucketStart">{{ point.bucketStart }}：{{ precise(point) }}</div></div></div>
-</template>
-<style lang="scss" scoped>.chart { min-height: 250px; }.chart svg { width: 100%; height: 240px; overflow: visible; }.tooltip { color: $color-text-secondary; font-size: 12px; }.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }</style>
+<template><a-card :loading="loading"><template #title><div class="chart-title"><span>{{ title }}</span><small v-if="dataDelayMinutes" class="delay-hint">用量统计并非实时更新，数据可能有约 {{ dataDelayMinutes }} 分钟延迟</small></div></template><a-empty v-if="!loading&&!points.some(p=>BigInt(p.totalTokens)>0n)" description="当前范围暂无用量"/><VChart v-else class="chart" :option="option" autoresize aria-label="Token 用量趋势图"/></a-card></template>
+<style scoped>.chart-title{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}.delay-hint{color:#8c8c8c;font-size:12px;font-weight:400}.chart{height:300px;width:100%}</style>

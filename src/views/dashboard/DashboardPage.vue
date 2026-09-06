@@ -3,6 +3,9 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { useTenantStore } from '@/stores/tenant'
 import { getLlmCount } from '@/api/llmService'
+import { getUsageDashboard } from '@/api/usage'
+import type { UsageDashboard } from '@/types/usage'
+import UsageTrendChart from '@/views/usage/components/UsageTrendChart.vue'
 import {
   DashboardOutlined,
   ApiOutlined,
@@ -14,6 +17,9 @@ const userStore = useUserStore()
 const tenantStore = useTenantStore()
 
 const llmCount = ref<number | null>(null)
+const usage = ref<UsageDashboard | null>(null)
+const usageLoading = ref(false)
+let usageSequence = 0
 
 const activeTenantId = computed(
   () => tenantStore.currentTenant?.tenantId ?? tenantStore.tenants[0]?.tenantId ?? null,
@@ -31,15 +37,34 @@ async function fetchLlmCount() {
   }
 }
 
+async function fetchUsage() {
+  const tenantId = activeTenantId.value
+  const current = ++usageSequence
+  if (!tenantId) { usage.value = null; return }
+  usageLoading.value = true
+  try {
+    const value = await getUsageDashboard(tenantId)
+    if (current === usageSequence) usage.value = value
+  } catch {
+    if (current === usageSequence) usage.value = null
+  } finally {
+    if (current === usageSequence) usageLoading.value = false
+  }
+}
+
+const formatCount = (value?: string) => value == null ? '--' : BigInt(value).toLocaleString()
+
 onMounted(async () => {
   if (tenantStore.tenants.length === 0) {
     await tenantStore.fetchTenants()
   }
   await fetchLlmCount()
+  await fetchUsage()
 })
 
 watch(activeTenantId, () => {
   fetchLlmCount()
+  fetchUsage()
 })
 </script>
 
@@ -78,7 +103,7 @@ watch(activeTenantId, () => {
           <div class="stat-content">
             <BarChartOutlined class="stat-icon" />
             <div>
-              <div class="stat-value">--</div>
+              <div class="stat-value">{{ formatCount(usage?.today.totalTokens) }}</div>
               <div class="stat-label">今日 Token</div>
             </div>
           </div>
@@ -89,7 +114,7 @@ watch(activeTenantId, () => {
           <div class="stat-content">
             <DashboardOutlined class="stat-icon" />
             <div>
-              <div class="stat-value">--</div>
+              <div class="stat-value">{{ formatCount(usage?.today.requestCount) }}</div>
               <div class="stat-label">API 调用</div>
             </div>
           </div>
@@ -97,9 +122,10 @@ watch(activeTenantId, () => {
       </a-col>
     </a-row>
 
-    <a-card title="快速开始" style="margin-top: 24px">
-      <a-empty description="更多功能即将上线" />
-    </a-card>
+    <a-row :gutter="[16, 16]" class="usage-charts">
+      <a-col :xs="24" :xl="12"><UsageTrendChart title="最近 24 小时用量" :points="usage?.recent24Hours.points ?? []" :loading="usageLoading" :data-delay-minutes="usage?.dataDelayMinutes" /></a-col>
+      <a-col :xs="24" :xl="12"><UsageTrendChart title="最近 7 天用量" :points="usage?.recent7Days.points ?? []" :loading="usageLoading" /></a-col>
+    </a-row>
   </div>
 </template>
 
@@ -150,4 +176,5 @@ watch(activeTenantId, () => {
     margin-top: 4px;
   }
 }
+.usage-charts { margin-top: 24px; }
 </style>
