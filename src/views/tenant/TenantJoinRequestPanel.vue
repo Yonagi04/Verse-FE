@@ -233,7 +233,6 @@ const processedColumns = [
       v-model:page-size="pageSize"
       :total-pages="data.totalPages"
       :total="data.total"
-      :page-size="pageSize"
       page-jump-id="jrPageJump"
     />
 

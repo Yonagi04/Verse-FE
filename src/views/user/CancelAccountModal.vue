@@ -78,7 +78,7 @@ function handleCodePaste(e: ClipboardEvent) {
   const digits = paste.replace(/[^0-9]/g, '').slice(0, 6)
   const cells = document.querySelectorAll<HTMLInputElement>('.code-cell')
   codeCells.value.fill('')
-  digits.split('').forEach((d, i) => {
+  digits.split('').forEach((d: string, i: number) => {
     if (cells[i]) {
       cells[i].value = d
       codeCells.value[i] = d

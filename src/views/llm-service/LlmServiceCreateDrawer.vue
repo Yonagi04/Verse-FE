@@ -2,10 +2,13 @@
 import { reactive, ref, watch } from 'vue'
 import { message } from 'ant-design-vue'
 import type { FormInstance } from 'ant-design-vue'
-import { addLlmService } from '@/api/llmService'
+import { addLlmService, listLlmServiceTags } from '@/api/llmService'
 import { PROVIDER_GROUPS, getProviderBySlug, prefixProviderName } from '@/constants/providers'
 import ProviderLogo from '@/components/ProviderLogo.vue'
-import type { LlmServiceAddReqDTO } from '@/types/llmService'
+import ModelMetadataFields from './components/ModelMetadataFields.vue'
+import PricingFormSection from './components/PricingFormSection.vue'
+import { validatePeakPeriods, validateTokenLimits } from '@/utils/peakPeriod'
+import type { LlmServiceAddReqDTO, PricingRequest, TagInfo } from '@/types/llmService'
 
 const props = defineProps<{
   visible: boolean
@@ -31,6 +34,11 @@ const rpmEnabled = ref(false)
 const rpm = ref<number | null>(null)
 const tpmEnabled = ref(false)
 const tpm = ref<number | null>(null)
+const tags = ref<TagInfo[]>([])
+const tagCodes = ref<string[]>([])
+const contextWindow = ref<number | null>(null)
+const maxOutputTokens = ref<number | null>(null)
+const pricing = ref<PricingRequest>({ enabled: false })
 
 const rules = {
   name: [
@@ -56,6 +64,11 @@ watch(
       rpm.value = null
       tpmEnabled.value = false
       tpm.value = null
+      tagCodes.value = []
+      contextWindow.value = null
+      maxOutputTokens.value = null
+      pricing.value = { enabled: false }
+      listLlmServiceTags().then((value) => { tags.value = value }).catch(() => { /* interceptor handled */ })
     }
   },
 )
@@ -89,6 +102,12 @@ async function handleCreate() {
     message.error('请输入有效的 TPM 上限')
     return
   }
+  const limits = validateTokenLimits(contextWindow.value, maxOutputTokens.value)
+  if (!limits.valid) { message.error(limits.message!); return }
+  if (pricing.value.enabled) {
+    const peaks = validatePeakPeriods(pricing.value.peakPeriods)
+    if (!peaks.valid) { message.error(peaks.message!); return }
+  }
 
   loading.value = true
   try {
@@ -100,6 +119,10 @@ async function handleCreate() {
       modelName: form.modelName.trim(),
       rpm: rpmEnabled.value ? rpm.value : null,
       tpm: tpmEnabled.value ? tpm.value : null,
+      ...(tagCodes.value.length ? { tagCodes: tagCodes.value } : {}),
+      ...(contextWindow.value != null ? { contextWindow: contextWindow.value } : {}),
+      ...(maxOutputTokens.value != null ? { maxOutputTokens: maxOutputTokens.value } : {}),
+      pricing: pricing.value,
     }
     await addLlmService(props.tenantId, payload)
     message.success('已添加')
@@ -117,7 +140,7 @@ async function handleCreate() {
   <a-drawer
     :open="visible"
     title="添加模型服务"
-    :width="520"
+    :width="720"
     :mask-closable="false"
     @close="handleCancel"
   >
@@ -175,6 +198,8 @@ async function handleCreate() {
         <a-input v-model:value="form.modelName" placeholder="供应商侧记录的模型名称" />
       </a-form-item>
 
+      <ModelMetadataFields v-model:tag-codes="tagCodes" v-model:context-window="contextWindow" v-model:max-output-tokens="maxOutputTokens" :tags="tags" />
+
       <a-form-item label="RPM 上限">
         <a-switch
           v-model:checked="rpmEnabled"
@@ -202,6 +227,8 @@ async function handleCreate() {
           style="width: 100%; margin-top: 8px"
         />
       </a-form-item>
+
+      <PricingFormSection v-model="pricing" />
     </a-form>
 
     <template #footer>

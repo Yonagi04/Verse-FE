@@ -6,6 +6,9 @@ declare module '*.vue' {
   export default component
 }
 
+declare module 'sockjs-client'
+declare module 'qrcode'
+
 interface ImportMetaEnv {
   readonly VITE_API_BASE_URL: string
 }

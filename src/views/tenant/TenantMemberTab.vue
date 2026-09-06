@@ -252,7 +252,6 @@ function handleRemove(member: TenantMemberInfo) {
         v-model:page-size="pageSize"
         :total-pages="membersData.totalPages"
         :total="membersData.total"
-        :page-size="pageSize"
         page-jump-id="memberPageJump"
         total-label="人"
       />

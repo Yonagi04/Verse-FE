@@ -2,10 +2,13 @@
 import { reactive, ref, watch, computed } from 'vue'
 import { message } from 'ant-design-vue'
 import type { FormInstance } from 'ant-design-vue'
-import { getLlmServiceInfo, updateLlmService, listLlmServices } from '@/api/llmService'
+import { getLlmServiceInfo, updateLlmService, listLlmServices, listLlmServiceTags } from '@/api/llmService'
 import { getProviderBySlug } from '@/constants/providers'
 import ProviderLogo from '@/components/ProviderLogo.vue'
-import type { LlmServiceInfo, LlmServiceUpdateReqDTO } from '@/types/llmService'
+import ModelMetadataFields from './components/ModelMetadataFields.vue'
+import PricingFormSection from './components/PricingFormSection.vue'
+import { validatePeakPeriods, validateTokenLimits } from '@/utils/peakPeriod'
+import type { LlmServiceInfo, LlmServiceInfoRespDTO, LlmServiceUpdateReqDTO, PricingRequest, TagInfo } from '@/types/llmService'
 
 const props = defineProps<{
   visible: boolean
@@ -29,6 +32,12 @@ const rpmValue = ref<number | null>(null)
 const tpmEnabled = ref(false)
 const tpmValue = ref<number | null>(null)
 const fallbackValue = ref<string>('none')
+const tags = ref<TagInfo[]>([])
+const tagCodes = ref<string[]>([])
+const contextWindow = ref<number | null>(null)
+const maxOutputTokens = ref<number | null>(null)
+const pricing = ref<PricingRequest>({ enabled: false })
+const originalSnapshot = ref<LlmServiceInfoRespDTO | null>(null)
 
 const form = reactive({
   name: '',
@@ -64,11 +73,13 @@ watch(
     tpmEnabled.value = false
     tpmValue.value = null
     fallbackValue.value = 'none'
+    tagCodes.value = []; contextWindow.value = null; maxOutputTokens.value = null; pricing.value = { enabled: false }; originalSnapshot.value = null
     fetching.value = true
     try {
-      const [info, resp] = await Promise.all([
+      const [info, resp, dictionary] = await Promise.all([
         getLlmServiceInfo(props.tenantId, props.record.serviceId),
         listLlmServices(props.tenantId, 1, 200),
+        listLlmServiceTags(),
       ])
       form.name = info.name
       form.apiUrl = info.apiUrl
@@ -79,6 +90,12 @@ watch(
       tpmEnabled.value = info.rateLimitTpm != null
       tpmValue.value = info.rateLimitTpm ?? null
       fallbackValue.value = info.fallbackServiceId ?? 'none'
+      tags.value = dictionary
+      tagCodes.value = info.tagCodes ?? []
+      contextWindow.value = info.contextWindow
+      maxOutputTokens.value = info.maxOutputTokens
+      pricing.value = info.pricing
+      originalSnapshot.value = structuredClone(info)
       fallbackServices.value = (resp.serviceInfoList ?? []).filter(
         (s) => s.serviceId !== props.record?.serviceId,
       )
@@ -106,18 +123,19 @@ async function handleSave() {
   }
 
   const payload: LlmServiceUpdateReqDTO = {}
-  if (form.name.trim()) payload.name = form.name.trim()
-  if (form.apiUrl.trim()) payload.apiUrl = form.apiUrl.trim()
+  if (!originalSnapshot.value) return
+  if (form.name.trim() && form.name.trim() !== originalSnapshot.value.name) payload.name = form.name.trim()
+  if (form.apiUrl.trim() && form.apiUrl.trim() !== originalSnapshot.value.apiUrl) payload.apiUrl = form.apiUrl.trim()
   if (form.apiKey.trim()) payload.apiKey = form.apiKey.trim()
-  if (form.modelName.trim()) payload.modelName = form.modelName.trim()
+  if (form.modelName.trim() && form.modelName.trim() !== originalSnapshot.value.modelName) payload.modelName = form.modelName.trim()
 
   if (rpmEnabled.value) {
     if (rpmValue.value == null || rpmValue.value < 1) {
       message.error('请输入有效的 RPM 上限')
       return
     }
-    payload.rpm = rpmValue.value
-  } else {
+    if (rpmValue.value !== originalSnapshot.value.rateLimitRpm) payload.rpm = rpmValue.value
+  } else if (originalSnapshot.value.rateLimitRpm != null) {
     payload.rpm = 0
   }
 
@@ -126,16 +144,23 @@ async function handleSave() {
       message.error('请输入有效的 TPM 上限')
       return
     }
-    payload.tpm = tpmValue.value
-  } else {
+    if (tpmValue.value !== originalSnapshot.value.rateLimitTpm) payload.tpm = tpmValue.value
+  } else if (originalSnapshot.value.rateLimitTpm != null) {
     payload.tpm = 0
   }
 
-  if (fallbackValue.value === 'none') {
-    payload.fallbackServiceId = 0
-  } else {
-    payload.fallbackServiceId = fallbackValue.value
+  const limits = validateTokenLimits(contextWindow.value, maxOutputTokens.value)
+  if (!limits.valid) { message.error(limits.message!); return }
+  if (tagCodes.value.join(',') !== originalSnapshot.value.tagCodes.join(',')) payload.tagCodes = tagCodes.value
+  if (contextWindow.value !== originalSnapshot.value.contextWindow) payload.contextWindow = contextWindow.value ?? 0
+  if (maxOutputTokens.value !== originalSnapshot.value.maxOutputTokens) payload.maxOutputTokens = maxOutputTokens.value ?? 0
+  if (JSON.stringify(pricing.value) !== JSON.stringify(originalSnapshot.value.pricing)) {
+    if (pricing.value.enabled) { const peaks = validatePeakPeriods(pricing.value.peakPeriods); if (!peaks.valid) { message.error(peaks.message!); return } }
+    payload.pricing = pricing.value
   }
+
+  const newFallback = fallbackValue.value === 'none' ? null : fallbackValue.value
+  if (newFallback !== originalSnapshot.value.fallbackServiceId) payload.fallbackServiceId = newFallback ?? 0
 
   if (!props.record) return
 
@@ -157,7 +182,7 @@ async function handleSave() {
   <a-drawer
     :open="visible"
     title="编辑模型服务"
-    :width="520"
+    :width="720"
     :mask-closable="false"
     @close="handleCancel"
   >
@@ -199,6 +224,8 @@ async function handleSave() {
           <div class="form-hint">仅在需要更换时填写，留空保持原 Key 不变</div>
         </a-form-item>
 
+        <ModelMetadataFields v-model:tag-codes="tagCodes" v-model:context-window="contextWindow" v-model:max-output-tokens="maxOutputTokens" :tags="tags" />
+
         <a-form-item label="RPM 上限">
           <a-switch v-model:checked="rpmEnabled" />
           <a-input-number
@@ -236,6 +263,8 @@ async function handleSave() {
             </a-select-option>
           </a-select>
         </a-form-item>
+
+        <PricingFormSection v-model="pricing" />
       </a-form>
     </a-spin>
 

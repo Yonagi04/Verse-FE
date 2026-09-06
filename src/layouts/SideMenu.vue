@@ -45,7 +45,7 @@ const menuItems: MenuItem[] = [
     icon: () => h(BarChartOutlined),
     label: '用量',
     children: [
-      { key: '/token-usage', icon: () => h(BarChartOutlined), label: 'Token 消耗' },
+      { key: '/token-usage', icon: () => h(BarChartOutlined), label: '用量与费用' },
       { key: '/logs', icon: () => h(FileTextOutlined), label: '调用日志' },
     ],
   },
@@ -59,8 +59,7 @@ const selectedKeys = computed(() => {
 })
 
 function handleMenuClick({ key }: { key: string }) {
-  // 占位路径不做跳转（token-usage 仍为占位）
-  if (key.startsWith('/') && !key.includes('token-usage')) {
+  if (key.startsWith('/')) {
     router.push(key)
   }
 }

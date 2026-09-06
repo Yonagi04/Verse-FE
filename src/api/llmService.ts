@@ -6,6 +6,7 @@ import type {
   LlmServiceRemovePreRespDTO,
   LlmServiceRemoveReqDTO,
   LlmServiceUpdateReqDTO,
+  TagInfo,
 } from '@/types/llmService'
 
 // 添加模型服务
@@ -19,10 +20,15 @@ export function listLlmServices(
   pageNum: number,
   pageSize: number,
   keyword?: string,
+  tagCodes?: string[],
 ): Promise<LlmServiceListRespDTO> {
   return request.get(`/llm-service/${tenantId}/list`, {
-    params: { pageNum, pageSize, ...(keyword ? { keyword } : {}) },
+    params: { pageNum, pageSize, ...(keyword ? { keyword } : {}), ...(tagCodes?.length ? { tagCodes: tagCodes.join(',') } : {}) },
   })
+}
+
+export function listLlmServiceTags(): Promise<TagInfo[]> {
+  return request.get('/llm-service/tags')
 }
 
 // 更新模型服务（部分更新）

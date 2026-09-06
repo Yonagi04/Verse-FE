@@ -95,7 +95,7 @@ function handleClose() {
           <div class="join-result-desc">加入申请提交失败，请稍后重试</div>
         </template>
         <!-- Success: directly joined -->
-        <template v-else-if="!joinResult.pendingApproval">
+        <template v-else-if="!joinResult?.pendingApproval">
           <div class="join-result-icon success">
             <span style="font-size: 28px;">&#10003;</span>
           </div>

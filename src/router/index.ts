@@ -86,6 +86,12 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true },
   },
   {
+    path: '/token-usage',
+    name: 'UsageCost',
+    component: () => import('@/views/usage/UsageCostPage.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/profile',
     name: 'UserCenter',
     component: () => import('@/views/user/UserCenter.vue'),

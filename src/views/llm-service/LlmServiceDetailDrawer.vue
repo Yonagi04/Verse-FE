@@ -6,16 +6,20 @@ import { getLlmServiceInfo, listLlmServices } from '@/api/llmService'
 import { getProviderBySlug } from '@/constants/providers'
 import { formatDateTime } from '@/utils/date'
 import ProviderLogo from '@/components/ProviderLogo.vue'
-import type { LlmServiceInfo, LlmServiceInfoRespDTO } from '@/types/llmService'
+import type { LlmServiceInfo, LlmServiceInfoRespDTO, TagInfo } from '@/types/llmService'
+import ModelTagList from './components/ModelTagList.vue'
+import { formatYuan } from '@/utils/money'
 
 const props = defineProps<{
   visible: boolean
   tenantId: string
   record: LlmServiceInfo | null
+  dictionary?: TagInfo[] | null
 }>()
 
 const emit = defineEmits<{
   (e: 'update:visible', value: boolean): void
+  (e: 'compare', record: LlmServiceInfo): void
 }>()
 
 const loading = ref(false)
@@ -37,6 +41,27 @@ const fallbackName = computed(() => {
   if (fid == null) return '无降级'
   const s = services.value.find((x) => x.serviceId === fid)
   return s ? s.name : fid
+})
+
+const pricingEnabled = computed(() => info.value?.pricing?.enabled === true)
+const billingLabel = computed(() => {
+  if (!info.value?.pricing?.enabled) return '未启用计费'
+  return info.value.pricing.billingMode === 'TOKEN' ? 'Token 计费' : '按请求计费'
+})
+const pricingRows = computed(() => {
+  const pricing = info.value?.pricing
+  if (!pricing?.enabled) return []
+  if (pricing.billingMode === 'TOKEN') return [
+    ['缓存未命中输入价', formatYuan(pricing.baseTokenPrices.cacheMissInputPriceFen)],
+    ['缓存命中输入价', pricing.baseTokenPrices.cacheHitInputPriceFen == null ? '使用缓存未命中输入价' : formatYuan(pricing.baseTokenPrices.cacheHitInputPriceFen)],
+    ['输出价', formatYuan(pricing.baseTokenPrices.outputPriceFen)],
+  ]
+  return [['每次成功请求价格', formatYuan(pricing.baseRequestPriceFen)]]
+})
+const peakSummary = computed(() => {
+  const pricing = info.value?.pricing
+  if (!pricing?.enabled) return ''
+  return pricing.peakPeriods.length ? `${pricing.peakPeriods.length} 条规则（Asia/Shanghai）` : '未配置'
 })
 
 watch(
@@ -75,6 +100,10 @@ function handleCopyName(name: string) {
 
 function handleClose() {
   emit('update:visible', false)
+}
+
+function handleCompare() {
+  if (props.record) emit('compare', props.record)
 }
 </script>
 
@@ -140,6 +169,22 @@ function handleClose() {
           <span class="detail-value">{{ rateLimitText }}</span>
         </div>
 
+        <div class="detail-item"><span class="detail-label">能力标签</span><span class="detail-value"><ModelTagList :codes="info.tagCodes" :dictionary="dictionary" /></span></div>
+        <div class="detail-item"><span class="detail-label">上下文长度</span><span class="detail-value">{{ info.contextWindow ?? '未配置' }}</span></div>
+        <div class="detail-item"><span class="detail-label">最大输出 Token</span><span class="detail-value">{{ info.maxOutputTokens ?? '未配置' }}</span></div>
+
+        <div class="detail-item">
+          <span class="detail-label">计费</span>
+          <span class="detail-value">
+            <a-tag :color="pricingEnabled ? 'blue' : 'default'">{{ billingLabel }}</a-tag>
+            <div v-if="!pricingEnabled" class="billing-hint">模型仍可调用，但不会进入费用统计</div>
+          </span>
+        </div>
+        <template v-if="pricingEnabled">
+          <div v-for="row in pricingRows" :key="row[0]" class="detail-item"><span class="detail-label">{{ row[0] }}</span><span class="detail-value">{{ row[1] }}</span></div>
+          <div class="detail-item"><span class="detail-label">高峰时段</span><span class="detail-value">{{ peakSummary }}</span></div>
+        </template>
+
         <div class="detail-item">
           <span class="detail-label">备用模型</span>
           <span class="detail-value">{{ fallbackName }}</span>
@@ -160,6 +205,7 @@ function handleClose() {
     </a-spin>
 
     <template #footer>
+      <a-button style="margin-right: 8px" @click="handleCompare">模型对比</a-button>
       <a-button type="primary" @click="handleClose">关闭</a-button>
     </template>
   </a-drawer>
@@ -174,7 +220,7 @@ function handleClose() {
 
   .detail-label {
     min-width: 72px;
-    font-size: 13px;
+    font-size: 14px;
     color: $color-text-secondary;
     padding-top: 2px;
     flex-shrink: 0;
@@ -203,5 +249,11 @@ function handleClose() {
 .mono {
   font-family: 'Courier New', monospace;
   font-size: 13px;
+}
+
+.billing-hint {
+  margin-top: 6px;
+  color: $color-text-secondary;
+  font-size: 12px;
 }
 </style>

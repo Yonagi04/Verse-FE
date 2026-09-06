@@ -7,15 +7,12 @@ import {
   MobileOutlined,
   TabletOutlined,
   WindowsOutlined,
-  AppleOutlined,
-  AndroidOutlined,
 } from '@ant-design/icons-vue'
 import { getDevices, kickDevice } from '@/api/user'
 import type { DeviceInfo } from '@/types/user'
 
 // ========== State ==========
 const loading = ref(false)
-const kicking = ref(false)
 const devices = ref<DeviceInfo[]>([])
 
 // ========== Fetch ==========
