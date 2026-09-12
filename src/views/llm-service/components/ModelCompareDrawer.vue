@@ -104,6 +104,8 @@ function price(info: LlmServiceInfoRespDTO | null) {
             <ModelTagList :codes="left.tagCodes" :dictionary="props.dictionary" />
             <small>共同：{{ leftCommon }}</small>
           </a-descriptions-item>
+          <a-descriptions-item label="模型介绍">{{ left.description || '暂无模型元数据' }}</a-descriptions-item>
+          <a-descriptions-item label="模型介绍">{{ right.description || '暂无模型元数据' }}</a-descriptions-item>
           <a-descriptions-item label="标签">
             <ModelTagList :codes="right.tagCodes" :dictionary="props.dictionary" />
             <small>共同：{{ rightCommon }}</small>

@@ -3,6 +3,15 @@ import { message } from 'ant-design-vue'
 import { getToken, clearAuth } from '@/utils/auth'
 import type { Result } from '@/types/api'
 
+declare module 'axios' {
+  export interface AxiosRequestConfig {
+    silentError?: boolean
+  }
+  export interface InternalAxiosRequestConfig {
+    silentError?: boolean
+  }
+}
+
 const http = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,
   timeout: 30000,
@@ -24,7 +33,7 @@ http.interceptors.response.use(
     const result = response.data
     if (result.code !== '0') {
       // B000218（账号已注销）由登录页弹窗处理，此处不弹 toast
-      if (result.code !== 'B000218') {
+      if (result.code !== 'B000218' && !response.config.silentError) {
         message.error(result.message || '请求失败')
       }
       const bizError = new Error(result.message || '请求失败') as Error & { code: string }
@@ -44,6 +53,8 @@ http.interceptors.response.use(
         message.error('登录已过期，请重新登录')
         window.location.href = '/login'
       }
+    } else if (error.config?.silentError) {
+      // 由发起请求的局部 UI 呈现错误，避免 Hover 等轻量交互弹出全局提示。
     } else if (result?.message) {
       message.error(result.message)
     } else {

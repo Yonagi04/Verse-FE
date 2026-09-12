@@ -37,8 +37,14 @@ export function updateLlmService(tenantId: string, serviceId: string, data: LlmS
 }
 
 // 获取模型服务详情（apiKey 为脱敏值）
-export function getLlmServiceInfo(tenantId: string, serviceId: string): Promise<LlmServiceInfoRespDTO> {
-  return request.get(`/llm-service/${tenantId}/info/${serviceId}`)
+export function getLlmServiceInfo(
+  tenantId: string,
+  serviceId: string,
+  options?: { silentError?: boolean },
+): Promise<LlmServiceInfoRespDTO> {
+  return request.get(`/llm-service/${tenantId}/info/${serviceId}`, {
+    silentError: options?.silentError,
+  })
 }
 
 // 停用模型服务

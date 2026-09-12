@@ -44,6 +44,7 @@ const form = reactive({
   apiUrl: '',
   apiKey: '',
   modelName: '',
+  description: '',
 })
 
 const rules = {
@@ -66,6 +67,7 @@ watch(
     form.apiUrl = ''
     form.apiKey = ''
     form.modelName = ''
+    form.description = ''
     maskedKey.value = ''
     fallbackServices.value = []
     rpmEnabled.value = false
@@ -84,6 +86,7 @@ watch(
       form.name = info.name
       form.apiUrl = info.apiUrl
       form.modelName = info.modelName
+      form.description = info.description ?? ''
       maskedKey.value = info.apiKey
       rpmEnabled.value = info.rateLimitRpm != null
       rpmValue.value = info.rateLimitRpm ?? null
@@ -128,6 +131,7 @@ async function handleSave() {
   if (form.apiUrl.trim() && form.apiUrl.trim() !== originalSnapshot.value.apiUrl) payload.apiUrl = form.apiUrl.trim()
   if (form.apiKey.trim()) payload.apiKey = form.apiKey.trim()
   if (form.modelName.trim() && form.modelName.trim() !== originalSnapshot.value.modelName) payload.modelName = form.modelName.trim()
+  if (form.description.trim() !== (originalSnapshot.value.description ?? '')) payload.description = form.description.trim()
 
   if (rpmEnabled.value) {
     if (rpmValue.value == null || rpmValue.value < 1) {
@@ -213,6 +217,16 @@ async function handleSave() {
 
         <a-form-item name="modelName" label="模型名">
           <a-input v-model:value="form.modelName" placeholder="供应商侧记录的模型名称" />
+        </a-form-item>
+
+        <a-form-item label="模型介绍">
+          <a-textarea
+            v-model:value="form.description"
+            placeholder="简要说明模型的适用场景与特点（可选）"
+            :maxlength="100"
+            :auto-size="{ minRows: 3, maxRows: 5 }"
+            show-count
+          />
         </a-form-item>
 
         <a-form-item label="当前 API Key（脱敏）">

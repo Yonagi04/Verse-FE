@@ -29,6 +29,7 @@ const form = reactive({
   apiUrl: '',
   apiKey: '',
   modelName: '',
+  description: '',
 })
 const rpmEnabled = ref(false)
 const rpm = ref<number | null>(null)
@@ -60,6 +61,7 @@ watch(
       form.apiUrl = ''
       form.apiKey = ''
       form.modelName = ''
+      form.description = ''
       rpmEnabled.value = false
       rpm.value = null
       tpmEnabled.value = false
@@ -117,6 +119,7 @@ async function handleCreate() {
       apiUrl: form.apiUrl.trim(),
       apiKey: form.apiKey.trim(),
       modelName: form.modelName.trim(),
+      ...(form.description.trim() ? { description: form.description.trim() } : {}),
       rpm: rpmEnabled.value ? rpm.value : null,
       tpm: tpmEnabled.value ? tpm.value : null,
       ...(tagCodes.value.length ? { tagCodes: tagCodes.value } : {}),
@@ -196,6 +199,16 @@ async function handleCreate() {
 
       <a-form-item name="modelName" label="模型名">
         <a-input v-model:value="form.modelName" placeholder="供应商侧记录的模型名称" />
+      </a-form-item>
+
+      <a-form-item label="模型介绍">
+        <a-textarea
+          v-model:value="form.description"
+          placeholder="简要说明模型的适用场景与特点（可选）"
+          :maxlength="100"
+          :auto-size="{ minRows: 3, maxRows: 5 }"
+          show-count
+        />
       </a-form-item>
 
       <ModelMetadataFields v-model:tag-codes="tagCodes" v-model:context-window="contextWindow" v-model:max-output-tokens="maxOutputTokens" :tags="tags" />

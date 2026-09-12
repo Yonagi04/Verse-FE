@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, h } from 'vue'
 import { Modal, message } from 'ant-design-vue'
-import { PlusOutlined, CopyOutlined, SwapOutlined } from '@ant-design/icons-vue'
+import { PlusOutlined } from '@ant-design/icons-vue'
 import { useTenantStore } from '@/stores/tenant'
 import { ROLE_PERMISSIONS, PERMISSIONS, type Permission } from '@/utils/constants'
 import {
@@ -11,18 +11,24 @@ import {
   prepareRemoveLlmService,
   removeLlmService,
   listLlmServiceTags,
+  getLlmServiceInfo,
 } from '@/api/llmService'
-import { getProviderBySlug } from '@/constants/providers'
-import ProviderLogo from '@/components/ProviderLogo.vue'
 import PaginationBar from '@/components/PaginationBar.vue'
 import LlmServiceCreateDrawer from './LlmServiceCreateDrawer.vue'
 import LlmServiceEditDrawer from './LlmServiceEditDrawer.vue'
 import LlmServiceDetailDrawer from './LlmServiceDetailDrawer.vue'
-import ModelTagList from './components/ModelTagList.vue'
-import ModelTagFilter from './components/ModelTagFilter.vue'
 import ModelCompareDrawer from './components/ModelCompareDrawer.vue'
 import ModelPickerModal from './components/ModelPickerModal.vue'
-import type { LlmServiceInfo, LlmServiceListRespDTO, LlmServiceRemovePreRespDTO, TagInfo } from '@/types/llmService'
+import ModelServiceCard from './components/ModelServiceCard.vue'
+import ModelCatalogToolbar from './components/ModelCatalogToolbar.vue'
+import ModelCompareBar from './components/ModelCompareBar.vue'
+import type {
+  LlmServiceInfo,
+  LlmServiceInfoRespDTO,
+  LlmServiceListRespDTO,
+  LlmServiceRemovePreRespDTO,
+  TagInfo,
+} from '@/types/llmService'
 
 const tenantStore = useTenantStore()
 
@@ -30,7 +36,7 @@ const selectedTenantId = ref<string | null>(null)
 const data = ref<LlmServiceListRespDTO | null>(null)
 const loading = ref(false)
 const pageNum = ref(1)
-const pageSize = ref(10)
+const pageSize = ref(12)
 const keyword = ref('')
 const selectedTagCodes = ref<string[]>([])
 const tags = ref<TagInfo[]>([])
@@ -48,10 +54,15 @@ const detailVisible = ref(false)
 const editingRecord = ref<LlmServiceInfo | null>(null)
 const detailRecord = ref<LlmServiceInfo | null>(null)
 
+const detailCache = ref<Record<string, LlmServiceInfoRespDTO>>({})
+const detailLoading = ref<Record<string, boolean>>({})
+const detailErrors = ref<Record<string, boolean>>({})
+const compareRecordCache = ref<Record<string, LlmServiceInfo>>({})
+
 // 权限以「下拉选中的租户」角色为准（而非全局 currentTenant）
 const selectedRole = computed(() => {
-  const t = tenantStore.tenants.find((x) => x.tenantId === selectedTenantId.value)
-  return t?.role ?? null
+  const tenant = tenantStore.tenants.find((item) => item.tenantId === selectedTenantId.value)
+  return tenant?.role ?? null
 })
 
 const authorities = computed<Permission[]>(() => {
@@ -62,104 +73,124 @@ const authorities = computed<Permission[]>(() => {
 const canRegister = computed(() => authorities.value.includes(PERMISSIONS.TENANT_LLM_REGISTER))
 const canUpdate = computed(() => authorities.value.includes(PERMISSIONS.TENANT_LLM_UPDATE))
 const canDelete = computed(() => authorities.value.includes(PERMISSIONS.TENANT_LLM_DELETE))
+const canCompare = computed(() => canRegister.value || canUpdate.value)
 
 const tenantOptions = computed(() =>
-  tenantStore.tenants.map((t) => ({ value: t.tenantId, label: t.name })),
+  tenantStore.tenants.map((tenant) => ({ value: tenant.tenantId, label: tenant.name })),
 )
 
-const columns = [
-  { title: '名称', dataIndex: 'name', key: 'name' },
-  { title: '供应商', key: 'provider', width: 200 },
-  { title: '能力标签', key: 'tags', width: 220 },
-  { title: '计费状态', key: 'billingStatus', width: 120 },
-  { title: '状态', key: 'status', width: 100 },
-  { title: '创建者', dataIndex: 'createdByUsername', key: 'createdByUsername', width: 140 },
-  { title: '操作', key: 'action', width: 240 },
-]
-
-function providerDisplayName(slug: string): string {
-  return getProviderBySlug(slug)?.displayName ?? slug
-}
-
-function handleCopyName(name: string) {
-  navigator.clipboard.writeText(name).then(() => {
-    message.success('名称已复制')
-  }).catch(() => {
-    message.error('复制失败，请手动复制')
-  })
-}
+const records = computed(() => data.value?.serviceInfoList ?? [])
+const compareRecords = computed(() => compareSelectedIds.value
+  .map((id) => records.value.find((record) => record.serviceId === id) ?? compareRecordCache.value[id])
+  .filter((record): record is LlmServiceInfo => Boolean(record)))
+const hasActiveFilters = computed(() => Boolean(keyword.value || selectedTagCodes.value.length))
 
 async function fetchServices() {
   if (!selectedTenantId.value) return
   const generation = ++requestGeneration.value
   loading.value = true
   try {
-    const result = await listLlmServices(selectedTenantId.value, pageNum.value, pageSize.value, keyword.value || undefined, selectedTagCodes.value)
+    const result = await listLlmServices(
+      selectedTenantId.value,
+      pageNum.value,
+      pageSize.value,
+      keyword.value || undefined,
+      selectedTagCodes.value,
+    )
     if (generation !== requestGeneration.value) return
     data.value = result
-    if (data.value.serviceInfoList.length === 0 && pageNum.value > 1) {
-      pageNum.value--
-    }
+    if (result.serviceInfoList.length === 0 && pageNum.value > 1) pageNum.value--
   } catch {
     // handled by interceptor
   } finally {
-    loading.value = false
+    if (generation === requestGeneration.value) loading.value = false
   }
 }
 
 async function fetchTags() {
   tagsLoading.value = true
   tagsError.value = false
-  try { tags.value = await listLlmServiceTags() } catch { tagsError.value = true } finally { tagsLoading.value = false }
+  try {
+    tags.value = await listLlmServiceTags()
+  } catch {
+    tagsError.value = true
+  } finally {
+    tagsLoading.value = false
+  }
+}
+
+async function fetchHoverDetail(record: LlmServiceInfo) {
+  if (
+    !selectedTenantId.value
+    || detailCache.value[record.serviceId]
+    || detailLoading.value[record.serviceId]
+    || detailErrors.value[record.serviceId]
+  ) return
+  const tenantId = selectedTenantId.value
+  detailLoading.value = { ...detailLoading.value, [record.serviceId]: true }
+  detailErrors.value = { ...detailErrors.value, [record.serviceId]: false }
+  try {
+    const detail = await getLlmServiceInfo(tenantId, record.serviceId, { silentError: true })
+    if (tenantId !== selectedTenantId.value) return
+    detailCache.value = { ...detailCache.value, [record.serviceId]: detail }
+  } catch {
+    if (tenantId === selectedTenantId.value) {
+      detailErrors.value = { ...detailErrors.value, [record.serviceId]: true }
+    }
+  } finally {
+    detailLoading.value = { ...detailLoading.value, [record.serviceId]: false }
+  }
+}
+
+function clearCompareSelection() {
+  compareSelectedIds.value = []
+  compareRecordCache.value = {}
 }
 
 function handleSearch(value: string) {
   keyword.value = value.trim()
   pageNum.value = 1
+  clearCompareSelection()
   fetchServices()
 }
 
-watch(selectedTenantId, (val) => {
-  if (!val) {
-    data.value = null
+function handleTagChange(codes: string[]) {
+  selectedTagCodes.value = codes
+  pageNum.value = 1
+  clearCompareSelection()
+  fetchServices()
+}
+
+function resetFilters() {
+  keyword.value = ''
+  selectedTagCodes.value = []
+  pageNum.value = 1
+  clearCompareSelection()
+  fetchServices()
+}
+
+function toggleCompareMode() {
+  compareMode.value = !compareMode.value
+  clearCompareSelection()
+}
+
+function toggleCompareRecord(record: LlmServiceInfo) {
+  if (!compareMode.value) return
+  if (compareSelectedIds.value.includes(record.serviceId)) {
+    compareSelectedIds.value = compareSelectedIds.value.filter((id) => id !== record.serviceId)
     return
   }
-  pageNum.value = 1
-  compareSelectedIds.value = []
-  fetchServices()
-})
-
-watch([pageNum, pageSize], () => {
-  if (selectedTenantId.value) fetchServices()
-})
-
-watch(keyword, (val) => {
-  if (val === '') {
-    pageNum.value = 1
-    if (selectedTenantId.value) fetchServices()
+  if (compareSelectedIds.value.length >= 2) {
+    message.info('最多选择 2 个模型')
+    return
   }
-})
+  compareRecordCache.value = { ...compareRecordCache.value, [record.serviceId]: record }
+  compareSelectedIds.value = [...compareSelectedIds.value, record.serviceId]
+}
 
-watch(selectedTagCodes, () => { pageNum.value = 1; if (selectedTenantId.value) fetchServices() }, { deep: true })
-
-onMounted(async () => {
-  try {
-    if (tenantStore.tenants.length === 0) {
-      await tenantStore.fetchTenants()
-    }
-  } catch {
-    // handled by interceptor
-  }
-  selectedTenantId.value =
-    tenantStore.currentTenant?.tenantId ?? tenantStore.tenants[0]?.tenantId ?? null
-  fetchTags()
-})
-
-function resetFilters() { keyword.value = ''; selectedTagCodes.value = []; pageNum.value = 1; fetchServices() }
-function toggleCompareMode() { compareMode.value = !compareMode.value; compareSelectedIds.value = [] }
-function startCompare() { if (compareSelectedIds.value.length === 2) compareVisible.value = true }
-const compareRecords = computed(() => compareSelectedIds.value.map((id) => data.value?.serviceInfoList.find((record) => record.serviceId === id) ?? null))
-const rowSelection = computed(() => compareMode.value ? { selectedRowKeys: compareSelectedIds.value, onChange: (keys: string[]) => { compareSelectedIds.value = keys.slice(0, 2) }, getCheckboxProps: (record: LlmServiceInfo) => ({ disabled: !compareSelectedIds.value.includes(record.serviceId) && compareSelectedIds.value.length >= 2 }) } : undefined)
+function startCompare() {
+  if (compareRecords.value.length === 2) compareVisible.value = true
+}
 
 function openDetail(record: LlmServiceInfo) {
   detailRecord.value = record
@@ -188,6 +219,7 @@ function handleToggle(record: LlmServiceInfo) {
         await disableLlmService(selectedTenantId.value!, record.serviceId)
       }
       message.success(`已${action}`)
+      delete detailCache.value[record.serviceId]
       fetchServices()
     },
   })
@@ -201,7 +233,6 @@ async function handleRemove(record: LlmServiceInfo) {
   } catch {
     return
   }
-  const token = prep.token
   Modal.confirm({
     title: '删除模型',
     content: h('div', { style: 'white-space: pre-line; line-height: 1.6;' }, prep.info),
@@ -209,27 +240,83 @@ async function handleRemove(record: LlmServiceInfo) {
     okType: 'danger',
     cancelText: '取消',
     onOk: async () => {
-      await removeLlmService(selectedTenantId.value!, record.serviceId, { token })
+      await removeLlmService(selectedTenantId.value!, record.serviceId, { token: prep.token })
       message.success('已删除')
+      clearCompareSelection()
+      delete detailCache.value[record.serviceId]
       fetchServices()
     },
   })
 }
+
+function fallbackName(detail: LlmServiceInfoRespDTO | undefined) {
+  if (!detail?.fallbackServiceId) return null
+  return records.value.find((record) => record.serviceId === detail.fallbackServiceId)?.name ?? null
+}
+
+function handleServicesChanged() {
+  detailCache.value = {}
+  detailErrors.value = {}
+  fetchServices()
+}
+
+function startPickerCompare(baseline: LlmServiceInfo) {
+  compareRecordCache.value = { [baseline.serviceId]: baseline }
+  compareSelectedIds.value = [baseline.serviceId]
+  pickerVisible.value = true
+}
+
+function finishPickerCompare(comparison: LlmServiceInfo) {
+  const baseline = compareRecords.value[0]
+  if (!baseline) return
+  compareRecordCache.value = {
+    [baseline.serviceId]: baseline,
+    [comparison.serviceId]: comparison,
+  }
+  compareSelectedIds.value = [baseline.serviceId, comparison.serviceId]
+  compareVisible.value = true
+}
+
+watch(selectedTenantId, (tenantId) => {
+  data.value = null
+  pageNum.value = 1
+  clearCompareSelection()
+  detailCache.value = {}
+  detailLoading.value = {}
+  detailErrors.value = {}
+  if (tenantId) fetchServices()
+})
+
+watch([pageNum, pageSize], () => {
+  clearCompareSelection()
+  if (selectedTenantId.value) fetchServices()
+})
+
+onMounted(async () => {
+  try {
+    if (tenantStore.tenants.length === 0) await tenantStore.fetchTenants()
+  } catch {
+    // handled by interceptor
+  }
+  selectedTenantId.value = tenantStore.currentTenant?.tenantId ?? tenantStore.tenants[0]?.tenantId ?? null
+  fetchTags()
+})
 </script>
 
 <template>
   <div class="llm-service-list">
     <div class="page-header">
       <div>
-        <h2 class="page-title">服务管理</h2>
-        <p class="page-desc">管理租户内的模型服务，配置供应商接入与启停</p>
+        <div class="page-eyebrow">MODEL CATALOG</div>
+        <h2 class="page-title">模型服务</h2>
+        <p class="page-desc">集中管理租户可调用的模型、供应商接入与计费策略</p>
       </div>
       <div class="page-actions">
         <a-select
           v-model:value="selectedTenantId"
           :options="tenantOptions"
           placeholder="选择租户"
-          style="width: 200px"
+          class="tenant-select"
         />
         <a-button
           v-if="canRegister"
@@ -238,105 +325,79 @@ async function handleRemove(record: LlmServiceInfo) {
           @click="createVisible = true"
         >
           <PlusOutlined />
-          添加服务
+          添加模型
         </a-button>
       </div>
     </div>
 
-    <!-- Has tenant -->
-    <a-card v-if="selectedTenantId" :bordered="false">
-      <div class="list-toolbar">
-        <a-input-search
-          v-model:value="keyword"
-          placeholder="请输入模型名称或供应商"
-          style="width: 280px"
-          allow-clear
-          @search="handleSearch"
-        />
-        <a-button v-if="canRegister || canUpdate" class="compare-button" @click="toggleCompareMode"><SwapOutlined />{{ compareMode ? '取消对比' : '模型对比' }}</a-button>
-        <a-button v-if="compareMode" type="primary" :disabled="compareSelectedIds.length !== 2" @click="startCompare">对比已选模型</a-button>
-        <a-button v-if="keyword || selectedTagCodes.length" type="link" @click="resetFilters">重置筛选</a-button>
-      </div>
-      <div class="tag-filter-row">
-        <ModelTagFilter v-model:selected-codes="selectedTagCodes" :tags="tags" :loading="tagsLoading" :error="tagsError" @retry="fetchTags" />
-      </div>
-
-      <a-table
-        :columns="columns"
-        :data-source="data?.serviceInfoList ?? []"
-        :loading="loading"
-        :pagination="false"
-        row-key="serviceId"
-        :row-selection="rowSelection"
-      >
-        <template #bodyCell="{ column, record }">
-          <template v-if="column.key === 'name'">
-            <div class="name-cell">
-              <span>{{ record.name }}</span>
-              <a-button
-                type="text"
-                size="small"
-                class="copy-btn"
-                aria-label="复制名称"
-                @click.stop="handleCopyName(record.name)"
-              >
-                <template #icon><CopyOutlined /></template>
-              </a-button>
-            </div>
-          </template>
-
-          <template v-else-if="column.key === 'provider'">
-            <div class="provider-cell">
-              <ProviderLogo :slug="record.provider" :size="22" />
-              <span>{{ providerDisplayName(record.provider) }}</span>
-            </div>
-          </template>
-
-          <template v-else-if="column.key === 'status'">
-            <a-tag v-if="record.status === 0" color="default">已停用</a-tag>
-            <a-tag v-else color="green">启用中</a-tag>
-          </template>
-          <template v-else-if="column.key === 'tags'"><ModelTagList :codes="record.tagCodes" :dictionary="tags" /></template>
-          <template v-else-if="column.key === 'billingStatus'"><a-tag v-if="record.billingStatus === 'UNPRICED' || !record.billingStatus" color="default">未启用计费</a-tag><a-tag v-else color="blue">{{ record.billingStatus }}</a-tag></template>
-
-          <template v-else-if="column.key === 'action'">
-            <a-button type="link" size="small" @click="openDetail(record)">
-              详情
-            </a-button>
-            <a-button v-if="canUpdate" type="link" size="small" @click="openEdit(record)">
-              编辑
-            </a-button>
-            <a-button
-              v-if="canUpdate"
-              type="link"
-              size="small"
-              :danger="record.status !== 0"
-              @click="handleToggle(record)"
-            >
-              {{ record.status === 0 ? '启用' : '停用' }}
-            </a-button>
-            <a-button v-if="canDelete" type="link" size="small" danger @click="handleRemove(record)">
-              删除
-            </a-button>
-          </template>
-        </template>
-
-        <template #emptyText>
-          <a-empty description="暂无模型服务，点击右上角添加" />
-        </template>
-      </a-table>
-
-      <PaginationBar
-        v-if="data && data.total > 0"
-        v-model:current-page="pageNum"
-        v-model:page-size="pageSize"
-        :total-pages="data.totalPages"
-        :total="data.total"
-        page-jump-id="llmServicePageJump"
+    <section v-if="selectedTenantId" class="catalog-shell">
+      <ModelCatalogToolbar
+        :keyword="keyword"
+        :tags="tags"
+        :selected-codes="selectedTagCodes"
+        :result-count="data?.total ?? 0"
+        :tags-loading="tagsLoading"
+        :tags-error="tagsError"
+        :compare-mode="compareMode"
+        :can-compare="canCompare"
+        @update:keyword="keyword = $event"
+        @update:selected-codes="handleTagChange"
+        @search="handleSearch"
+        @retry-tags="fetchTags"
+        @toggle-compare="toggleCompareMode"
+        @reset="resetFilters"
       />
-    </a-card>
 
-    <!-- No tenant -->
+      <div class="grid-wrap">
+        <div v-if="loading" class="model-grid" aria-label="正在加载模型服务">
+          <div v-for="index in pageSize" :key="index" class="skeleton-card">
+            <a-skeleton active avatar :paragraph="{ rows: 4 }" />
+          </div>
+        </div>
+
+        <div v-else-if="records.length" class="model-grid">
+          <ModelServiceCard
+            v-for="record in records"
+            :key="record.serviceId"
+            :record="record"
+            :dictionary="tags"
+            :compare-mode="compareMode"
+            :selected="compareSelectedIds.includes(record.serviceId)"
+            :selection-disabled="compareSelectedIds.length >= 2 && !compareSelectedIds.includes(record.serviceId)"
+            :can-update="canUpdate"
+            :can-delete="canDelete"
+            :detail="detailCache[record.serviceId]"
+            :detail-loading="detailLoading[record.serviceId]"
+            :detail-error="detailErrors[record.serviceId]"
+            :fallback-name="fallbackName(detailCache[record.serviceId])"
+            @detail="openDetail"
+            @edit="openEdit"
+            @toggle-status="handleToggle"
+            @remove="handleRemove"
+            @toggle-compare="toggleCompareRecord"
+            @request-detail="fetchHoverDetail"
+          />
+        </div>
+
+        <a-empty
+          v-else
+          :description="hasActiveFilters ? '没有匹配的模型，请更换关键词或清除能力筛选' : '暂无模型服务，点击右上角添加'"
+        />
+      </div>
+
+      <div v-if="data && data.total > 0" class="pagination-wrap">
+        <PaginationBar
+          v-model:current-page="pageNum"
+          v-model:page-size="pageSize"
+          :total-pages="data.totalPages"
+          :total="data.total"
+          :page-size-options="[12, 24, 48]"
+          page-jump-id="llmServicePageJump"
+          total-label="个模型"
+        />
+      </div>
+    </section>
+
     <a-card v-else :bordered="false">
       <a-empty description="你还没有加入任何租户">
         <router-link to="/tenants" custom v-slot="{ href, navigate }">
@@ -345,11 +406,18 @@ async function handleRemove(record: LlmServiceInfo) {
       </a-empty>
     </a-card>
 
+    <ModelCompareBar
+      :visible="compareMode"
+      :selected="compareRecords"
+      @cancel="toggleCompareMode"
+      @compare="startCompare"
+    />
+
     <LlmServiceCreateDrawer
       v-if="selectedTenantId"
       v-model:visible="createVisible"
       :tenant-id="selectedTenantId"
-      @done="fetchServices"
+      @done="handleServicesChanged"
     />
 
     <LlmServiceEditDrawer
@@ -357,7 +425,7 @@ async function handleRemove(record: LlmServiceInfo) {
       v-model:visible="editVisible"
       :tenant-id="selectedTenantId"
       :record="editingRecord"
-      @done="fetchServices"
+      @done="handleServicesChanged"
     />
 
     <LlmServiceDetailDrawer
@@ -366,75 +434,150 @@ async function handleRemove(record: LlmServiceInfo) {
       :tenant-id="selectedTenantId"
       :record="detailRecord"
       :dictionary="tags"
-      @compare="(baseline) => { compareSelectedIds = [baseline.serviceId]; pickerVisible = true }"
+      @compare="startPickerCompare"
     />
-    <ModelCompareDrawer v-if="selectedTenantId" v-model:open="compareVisible" :tenant-id="selectedTenantId" :baseline="compareRecords[0]" :comparison="compareRecords[1]" :dictionary="tags" />
-    <ModelPickerModal v-if="selectedTenantId && compareRecords[0]" v-model:open="pickerVisible" :tenant-id="selectedTenantId" :exclude-service-id="compareRecords[0].serviceId" @select="(comparison) => { compareSelectedIds = [...compareSelectedIds, comparison.serviceId]; compareVisible = true }" />
+    <ModelCompareDrawer
+      v-if="selectedTenantId"
+      v-model:open="compareVisible"
+      :tenant-id="selectedTenantId"
+      :baseline="compareRecords[0] ?? null"
+      :comparison="compareRecords[1] ?? null"
+      :dictionary="tags"
+    />
+    <ModelPickerModal
+      v-if="selectedTenantId && compareRecords[0]"
+      v-model:open="pickerVisible"
+      :tenant-id="selectedTenantId"
+      :exclude-service-id="compareRecords[0].serviceId"
+      @select="finishPickerCompare"
+    />
   </div>
 </template>
 
 <style lang="scss" scoped>
 .llm-service-list {
-  max-width: 1200px;
+  width: 100%;
+  max-width: 1480px;
+  margin: 0 auto;
 }
 
 .page-header {
   display: flex;
-  justify-content: space-between;
+  margin-bottom: 22px;
   align-items: flex-start;
-  margin-bottom: 24px;
+  justify-content: space-between;
+  gap: 24px;
+}
 
-  .page-title {
-    font-size: $font-size-title;
-    font-weight: 600;
-    color: $color-text-primary;
-    margin: 0 0 8px 0;
-  }
+.page-eyebrow {
+  margin-bottom: 4px;
+  color: $color-primary;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
 
-  .page-desc {
-    color: $color-text-secondary;
-    margin: 0;
-  }
+.page-title {
+  margin: 0;
+  color: $color-text-primary;
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.page-desc {
+  margin: 6px 0 0;
+  color: $color-text-secondary;
 }
 
 .page-actions {
   display: flex;
-  gap: 12px;
   align-items: center;
+  gap: 10px;
 }
 
-.list-toolbar {
-  margin-bottom: 12px;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
+.tenant-select {
+  width: 200px;
 }
 
-.tag-filter-row {
-  margin-bottom: 16px;
+.catalog-shell {
+  overflow: visible;
+  border: 1px solid #eaecf0;
+  border-radius: 16px;
+  background: $color-bg;
+  box-shadow: $shadow-light;
 }
 
-.compare-button { margin-left: 4px; }
+.grid-wrap {
+  min-height: 420px;
+  padding: 16px;
 
-.provider-cell {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  :deep(.ant-empty) {
+    display: flex;
+    min-height: 380px;
+    justify-content: center;
+    flex-direction: column;
+  }
 }
 
-.name-cell {
-  display: flex;
-  align-items: center;
-  gap: 4px;
+.model-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
 
-  .copy-btn {
-    opacity: 0;
-    transition: opacity 0.15s;
+.skeleton-card {
+  min-height: 238px;
+  padding: 20px 16px;
+  border: 1px solid #eaecf0;
+  border-radius: $radius-card;
+  background: $color-bg;
+}
+
+.pagination-wrap {
+  padding: 0 16px 16px;
+  border-top: 1px solid $color-border;
+
+  :deep(.pagination-bar) {
+    margin-top: 0;
+  }
+}
+
+@media (max-width: 1180px) {
+  .model-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 960px) {
+  .model-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .page-header {
+    align-items: stretch;
+    flex-direction: column;
   }
 
-  &:hover .copy-btn {
-    opacity: 1;
+  .page-actions {
+    width: 100%;
+  }
+
+  .tenant-select {
+    min-width: 0;
+    flex: 1;
+  }
+}
+
+@media (max-width: 580px) {
+  .model-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .page-title {
+    font-size: $font-size-title;
   }
 }
 </style>

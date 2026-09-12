@@ -157,6 +157,11 @@ function handleCompare() {
         </div>
 
         <div class="detail-item">
+          <span class="detail-label">模型介绍</span>
+          <span class="detail-value description-value">{{ info.description || '暂无模型元数据' }}</span>
+        </div>
+
+        <div class="detail-item">
           <span class="detail-label">状态</span>
           <span class="detail-value">
             <a-tag v-if="info.status === 0" color="default">已停用</a-tag>
@@ -255,5 +260,9 @@ function handleCompare() {
   margin-top: 6px;
   color: $color-text-secondary;
   font-size: 12px;
+}
+
+.description-value {
+  white-space: pre-wrap;
 }
 </style>

@@ -61,6 +61,7 @@ export interface LlmServiceAddReqDTO {
   apiUrl: string
   apiKey: string
   modelName: string
+  description?: string | null
   rpm?: number | null
   tpm?: number | null
   tagCodes?: string[]
@@ -75,6 +76,7 @@ export interface LlmServiceUpdateReqDTO {
   apiUrl?: string
   apiKey?: string
   modelName?: string
+  description?: string | null
   rpm?: number | null
   tpm?: number | null
   fallbackServiceId?: string | number | null
@@ -89,6 +91,8 @@ export interface LlmServiceInfo {
   serviceId: string
   name: string
   provider: string
+  modelName: string
+  description?: string | null
   status: number
   createdByUsername: string
   tagCodes?: string[]
@@ -115,6 +119,7 @@ export interface LlmServiceInfoRespDTO {
   apiUrl: string
   apiKey: string
   modelName: string
+  description: string | null
   status: number
   rateLimitRpm: number | null
   rateLimitTpm: number | null
