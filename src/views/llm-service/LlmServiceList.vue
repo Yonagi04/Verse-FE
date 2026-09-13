@@ -307,7 +307,6 @@ onMounted(async () => {
   <div class="llm-service-list">
     <div class="page-header">
       <div>
-        <div class="page-eyebrow">MODEL CATALOG</div>
         <h2 class="page-title">模型服务</h2>
         <p class="page-desc">集中管理租户可调用的模型、供应商接入与计费策略</p>
       </div>

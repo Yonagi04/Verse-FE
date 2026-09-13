@@ -21,6 +21,8 @@ import type {
   TenantJoinInfoRespDTO,
   TenantSendNotificationReq,
   TenantMediaUploadRespDTO,
+  TenantSettingsRespDTO,
+  TenantSettingsUpdateReqDTO,
 } from '@/types/tenant'
 
 // 获取当前用户的租户列表
@@ -41,6 +43,19 @@ export function getTenantInfo(tenantId: string): Promise<TenantInfoRespDTO> {
 // 更新租户信息
 export function updateTenant(tenantId: string, data: TenantUpdateReqDTO): Promise<boolean> {
   return request.post(`/tenants/${tenantId}/update`, data)
+}
+
+// 获取租户设置完整快照
+export function getTenantSettings(tenantId: string): Promise<TenantSettingsRespDTO> {
+  return request.get(`/tenants/${tenantId}/settings`)
+}
+
+// 保存租户设置完整快照
+export function updateTenantSettings(
+  tenantId: string,
+  data: TenantSettingsUpdateReqDTO,
+): Promise<TenantSettingsRespDTO> {
+  return request.post(`/tenants/${tenantId}/settings/update`, data)
 }
 
 // 上传租户 Logo

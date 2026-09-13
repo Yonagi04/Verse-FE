@@ -34,6 +34,28 @@ export interface TenantUpdateReqDTO {
   description?: string
 }
 
+export interface TenantSettingsRespDTO {
+  tenantId: string
+  type: TenantType
+  name: string
+  description: string | null
+  joinApprovalMode: 0 | 1
+  auditEnabled: boolean
+  rateLimitRpm: number | null
+  rateLimitTpm: number | null
+  role: Role
+  editable: boolean
+}
+
+export interface TenantSettingsUpdateReqDTO {
+  name: string
+  description: string | null
+  joinApprovalMode: 0 | 1
+  auditEnabled: boolean
+  rateLimitRpm: number | null
+  rateLimitTpm: number | null
+}
+
 export interface TenantSwitchRespDTO {
   tenantId: string
   name: string

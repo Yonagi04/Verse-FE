@@ -2,18 +2,18 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
-import { CameraOutlined, CheckCircleFilled, EditOutlined, TeamOutlined } from '@ant-design/icons-vue'
+import { CameraOutlined, CheckCircleFilled, TeamOutlined } from '@ant-design/icons-vue'
 import { selectTenantBannerPreset, uploadTenantBanner, uploadTenantLogo } from '@/api/tenant'
 import { usePermissionStore } from '@/stores/permission'
 import { useTenantStore } from '@/stores/tenant'
 import { formatDate, formatDateTime } from '@/utils/date'
 import ImageCropModal from '@/components/ImageCropModal.vue'
 import TenantCloseModal from './TenantCloseModal.vue'
-import TenantFormModal from './TenantFormModal.vue'
 import TenantInviteTab from './TenantInviteTab.vue'
 import TenantLeaveModal from './TenantLeaveModal.vue'
 import TenantMemberTab from './TenantMemberTab.vue'
 import TenantNotificationModal from './TenantNotificationModal.vue'
+import TenantSettingsTab from './TenantSettingsTab.vue'
 import type { TenantInfoRespDTO } from '@/types/tenant'
 import type { Role } from '@/types/user'
 
@@ -42,14 +42,13 @@ const cropOpen = ref(false)
 const cropFile = ref<File | null>(null)
 const cropKind = ref<'logo' | 'banner'>('banner')
 
-const editModalVisible = ref(false)
 const bannerPickerVisible = ref(false)
 const notificationModalVisible = ref(false)
 const closeModalVisible = ref(false)
 const leaveModalVisible = ref(false)
 
 const initialTab = route.query.tab as string
-const activeTab = ref(['members', 'invites'].includes(initialTab) ? initialTab : 'home')
+const activeTab = ref(['members', 'invites', 'settings'].includes(initialTab) ? initialTab : 'home')
 
 const currentTenantEntry = computed(() =>
   tenantStore.tenants.find((item) => item.tenantId === tenantId),
@@ -58,8 +57,6 @@ const currentRole = computed<Role | undefined>(() => tenant.value?.role ?? curre
 const isCurrentTenant = computed(() => tenantStore.currentTenant?.tenantId === tenantId)
 const canEdit = computed(() => currentRole.value === 'SUPER_ADMIN' || currentRole.value === 'ADMIN')
 const canNotify = computed(() => canEdit.value && tenant.value?.type === 'TEAM')
-const canClose = computed(() => currentRole.value === 'SUPER_ADMIN' && tenant.value?.type === 'TEAM')
-const canLeave = computed(() => tenant.value?.type === 'TEAM' && currentRole.value !== 'SUPER_ADMIN')
 const tenantInitial = computed(() => tenant.value?.name.trim().charAt(0).toUpperCase() || 'V')
 const bannerStyle = computed(() => tenant.value?.bannerUrl
   ? { backgroundImage: `url(${tenant.value.bannerUrl})` }
@@ -270,9 +267,6 @@ function handleLeaveDone() {
               <a-button type="primary" :loading="switching" @click="handleEnterTenant">
                 {{ isCurrentTenant ? '返回工作台' : '进入租户' }}
               </a-button>
-              <a-button v-if="canEdit" @click="editModalVisible = true">
-                <EditOutlined /> 编辑资料
-              </a-button>
               <a-button v-if="canNotify" @click="notificationModalVisible = true">
                 发送通知
               </a-button>
@@ -289,6 +283,7 @@ function handleLeaveDone() {
               key="invites"
               tab="邀请与申请"
             />
+            <a-tab-pane key="settings" tab="租户设置" />
           </a-tabs>
 
           <div v-if="activeTab === 'home'" class="home-tab">
@@ -321,18 +316,6 @@ function handleLeaveDone() {
               </div>
             </section>
 
-            <section v-if="tenant.type === 'TEAM'" class="danger-section">
-              <div>
-                <h3>危险操作</h3>
-                <p v-if="canClose">关闭租户后，所有成员与业务数据将无法访问，此操作不可撤销。</p>
-                <p v-else-if="canLeave">退出后将无法继续访问该租户内容。</p>
-                <p v-else>仅超级管理员可关闭租户。</p>
-              </div>
-              <a-space>
-                <a-button v-if="canLeave" danger @click="leaveModalVisible = true">退出租户</a-button>
-                <a-button v-if="canClose" danger @click="closeModalVisible = true">关闭租户</a-button>
-              </a-space>
-            </section>
           </div>
 
           <TenantMemberTab
@@ -342,6 +325,13 @@ function handleLeaveDone() {
           <TenantInviteTab
             v-if="activeTab === 'invites' && tenant.type === 'TEAM' && canEdit"
             :tenant-id="tenantId"
+          />
+          <TenantSettingsTab
+            v-if="activeTab === 'settings'"
+            :tenant-id="tenantId"
+            @saved="fetchDetail"
+            @close="closeModalVisible = true"
+            @leave="leaveModalVisible = true"
           />
         </a-card>
       </div>
@@ -406,15 +396,6 @@ function handleLeaveDone() {
       @error="message.error($event)"
     />
 
-    <TenantFormModal
-      v-if="tenant"
-      v-model:visible="editModalVisible"
-      mode="edit"
-      :tenant-id="tenant.tenantId"
-      :initial-name="tenant.name"
-      :initial-description="tenant.description || ''"
-      @done="fetchDetail"
-    />
     <TenantCloseModal
       v-if="tenant"
       v-model:visible="closeModalVisible"
@@ -486,6 +467,17 @@ function handleLeaveDone() {
   right: 16px;
   bottom: 16px;
   background: rgba(255, 255, 255, 0.92);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(4px);
+  transition: opacity 0.15s, transform 0.15s;
+}
+
+.tenant-cover:hover .cover-action,
+.tenant-cover:focus-within .cover-action {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
 }
 
 .file-hidden {
@@ -719,29 +711,6 @@ function handleLeaveDone() {
   }
 }
 
-.danger-section {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-  padding: 20px;
-  border: 1px solid #ffa39e;
-  border-radius: $radius-card;
-
-  h3 {
-    margin: 0 0 6px;
-    color: $color-danger;
-    font-size: $font-size-h3;
-    font-weight: 600;
-  }
-
-  p {
-    margin: 0;
-    color: $color-text-secondary;
-    font-size: 13px;
-  }
-}
-
 @media (max-width: 960px) {
   .tenant-summary {
     flex-wrap: wrap;
@@ -793,8 +762,7 @@ function handleLeaveDone() {
     padding-top: 12px;
   }
 
-  .tenant-actions,
-  .danger-section {
+  .tenant-actions {
     flex-wrap: wrap;
   }
 }
