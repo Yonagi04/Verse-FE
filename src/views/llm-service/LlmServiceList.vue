@@ -32,7 +32,7 @@ import type {
 
 const tenantStore = useTenantStore()
 
-const selectedTenantId = ref<string | null>(null)
+const tenantId = computed(() => tenantStore.currentTenantId)
 const data = ref<LlmServiceListRespDTO | null>(null)
 const loading = ref(false)
 const pageNum = ref(1)
@@ -59,11 +59,8 @@ const detailLoading = ref<Record<string, boolean>>({})
 const detailErrors = ref<Record<string, boolean>>({})
 const compareRecordCache = ref<Record<string, LlmServiceInfo>>({})
 
-// 权限以「下拉选中的租户」角色为准（而非全局 currentTenant）
-const selectedRole = computed(() => {
-  const tenant = tenantStore.tenants.find((item) => item.tenantId === selectedTenantId.value)
-  return tenant?.role ?? null
-})
+// 权限只来源于当前租户统一状态。
+const selectedRole = computed(() => tenantStore.currentRole)
 
 const authorities = computed<Permission[]>(() => {
   if (!selectedRole.value) return []
@@ -75,10 +72,6 @@ const canUpdate = computed(() => authorities.value.includes(PERMISSIONS.TENANT_L
 const canDelete = computed(() => authorities.value.includes(PERMISSIONS.TENANT_LLM_DELETE))
 const canCompare = computed(() => canRegister.value || canUpdate.value)
 
-const tenantOptions = computed(() =>
-  tenantStore.tenants.map((tenant) => ({ value: tenant.tenantId, label: tenant.name })),
-)
-
 const records = computed(() => data.value?.serviceInfoList ?? [])
 const compareRecords = computed(() => compareSelectedIds.value
   .map((id) => records.value.find((record) => record.serviceId === id) ?? compareRecordCache.value[id])
@@ -86,12 +79,12 @@ const compareRecords = computed(() => compareSelectedIds.value
 const hasActiveFilters = computed(() => Boolean(keyword.value || selectedTagCodes.value.length))
 
 async function fetchServices() {
-  if (!selectedTenantId.value) return
+  if (!tenantId.value) return
   const generation = ++requestGeneration.value
   loading.value = true
   try {
     const result = await listLlmServices(
-      selectedTenantId.value,
+      tenantId.value,
       pageNum.value,
       pageSize.value,
       keyword.value || undefined,
@@ -121,20 +114,20 @@ async function fetchTags() {
 
 async function fetchHoverDetail(record: LlmServiceInfo) {
   if (
-    !selectedTenantId.value
+    !tenantId.value
     || detailCache.value[record.serviceId]
     || detailLoading.value[record.serviceId]
     || detailErrors.value[record.serviceId]
   ) return
-  const tenantId = selectedTenantId.value
+  const requestTenantId = tenantId.value
   detailLoading.value = { ...detailLoading.value, [record.serviceId]: true }
   detailErrors.value = { ...detailErrors.value, [record.serviceId]: false }
   try {
-    const detail = await getLlmServiceInfo(tenantId, record.serviceId, { silentError: true })
-    if (tenantId !== selectedTenantId.value) return
+    const detail = await getLlmServiceInfo(requestTenantId, record.serviceId, { silentError: true })
+    if (requestTenantId !== tenantId.value) return
     detailCache.value = { ...detailCache.value, [record.serviceId]: detail }
   } catch {
-    if (tenantId === selectedTenantId.value) {
+    if (requestTenantId === tenantId.value) {
       detailErrors.value = { ...detailErrors.value, [record.serviceId]: true }
     }
   } finally {
@@ -203,7 +196,7 @@ function openEdit(record: LlmServiceInfo) {
 }
 
 function handleToggle(record: LlmServiceInfo) {
-  if (!selectedTenantId.value) return
+  if (!tenantId.value) return
   const disabled = record.status === 0
   const action = disabled ? '启用' : '停用'
   Modal.confirm({
@@ -214,9 +207,9 @@ function handleToggle(record: LlmServiceInfo) {
     cancelText: '取消',
     onOk: async () => {
       if (disabled) {
-        await enableLlmService(selectedTenantId.value!, record.serviceId)
+        await enableLlmService(tenantId.value!, record.serviceId)
       } else {
-        await disableLlmService(selectedTenantId.value!, record.serviceId)
+        await disableLlmService(tenantId.value!, record.serviceId)
       }
       message.success(`已${action}`)
       delete detailCache.value[record.serviceId]
@@ -226,10 +219,10 @@ function handleToggle(record: LlmServiceInfo) {
 }
 
 async function handleRemove(record: LlmServiceInfo) {
-  if (!selectedTenantId.value) return
+  if (!tenantId.value) return
   let prep: LlmServiceRemovePreRespDTO
   try {
-    prep = await prepareRemoveLlmService(selectedTenantId.value, record.serviceId)
+    prep = await prepareRemoveLlmService(tenantId.value, record.serviceId)
   } catch {
     return
   }
@@ -240,7 +233,7 @@ async function handleRemove(record: LlmServiceInfo) {
     okType: 'danger',
     cancelText: '取消',
     onOk: async () => {
-      await removeLlmService(selectedTenantId.value!, record.serviceId, { token: prep.token })
+      await removeLlmService(tenantId.value!, record.serviceId, { token: prep.token })
       message.success('已删除')
       clearCompareSelection()
       delete detailCache.value[record.serviceId]
@@ -277,30 +270,33 @@ function finishPickerCompare(comparison: LlmServiceInfo) {
   compareVisible.value = true
 }
 
-watch(selectedTenantId, (tenantId) => {
+watch(tenantId, (tenantId) => {
+  requestGeneration.value++
   data.value = null
   pageNum.value = 1
+  keyword.value = ''
+  selectedTagCodes.value = []
+  compareMode.value = false
   clearCompareSelection()
+  createVisible.value = false
+  editVisible.value = false
+  detailVisible.value = false
+  compareVisible.value = false
+  pickerVisible.value = false
+  editingRecord.value = null
+  detailRecord.value = null
   detailCache.value = {}
   detailLoading.value = {}
   detailErrors.value = {}
   if (tenantId) fetchServices()
-})
+}, { immediate: true })
 
 watch([pageNum, pageSize], () => {
   clearCompareSelection()
-  if (selectedTenantId.value) fetchServices()
+  if (tenantId.value) fetchServices()
 })
 
-onMounted(async () => {
-  try {
-    if (tenantStore.tenants.length === 0) await tenantStore.fetchTenants()
-  } catch {
-    // handled by interceptor
-  }
-  selectedTenantId.value = tenantStore.currentTenant?.tenantId ?? tenantStore.tenants[0]?.tenantId ?? null
-  fetchTags()
-})
+onMounted(fetchTags)
 </script>
 
 <template>
@@ -311,16 +307,10 @@ onMounted(async () => {
         <p class="page-desc">集中管理租户可调用的模型、供应商接入与计费策略</p>
       </div>
       <div class="page-actions">
-        <a-select
-          v-model:value="selectedTenantId"
-          :options="tenantOptions"
-          placeholder="选择租户"
-          class="tenant-select"
-        />
         <a-button
           v-if="canRegister"
           type="primary"
-          :disabled="!selectedTenantId"
+          :disabled="!tenantId"
           @click="createVisible = true"
         >
           <PlusOutlined />
@@ -329,7 +319,7 @@ onMounted(async () => {
       </div>
     </div>
 
-    <section v-if="selectedTenantId" class="catalog-shell">
+    <section v-if="tenantId" class="catalog-shell">
       <ModelCatalogToolbar
         :keyword="keyword"
         :tags="tags"
@@ -413,40 +403,40 @@ onMounted(async () => {
     />
 
     <LlmServiceCreateDrawer
-      v-if="selectedTenantId"
+      v-if="tenantId"
       v-model:visible="createVisible"
-      :tenant-id="selectedTenantId"
+      :tenant-id="tenantId"
       @done="handleServicesChanged"
     />
 
     <LlmServiceEditDrawer
-      v-if="selectedTenantId"
+      v-if="tenantId"
       v-model:visible="editVisible"
-      :tenant-id="selectedTenantId"
+      :tenant-id="tenantId"
       :record="editingRecord"
       @done="handleServicesChanged"
     />
 
     <LlmServiceDetailDrawer
-      v-if="selectedTenantId"
+      v-if="tenantId"
       v-model:visible="detailVisible"
-      :tenant-id="selectedTenantId"
+      :tenant-id="tenantId"
       :record="detailRecord"
       :dictionary="tags"
       @compare="startPickerCompare"
     />
     <ModelCompareDrawer
-      v-if="selectedTenantId"
+      v-if="tenantId"
       v-model:open="compareVisible"
-      :tenant-id="selectedTenantId"
+      :tenant-id="tenantId"
       :baseline="compareRecords[0] ?? null"
       :comparison="compareRecords[1] ?? null"
       :dictionary="tags"
     />
     <ModelPickerModal
-      v-if="selectedTenantId && compareRecords[0]"
+      v-if="tenantId && compareRecords[0]"
       v-model:open="pickerVisible"
-      :tenant-id="selectedTenantId"
+      :tenant-id="tenantId"
       :exclude-service-id="compareRecords[0].serviceId"
       @select="finishPickerCompare"
     />

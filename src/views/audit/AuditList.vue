@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useTenantStore } from '@/stores/tenant'
 import { listAuditLogs } from '@/api/audit'
 import { getTenantMembers } from '@/api/tenant'
@@ -11,29 +11,22 @@ import type { TenantMemberInfo } from '@/types/tenant'
 
 const tenantStore = useTenantStore()
 
-const selectedTenantId = ref<string | null>(null)
+const tenantId = computed(() => tenantStore.currentTenantId)
 const data = ref<LlmAuditListRespDTO | null>(null)
 const loading = ref(false)
 const pageNum = ref(1)
 const pageSize = ref(10)
 
-const userIdFilter = ref<number | null>(null)
+const userIdFilter = ref<string | null>(null)
 const members = ref<TenantMemberInfo[]>([])
 
 const detailVisible = ref(false)
 const detailRecord = ref<LlmAuditInfo | null>(null)
 
-// 权限以「下拉选中的租户」角色为准
-const selectedRole = computed(() => {
-  const t = tenantStore.tenants.find((x) => x.tenantId === selectedTenantId.value)
-  return t?.role ?? null
-})
+// 权限只来源于当前租户统一状态。
+const selectedRole = computed(() => tenantStore.currentRole)
 
 const canFilterByUser = computed(() => selectedRole.value === 'ADMIN' || selectedRole.value === 'SUPER_ADMIN')
-
-const tenantOptions = computed(() =>
-  tenantStore.tenants.map((t) => ({ value: t.tenantId, label: t.name })),
-)
 
 const memberOptions = computed(() =>
   members.value.map((m) => ({ value: m.userId, label: m.nickname || m.username })),
@@ -55,11 +48,11 @@ function formatLatency(ms: number): string {
 }
 
 async function fetchLogs() {
-  if (!selectedTenantId.value) return
+  if (!tenantId.value) return
   loading.value = true
   try {
     data.value = await listAuditLogs(
-      selectedTenantId.value,
+      tenantId.value,
       pageNum.value,
       pageSize.value,
       canFilterByUser.value ? userIdFilter.value ?? undefined : undefined,
@@ -75,16 +68,18 @@ async function fetchLogs() {
 }
 
 async function fetchMembers() {
-  if (!selectedTenantId.value || !canFilterByUser.value) return
+  if (!tenantId.value || !canFilterByUser.value) return
   try {
-    const resp = await getTenantMembers(selectedTenantId.value, 1, 100)
+    const resp = await getTenantMembers(tenantId.value, 1, 100)
     members.value = resp.tenantMembers ?? []
   } catch {
     // handled by interceptor
   }
 }
 
-watch(selectedTenantId, (val) => {
+watch(tenantId, (val) => {
+  detailVisible.value = false
+  detailRecord.value = null
   if (!val) {
     data.value = null
     members.value = []
@@ -94,27 +89,15 @@ watch(selectedTenantId, (val) => {
   userIdFilter.value = null
   fetchMembers()
   fetchLogs()
-})
+}, { immediate: true })
 
 watch([pageNum, pageSize], () => {
-  if (selectedTenantId.value) fetchLogs()
+  if (tenantId.value) fetchLogs()
 })
 
 watch(userIdFilter, () => {
   pageNum.value = 1
-  if (selectedTenantId.value) fetchLogs()
-})
-
-onMounted(async () => {
-  try {
-    if (tenantStore.tenants.length === 0) {
-      await tenantStore.fetchTenants()
-    }
-  } catch {
-    // handled by interceptor
-  }
-  selectedTenantId.value =
-    tenantStore.currentTenant?.tenantId ?? tenantStore.tenants[0]?.tenantId ?? null
+  if (tenantId.value) fetchLogs()
 })
 
 function openDetail(record: LlmAuditInfo) {
@@ -134,18 +117,10 @@ function handleRowClick(record: LlmAuditInfo) {
         <h2 class="page-title">调用日志</h2>
         <p class="page-desc">查看租户内 LLM 模型调用审计记录，排查失败原因与用量明细</p>
       </div>
-      <div class="page-actions">
-        <a-select
-          v-model:value="selectedTenantId"
-          :options="tenantOptions"
-          placeholder="选择租户"
-          style="width: 200px"
-        />
-      </div>
     </div>
 
     <!-- Has tenant -->
-    <a-card v-if="selectedTenantId" :bordered="false">
+    <a-card v-if="tenantId" :bordered="false">
       <div class="list-toolbar">
         <a-select
           v-if="canFilterByUser"
@@ -211,9 +186,9 @@ function handleRowClick(record: LlmAuditInfo) {
     </a-card>
 
     <AuditDetailDrawer
-      v-if="selectedTenantId"
+      v-if="tenantId"
       v-model:visible="detailVisible"
-      :tenant-id="selectedTenantId"
+      :tenant-id="tenantId"
       :record="detailRecord"
     />
   </div>

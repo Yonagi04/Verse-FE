@@ -11,7 +11,7 @@ import UsageTrendChart from './components/UsageTrendChart.vue'
 import UsageSummaryCards from './components/UsageSummaryCards.vue'
 
 const tenantStore=useTenantStore()
-const tenantId=computed(()=>tenantStore.currentTenantId??tenantStore.tenants[0]?.tenantId??null)
+const tenantId=computed(()=>tenantStore.currentTenantId)
 const granularity=ref<UsageGranularity>('day')
 const dateRange=ref<[string,string]|null>(null);const userId=ref<string>();const apiKeyId=ref<string>();const serviceId=ref<string>()
 const dimension=ref<UsageBreakdownDimension>('model');const orderBy=ref<UsageBreakdownOrder>('totalTokens');const limit=ref(10)
@@ -40,7 +40,7 @@ function resetFilters(){dateRange.value=null;userId.value=undefined;apiKeyId.val
 function handleExportMenu({key}:{key:string}){exportReport(key as UsageExportType)}
 async function exportReport(type:UsageExportType){const id=tenantId.value;if(!id||!validateRange())return;exporting.value=type;try{await downloadUsageExport(id,type,{...params.value,limit:type==='breakdown'?100:params.value.limit});message.success('报表已开始下载')}catch(e){message.error(e instanceof Error?e.message:'导出失败')}finally{exporting.value=null}}
 
-onMounted(async()=>{if(!tenantStore.tenants.length)await tenantStore.fetchTenants();await loadOptions();await load()})
+onMounted(async()=>{await loadOptions();await load()})
 watch(tenantId,async()=>{reportSequence++;userId.value=undefined;apiKeyId.value=undefined;serviceId.value=undefined;await loadOptions();await load()})
 watch([granularity,dateRange,userId,apiKeyId,serviceId,dimension,orderBy,limit],scheduleLoad,{deep:true})
 onBeforeUnmount(()=>window.clearTimeout(timer))
@@ -62,6 +62,7 @@ onBeforeUnmount(()=>window.clearTimeout(timer))
     </template>
    </a-dropdown>
   </div>
+  <a-empty v-if="!tenantId" description="暂无有效当前租户，请先进入租户管理选择或创建租户"><router-link to="/tenants">前往租户管理</router-link></a-empty>
   <a-card class="filters" :bordered="false">
    <template #title><div class="filter-title"><FilterOutlined/><span>数据筛选</span></div></template>
    <template #extra><a-button type="text" :disabled="!hasActiveFilters" @click="resetFilters"><ReloadOutlined/>重置筛选</a-button></template>

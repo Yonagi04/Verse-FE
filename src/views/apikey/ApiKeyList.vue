@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { Modal, message } from 'ant-design-vue'
 import { PlusOutlined } from '@ant-design/icons-vue'
 import { useTenantStore } from '@/stores/tenant'
@@ -12,7 +12,7 @@ import type { ApiKeyListRespDTO, ApiKeyPageRespDTO } from '@/types/apikey'
 
 const tenantStore = useTenantStore()
 
-const selectedTenantId = ref<string | null>(null)
+const tenantId = computed(() => tenantStore.currentTenantId)
 const data = ref<ApiKeyPageRespDTO | null>(null)
 const loading = ref(false)
 const createVisible = ref(false)
@@ -20,10 +20,6 @@ const editVisible = ref(false)
 const editingRecord = ref<ApiKeyListRespDTO | null>(null)
 const pageNum = ref(1)
 const pageSize = ref(10)
-
-const tenantOptions = computed(() =>
-  tenantStore.tenants.map((t) => ({ value: t.tenantId, label: t.name })),
-)
 
 const columns = [
   { title: '名称', dataIndex: 'name', key: 'name' },
@@ -44,10 +40,10 @@ function formatRateLimit(rpm: number | null, tpm: number | null): string {
 }
 
 async function fetchKeys() {
-  if (!selectedTenantId.value) return
+  if (!tenantId.value) return
   loading.value = true
   try {
-    data.value = await listApiKeys(selectedTenantId.value, pageNum.value, pageSize.value)
+    data.value = await listApiKeys(tenantId.value, pageNum.value, pageSize.value)
     if (data.value.records.length === 0 && pageNum.value > 1) {
       pageNum.value--
     }
@@ -58,29 +54,20 @@ async function fetchKeys() {
   }
 }
 
-watch(selectedTenantId, (val) => {
+watch(tenantId, (val) => {
+  createVisible.value = false
+  editVisible.value = false
+  editingRecord.value = null
   if (!val) {
     data.value = null
     return
   }
   pageNum.value = 1
   fetchKeys()
-})
+}, { immediate: true })
 
 watch([pageNum, pageSize], () => {
-  if (selectedTenantId.value) fetchKeys()
-})
-
-onMounted(async () => {
-  try {
-    if (tenantStore.tenants.length === 0) {
-      await tenantStore.fetchTenants()
-    }
-  } catch {
-    // handled by interceptor
-  }
-  selectedTenantId.value =
-    tenantStore.currentTenant?.tenantId ?? tenantStore.tenants[0]?.tenantId ?? null
+  if (tenantId.value) fetchKeys()
 })
 
 function handleEdit(record: ApiKeyListRespDTO) {
@@ -89,7 +76,7 @@ function handleEdit(record: ApiKeyListRespDTO) {
 }
 
 function handleRevoke(record: ApiKeyListRespDTO) {
-  if (!selectedTenantId.value) return
+  if (!tenantId.value) return
   Modal.confirm({
     title: '吊销 API Key',
     content: `确定吊销「${record.name}」吗？吊销后该 API Key 将立即失效，且无法恢复。`,
@@ -97,7 +84,7 @@ function handleRevoke(record: ApiKeyListRespDTO) {
     okType: 'danger',
     cancelText: '取消',
     onOk: async () => {
-      await revokeApiKey(selectedTenantId.value!, { apiKeyId: record.apiKeyId })
+      await revokeApiKey(tenantId.value!, { apiKeyId: record.apiKeyId })
       message.success('已吊销')
       fetchKeys()
     },
@@ -113,15 +100,9 @@ function handleRevoke(record: ApiKeyListRespDTO) {
         <p class="page-desc">管理你在各租户下的 API Key，用于调用 LLM 服务</p>
       </div>
       <div class="page-actions">
-        <a-select
-          v-model:value="selectedTenantId"
-          :options="tenantOptions"
-          placeholder="选择租户"
-          style="width: 200px"
-        />
         <a-button
           type="primary"
-          :disabled="!selectedTenantId"
+          :disabled="!tenantId"
           @click="createVisible = true"
         >
           <PlusOutlined />
@@ -131,7 +112,7 @@ function handleRevoke(record: ApiKeyListRespDTO) {
     </div>
 
     <!-- Has tenant -->
-    <a-card v-if="selectedTenantId" :bordered="false">
+    <a-card v-if="tenantId" :bordered="false">
       <a-table
         :columns="columns"
         :data-source="data?.records ?? []"
@@ -204,16 +185,16 @@ function handleRevoke(record: ApiKeyListRespDTO) {
     </a-card>
 
     <ApiKeyCreateDrawer
-      v-if="selectedTenantId"
+      v-if="tenantId"
       v-model:visible="createVisible"
-      :tenant-id="selectedTenantId"
+      :tenant-id="tenantId"
       @done="fetchKeys"
     />
 
     <ApiKeyEditDrawer
-      v-if="selectedTenantId"
+      v-if="tenantId"
       v-model:visible="editVisible"
-      :tenant-id="selectedTenantId"
+      :tenant-id="tenantId"
       :record="editingRecord"
       @done="fetchKeys"
     />

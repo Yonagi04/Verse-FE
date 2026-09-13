@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { watch } from 'vue'
+import { onMounted, onUnmounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { useThemeStore } from '@/stores/theme'
 import { useUserStore } from '@/stores/user'
 import { useWebSocketNotification } from '@/composables/useWebSocketNotification'
@@ -10,9 +11,14 @@ import {
   MenuFoldOutlined,
 } from '@ant-design/icons-vue'
 import NotificationPopover from './NotificationPopover.vue'
+import { useTenantStore } from '@/stores/tenant'
+import { registerTenantContextRecovery } from '@/utils/tenantContextRecovery'
+import { message } from 'ant-design-vue'
 
 const themeStore = useThemeStore()
 const userStore = useUserStore()
+const tenantStore = useTenantStore()
+const router = useRouter()
 const { connect, disconnect } = useWebSocketNotification()
 
 // 登录后连接 WebSocket，登出时断开
@@ -23,6 +29,16 @@ watch(() => userStore.token, (token) => {
     disconnect()
   }
 }, { immediate: true })
+
+let unregisterRecovery: (() => void) | null = null
+onMounted(() => {
+  unregisterRecovery = registerTenantContextRecovery(async () => {
+    await tenantStore.initialize(true)
+    message.warning('租户上下文已变化，已为你恢复到当前工作空间')
+    await router.replace('/dashboard')
+  })
+})
+onUnmounted(() => unregisterRecovery?.())
 </script>
 
 <template>

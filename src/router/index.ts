@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import { useUserStore } from '@/stores/user'
+import { useTenantStore } from '@/stores/tenant'
 
 const routes: RouteRecordRaw[] = [
   {
@@ -124,6 +125,7 @@ function isSafeRedirect(path: unknown): path is string {
 // 全局前置守卫
 router.beforeEach(async (to, _from, next) => {
   const userStore = useUserStore()
+  const tenantStore = useTenantStore()
 
   if (to.meta.requiresAuth === false) {
     // 公开页面
@@ -144,8 +146,32 @@ router.beforeEach(async (to, _from, next) => {
       next(`/login?redirect=${encodeURIComponent(to.fullPath)}`)
     } else {
       // 刷新页面后 store 中 user 为 null，需要重新拉取以显示昵称等
-      if (!userStore.user && !userStore.isLoading) {
-        await userStore.fetchProfile()
+      try {
+        await Promise.all([
+          !userStore.user && !userStore.isLoading ? userStore.fetchProfile() : Promise.resolve(),
+          tenantStore.initialize(),
+        ])
+      } catch {
+        next('/tenants')
+        return
+      }
+
+      // 直接进入租户详情时，必须先完成服务端租户切换再挂载页面。
+      if (to.name === 'TenantDetail') {
+        const targetTenantId = String(to.params.tenantId)
+        const target = tenantStore.tenants.find((tenant) => tenant.tenantId === targetTenantId)
+        if (!target) {
+          next('/tenants')
+          return
+        }
+        if (tenantStore.currentTenantId !== targetTenantId) {
+          try {
+            await tenantStore.switchToTenant(targetTenantId)
+          } catch {
+            next('/tenants')
+            return
+          }
+        }
       }
       next()
     }

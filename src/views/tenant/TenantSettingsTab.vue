@@ -126,12 +126,6 @@ async function saveSettings() {
     const saved = await updateTenantSettings(props.tenantId, toPayload())
     applySnapshot(saved)
     await tenantStore.fetchTenants()
-    if (tenantStore.currentTenant?.tenantId === props.tenantId) {
-      tenantStore.setCurrentTenant({
-        ...tenantStore.currentTenant,
-        name: saved.name,
-      })
-    }
     emit('saved', saved)
     message.success('租户设置已保存')
   } catch {

@@ -25,6 +25,7 @@ export interface TenantInfoListRespDTO {
   name: string
   type: TenantType
   role: Role
+  current: boolean
   joinedAt: string
   lastAccessedAt: string
 }
@@ -95,7 +96,7 @@ export interface TenantJoinReqDTO {
 
 // 成员信息
 export interface TenantMemberInfo {
-  userId: number
+  userId: string
   username: string
   nickname: string
   role: Role
@@ -178,7 +179,7 @@ export interface TenantLeavePrepareRespDTO {
 }
 
 export interface TenantLeaveRespDTO {
-  targetTenantId: number
+  targetTenantId: string
 }
 
 // ========== 邀请码公开信息（无需登录） ==========

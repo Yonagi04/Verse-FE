@@ -4,7 +4,6 @@ import { useRouter, useRoute } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { PlusOutlined } from '@ant-design/icons-vue'
 import { useTenantStore } from '@/stores/tenant'
-import { usePermissionStore } from '@/stores/permission'
 import TenantFormModal from './TenantFormModal.vue'
 import TenantJoinModal from './TenantJoinModal.vue'
 import { formatDate } from '@/utils/date'
@@ -13,7 +12,6 @@ import type { TenantInfoListRespDTO } from '@/types/tenant'
 const router = useRouter()
 const route = useRoute()
 const tenantStore = useTenantStore()
-const permissionStore = usePermissionStore()
 
 const loading = ref(false)
 const searchQuery = ref('')
@@ -49,6 +47,7 @@ const editingTenant = ref<EditingTenant | null>(null)
 
 async function openEditModal(record: TenantInfoListRespDTO) {
   try {
+    if (!record.current) await tenantStore.switchToTenant(record.tenantId)
     const info = await tenantStore.fetchTenantInfo(record.tenantId)
     editingTenant.value = {
       tenantId: record.tenantId,
@@ -57,13 +56,7 @@ async function openEditModal(record: TenantInfoListRespDTO) {
     }
     editModalVisible.value = true
   } catch {
-    // 获取详情失败时仍然打开编辑，但 description 为空
-    editingTenant.value = {
-      tenantId: record.tenantId,
-      name: record.name,
-      description: '',
-    }
-    editModalVisible.value = true
+    // 切换或详情加载失败时不得打开可能指向其他租户的编辑表单。
   }
 }
 
@@ -88,11 +81,20 @@ async function handleSwitchTenant(record: TenantInfoListRespDTO) {
   switchingId.value = record.tenantId
   try {
     await tenantStore.switchToTenant(record.tenantId)
-    permissionStore.setRole(record.role)
     message.success(`已切换到「${record.name}」`)
     router.push('/dashboard')
   } catch {
     // handled by interceptor
+  } finally {
+    switchingId.value = null
+  }
+}
+
+async function enterTenant(record: TenantInfoListRespDTO, tab?: string) {
+  switchingId.value = record.tenantId
+  try {
+    if (!record.current) await tenantStore.switchToTenant(record.tenantId)
+    await router.push({ path: `/tenants/${record.tenantId}`, query: tab ? { tab } : {} })
   } finally {
     switchingId.value = null
   }
@@ -138,12 +140,9 @@ function handleCreateDone() {
         <template #bodyCell="{ column, record }">
           <!-- 租户名称 - 可点击链接 -->
           <template v-if="column.key === 'name'">
-            <router-link
-              :to="`/tenants/${record.tenantId}`"
-              class="tenant-name-link"
-            >
+            <a class="tenant-name-link" @click="enterTenant(record)">
               {{ record.name }}
-            </router-link>
+            </a>
           </template>
           <!-- 类型 -->
           <template v-if="column.key === 'type'">
@@ -194,14 +193,12 @@ function handleCreateDone() {
               >
                 进入
               </a-button>
-              <router-link
+              <a-button
                 v-if="record.type === 'TEAM' && record.role !== 'MEMBER'"
-                :to="`/tenants/${record.tenantId}?tab=members`"
+                type="link" size="small" @click="enterTenant(record, 'members')"
               >
-                <a-button type="link" size="small">
                   成员
-                </a-button>
-              </router-link>
+              </a-button>
               <a-button
                 v-if="canEdit(record.role)"
                 type="link"

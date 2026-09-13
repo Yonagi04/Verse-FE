@@ -4,7 +4,6 @@ import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { useTenantStore } from '@/stores/tenant'
 import { useThemeStore } from '@/stores/theme'
-import { usePermissionStore } from '@/stores/permission'
 import { message } from 'ant-design-vue'
 import {
   UserOutlined,
@@ -18,7 +17,6 @@ const router = useRouter()
 const userStore = useUserStore()
 const tenantStore = useTenantStore()
 const themeStore = useThemeStore()
-const permissionStore = usePermissionStore()
 
 // ========== State ==========
 const popoverVisible = ref(false)
@@ -105,8 +103,6 @@ async function handleSwitchTenant(tenantId: string, tenantName: string) {
   tenantSubVisible.value = false
   try {
     await tenantStore.switchToTenant(tenantId)
-    const t = tenantStore.tenants.find((t) => t.tenantId === tenantId)
-    if (t) { permissionStore.setRole(t.role) } else { permissionStore.clearPermissions() }
     message.success(`已切换到「${tenantName}」`)
     router.push('/dashboard')
   } catch {

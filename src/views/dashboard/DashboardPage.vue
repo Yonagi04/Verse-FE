@@ -22,7 +22,7 @@ const usageLoading = ref(false)
 let usageSequence = 0
 
 const activeTenantId = computed(
-  () => tenantStore.currentTenant?.tenantId ?? tenantStore.tenants[0]?.tenantId ?? null,
+  () => tenantStore.currentTenantId,
 )
 
 async function fetchLlmCount() {
@@ -55,9 +55,6 @@ async function fetchUsage() {
 const formatCount = (value?: string) => value == null ? '--' : BigInt(value).toLocaleString()
 
 onMounted(async () => {
-  if (tenantStore.tenants.length === 0) {
-    await tenantStore.fetchTenants()
-  }
   await fetchLlmCount()
   await fetchUsage()
 })
@@ -75,7 +72,13 @@ watch(activeTenantId, () => {
       <p class="page-desc">欢迎回来，{{ userStore.user?.nickname || userStore.user?.username }}</p>
     </div>
 
-    <a-row :gutter="[16, 16]">
+    <a-empty v-if="!activeTenantId" description="暂无有效当前租户，请先进入租户管理选择或创建租户">
+      <router-link to="/tenants" custom v-slot="{ href, navigate }">
+        <a-button type="primary" :href="href" @click="navigate">前往租户管理</a-button>
+      </router-link>
+    </a-empty>
+
+    <a-row v-else :gutter="[16, 16]">
       <a-col :span="6">
         <a-card class="stat-card">
           <div class="stat-content">

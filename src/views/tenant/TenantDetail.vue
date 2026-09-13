@@ -4,7 +4,6 @@ import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { CameraOutlined, CheckCircleFilled, TeamOutlined } from '@ant-design/icons-vue'
 import { selectTenantBannerPreset, uploadTenantBanner, uploadTenantLogo } from '@/api/tenant'
-import { usePermissionStore } from '@/stores/permission'
 import { useTenantStore } from '@/stores/tenant'
 import { formatDate, formatDateTime } from '@/utils/date'
 import ImageCropModal from '@/components/ImageCropModal.vue'
@@ -27,7 +26,6 @@ const BANNER_PRESETS = ['01', '02', '03', '04'].map((id) => ({
 const route = useRoute()
 const router = useRouter()
 const tenantStore = useTenantStore()
-const permissionStore = usePermissionStore()
 
 const tenantId = String(route.params.tenantId)
 const tenant = ref<TenantInfoRespDTO | null>(null)
@@ -105,7 +103,6 @@ async function handleEnterTenant() {
   switching.value = true
   try {
     await tenantStore.switchToTenant(tenantId)
-    permissionStore.setRole(currentRole.value ?? 'MEMBER')
     message.success(`已切换到「${tenant.value.name}」`)
     router.push('/dashboard')
   } catch {
@@ -179,13 +176,13 @@ async function handleSelectBannerPreset(presetId: string) {
   }
 }
 
-function handleCloseDone() {
-  tenantStore.fetchTenants()
-  router.push('/tenants')
+async function handleCloseDone() {
+  await tenantStore.fetchTenants()
+  await router.push(tenantStore.currentTenantId ? '/dashboard' : '/tenants')
 }
-function handleLeaveDone() {
-  tenantStore.fetchTenants()
-  router.push('/tenants')
+async function handleLeaveDone() {
+  await tenantStore.fetchTenants()
+  await router.push(tenantStore.currentTenantId ? '/dashboard' : '/tenants')
 }
 </script>
 

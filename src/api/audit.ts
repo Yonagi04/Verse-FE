@@ -6,7 +6,7 @@ export function listAuditLogs(
   tenantId: string,
   pageNum: number,
   pageSize: number,
-  userId?: number,
+  userId?: string,
 ): Promise<LlmAuditListRespDTO> {
   return request.get(`/audit/${tenantId}/list`, {
     params: { pageNum, pageSize, ...(userId ? { userId } : {}) },

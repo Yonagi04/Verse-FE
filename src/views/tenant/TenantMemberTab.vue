@@ -22,7 +22,7 @@ const membersData = ref<TenantMembersListRespDTO | null>(null)
 const loading = ref(false)
 const pageNum = ref(1)
 const pageSize = ref(10)
-const roleLoading = ref<number | null>(null)
+const roleLoading = ref<string | null>(null)
 
 // Sub-tab state: only for ADMIN/SUPER_ADMIN
 const memberSubTab = ref<'members' | 'approval'>('members')
@@ -30,7 +30,7 @@ const pendingApprovalCount = ref(0)
 
 // Public profile modal
 const profileVisible = ref(false)
-const profileUserId = ref<number | null>(null)
+const profileUserId = ref<string | null>(null)
 
 function openProfile(member: TenantMemberInfo) {
   profileUserId.value = member.userId
@@ -265,7 +265,7 @@ function handleRemove(member: TenantMemberInfo) {
     <!-- Public Profile Modal -->
     <UserPublicProfileModal
       :visible="profileVisible"
-      :user-id="profileUserId ?? 0"
+      :user-id="profileUserId ?? ''"
       @close="profileVisible = false"
     />
 

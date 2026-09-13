@@ -6,7 +6,7 @@ import type { UserInfoRespDTO } from '@/types/user'
 
 const props = defineProps<{
   visible: boolean
-  userId: number
+  userId: string
 }>()
 
 const emit = defineEmits<{

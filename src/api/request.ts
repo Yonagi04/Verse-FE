@@ -2,6 +2,9 @@ import axios, { type AxiosError, type AxiosResponse } from 'axios'
 import { message } from 'ant-design-vue'
 import { getToken, clearAuth } from '@/utils/auth'
 import type { Result } from '@/types/api'
+import { triggerTenantContextRecovery } from '@/utils/tenantContextRecovery'
+
+const TENANT_CONTEXT_MISMATCH = 'B000338'
 
 declare module 'axios' {
   export interface AxiosRequestConfig {
@@ -32,8 +35,11 @@ http.interceptors.response.use(
   <T>(response: AxiosResponse<Result<T>>): T => {
     const result = response.data
     if (result.code !== '0') {
+      if (result.code === TENANT_CONTEXT_MISMATCH) {
+        void triggerTenantContextRecovery().catch(() => {})
+      }
       // B000218（账号已注销）由登录页弹窗处理，此处不弹 toast
-      if (result.code !== 'B000218' && !response.config.silentError) {
+      if (result.code !== 'B000218' && result.code !== TENANT_CONTEXT_MISMATCH && !response.config.silentError) {
         message.error(result.message || '请求失败')
       }
       const bizError = new Error(result.message || '请求失败') as Error & { code: string }
@@ -45,6 +51,11 @@ http.interceptors.response.use(
   (error: AxiosError<Result>) => {
     const status = error.response?.status
     const result = error.response?.data
+
+    if (result?.code === TENANT_CONTEXT_MISMATCH) {
+      void triggerTenantContextRecovery().catch(() => {})
+      return Promise.reject(error)
+    }
 
     if (status === 401) {
       clearAuth()

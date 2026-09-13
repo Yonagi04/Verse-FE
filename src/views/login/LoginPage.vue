@@ -5,14 +5,12 @@ import { message } from 'ant-design-vue'
 import { UserOutlined, LockOutlined } from '@ant-design/icons-vue'
 import { useUserStore } from '@/stores/user'
 import { useTenantStore } from '@/stores/tenant'
-import { usePermissionStore } from '@/stores/permission'
 import type { UserLoginReqDTO } from '@/types/user'
 
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 const tenantStore = useTenantStore()
-const permissionStore = usePermissionStore()
 
 const form = reactive<UserLoginReqDTO>({
   username: '',
@@ -30,7 +28,6 @@ async function handleSubmit() {
   try {
     const currentTenant = await userStore.login({ ...form })
     tenantStore.setCurrentTenant(currentTenant)
-    permissionStore.setRole(currentTenant?.role ?? null)
     await tenantStore.fetchTenants()
     message.success('登录成功')
 

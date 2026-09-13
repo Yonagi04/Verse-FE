@@ -169,12 +169,12 @@ export function getTenantMembers(tenantId: string, pageNum: number, pageSize: nu
 }
 
 // 修改成员角色
-export function updateMemberRole(tenantId: string, memberId: number, data: TenantMemberRoleUpdateReqDTO): Promise<boolean> {
+export function updateMemberRole(tenantId: string, memberId: string, data: TenantMemberRoleUpdateReqDTO): Promise<boolean> {
   return request.post(`/tenants/${tenantId}/members/${memberId}/role`, data)
 }
 
 // 移除成员
-export function removeMember(tenantId: string, memberId: number): Promise<boolean> {
+export function removeMember(tenantId: string, memberId: string): Promise<boolean> {
   return request.delete(`/tenants/${tenantId}/members/${memberId}/remove`)
 }
 
