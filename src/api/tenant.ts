@@ -20,6 +20,7 @@ import type {
   TenantLeaveRespDTO,
   TenantJoinInfoRespDTO,
   TenantSendNotificationReq,
+  TenantMediaUploadRespDTO,
 } from '@/types/tenant'
 
 // 获取当前用户的租户列表
@@ -40,6 +41,36 @@ export function getTenantInfo(tenantId: string): Promise<TenantInfoRespDTO> {
 // 更新租户信息
 export function updateTenant(tenantId: string, data: TenantUpdateReqDTO): Promise<boolean> {
   return request.post(`/tenants/${tenantId}/update`, data)
+}
+
+// 上传租户 Logo
+export function uploadTenantLogo(tenantId: string, file: File): Promise<TenantMediaUploadRespDTO> {
+  return uploadTenantMedia(tenantId, 'logo', file)
+}
+
+// 上传租户头图
+export function uploadTenantBanner(tenantId: string, file: File): Promise<TenantMediaUploadRespDTO> {
+  return uploadTenantMedia(tenantId, 'banner', file)
+}
+
+// 选择租户内置头图
+export function selectTenantBannerPreset(
+  tenantId: string,
+  presetId: string,
+): Promise<TenantMediaUploadRespDTO> {
+  return request.post(`/tenants/${tenantId}/banner/preset`, { presetId })
+}
+
+function uploadTenantMedia(
+  tenantId: string,
+  kind: 'logo' | 'banner',
+  file: File,
+): Promise<TenantMediaUploadRespDTO> {
+  const formData = new FormData()
+  formData.append('file', file)
+  return request.post(`/tenants/${tenantId}/${kind}`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
 }
 
 // 切换租户

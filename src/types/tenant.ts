@@ -9,7 +9,15 @@ export interface TenantInfoRespDTO {
   tenantId: string
   name: string
   type: TenantType
-  description: string
+  description: string | null
+  logoUrl: string | null
+  bannerUrl: string | null
+  role: Role
+  memberCount: number
+}
+
+export interface TenantMediaUploadRespDTO {
+  url: string
 }
 
 export interface TenantInfoListRespDTO {
