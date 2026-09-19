@@ -1,29 +1,28 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { message } from 'ant-design-vue'
 import { useUserStore } from '@/stores/user'
 import { useTenantStore } from '@/stores/tenant'
 import { useThemeStore } from '@/stores/theme'
-import { message } from 'ant-design-vue'
-import {
-  UserOutlined,
-  SwapOutlined,
-  LogoutOutlined,
-  CheckOutlined,
-} from '@ant-design/icons-vue'
 import UserAvatar from '@/components/UserAvatar.vue'
+import {
+  CheckOutlined,
+  DownOutlined,
+  LogoutOutlined,
+  RightOutlined,
+  SwapOutlined,
+  UserOutlined,
+} from '@ant-design/icons-vue'
 
 const router = useRouter()
 const userStore = useUserStore()
 const tenantStore = useTenantStore()
 const themeStore = useThemeStore()
 
-// ========== State ==========
 const popoverVisible = ref(false)
-const tenantSubVisible = ref(false)
-const hideSubTimer = ref<ReturnType<typeof setTimeout> | null>(null)
+const tenantListVisible = ref(false)
 
-// ========== Computed ==========
 const avatarName = computed(() => userStore.user?.nickname || userStore.user?.username || '')
 
 const displayName = computed(() => {
@@ -40,21 +39,24 @@ function isCurrentTenant(tenantId: string) {
   return tenantStore.currentTenant?.tenantId === tenantId
 }
 
-// ========== Popover ==========
 function togglePopover() {
   popoverVisible.value = !popoverVisible.value
   if (!popoverVisible.value) {
-    tenantSubVisible.value = false
+    tenantListVisible.value = false
   }
 }
 
 function closePopover() {
   popoverVisible.value = false
-  tenantSubVisible.value = false
+  tenantListVisible.value = false
 }
 
-function onDocumentClick(e: MouseEvent) {
-  const target = e.target as HTMLElement
+function toggleTenantList() {
+  tenantListVisible.value = !tenantListVisible.value
+}
+
+function onDocumentClick(event: MouseEvent) {
+  const target = event.target as HTMLElement
   if (popoverVisible.value && !target.closest('.sidebar-user-area')) {
     closePopover()
   }
@@ -63,29 +65,6 @@ function onDocumentClick(e: MouseEvent) {
 onMounted(() => document.addEventListener('click', onDocumentClick))
 onUnmounted(() => document.removeEventListener('click', onDocumentClick))
 
-// ========== Tenant Sub-panel ==========
-function showTenantSub() {
-  if (hideSubTimer.value) {
-    clearTimeout(hideSubTimer.value)
-    hideSubTimer.value = null
-  }
-  tenantSubVisible.value = true
-}
-
-function hideTenantSub() {
-  hideSubTimer.value = setTimeout(() => {
-    tenantSubVisible.value = false
-  }, 150)
-}
-
-function cancelHideSub() {
-  if (hideSubTimer.value) {
-    clearTimeout(hideSubTimer.value)
-    hideSubTimer.value = null
-  }
-}
-
-// ========== Actions ==========
 function handleProfile() {
   closePopover()
   router.push('/profile')
@@ -100,7 +79,6 @@ async function handleLogout() {
 
 async function handleSwitchTenant(tenantId: string, tenantName: string) {
   closePopover()
-  tenantSubVisible.value = false
   try {
     await tenantStore.switchToTenant(tenantId)
     message.success(`已切换到「${tenantName}」`)
@@ -113,175 +91,294 @@ async function handleSwitchTenant(tenantId: string, tenantName: string) {
 
 <template>
   <div class="sidebar-user-area" :class="{ collapsed: themeStore.sidebarCollapsed }">
-    <!-- 触发区域 -->
-    <div class="user-trigger" @click.stop="togglePopover">
-      <UserAvatar :src="userStore.user?.avatar" :name="avatarName" :size="36" />
-      <div v-show="!themeStore.sidebarCollapsed" class="user-info">
-        <div class="user-nickname">{{ displayName }}</div>
-        <div v-if="currentTenantName" class="user-tenant">{{ currentTenantName }}</div>
-      </div>
-    </div>
-
-    <!-- 弹出菜单 -->
-    <div v-show="popoverVisible" class="user-popover" @click.stop>
-      <div class="popover-item" @click="handleProfile">
-        <UserOutlined class="item-icon" />
-        <span>个人信息</span>
-      </div>
-
-      <div
-        class="popover-item"
-        :class="{ 'sub-open': tenantSubVisible }"
-        @mouseenter="showTenantSub"
-        @mouseleave="hideTenantSub"
-      >
-        <SwapOutlined class="item-icon" />
-        <span>切换租户</span>
-        <span class="item-arrow">&rsaquo;</span>
-
-        <!-- 租户子面板 -->
-        <div
-          v-show="tenantSubVisible"
-          class="tenant-subpanel"
-          @mouseenter="cancelHideSub"
-          @mouseleave="hideTenantSub"
-        >
-          <div class="subpanel-label">当前租户</div>
-          <div
-            v-for="t in tenantList"
-            :key="t.tenantId"
-            class="subpanel-item"
-            :class="{ current: isCurrentTenant(t.tenantId) }"
-            @click="handleSwitchTenant(t.tenantId, t.name)"
-          >
-            <CheckOutlined v-if="isCurrentTenant(t.tenantId)" class="check-icon" />
-            <span v-else class="check-placeholder"></span>
-            <span class="tenant-name">{{ t.name }}</span>
-            <span class="tenant-role-tag" :class="t.role.toLowerCase()">{{ t.role }}</span>
-          </div>
-          <div v-if="tenantList.length === 0" class="subpanel-empty">
-            暂未加入任何租户
-          </div>
+    <div v-show="popoverVisible" class="user-popover" role="menu" @click.stop>
+      <div class="popover-account">
+        <UserAvatar :src="userStore.user?.avatar" :name="avatarName" :size="32" />
+        <div class="popover-account-copy">
+          <strong>{{ displayName }}</strong>
+          <span>{{ currentTenantName || '暂无当前租户' }}</span>
         </div>
       </div>
 
       <div class="popover-divider"></div>
 
-      <div class="popover-item danger" @click="handleLogout">
+      <button type="button" class="popover-item" role="menuitem" @click="handleProfile">
+        <UserOutlined class="item-icon" />
+        <span>个人信息</span>
+      </button>
+
+      <button
+        type="button"
+        class="popover-item"
+        role="menuitem"
+        :class="{ 'sub-open': tenantListVisible }"
+        :aria-expanded="tenantListVisible"
+        @click="toggleTenantList"
+      >
+        <SwapOutlined class="item-icon" />
+        <span>切换租户</span>
+        <RightOutlined
+          class="item-arrow"
+          :class="{ rotated: tenantListVisible }"
+        />
+      </button>
+      
+      <Transition name="tenant-expand">
+        <div v-show="tenantListVisible" class="tenant-list">
+          <button
+            v-for="tenant in tenantList"
+            :key="tenant.tenantId"
+            type="button"
+            class="tenant-item"
+            role="menuitemradio"
+            :aria-checked="isCurrentTenant(tenant.tenantId)"
+            :class="{ current: isCurrentTenant(tenant.tenantId) }"
+            @click="handleSwitchTenant(tenant.tenantId, tenant.name)"
+          >
+            <span class="tenant-symbol">{{ tenant.name.charAt(0).toUpperCase() || '?' }}</span>
+            <span class="tenant-copy">
+              <span class="tenant-name">{{ tenant.name }}</span>
+              <span class="tenant-role">{{ tenant.role }}</span>
+            </span>
+            <CheckOutlined v-if="isCurrentTenant(tenant.tenantId)" class="check-icon" />
+          </button>
+          <div v-if="tenantList.length === 0" class="tenant-list-empty">
+            暂未加入任何租户
+          </div>
+        </div>
+      </Transition>
+
+      <div class="popover-divider"></div>
+
+      <button type="button" class="popover-item danger" role="menuitem" @click="handleLogout">
         <LogoutOutlined class="item-icon" />
         <span>退出登录</span>
-      </div>
+      </button>
     </div>
+
+    <button
+      type="button"
+      class="user-trigger"
+      aria-haspopup="menu"
+      :aria-expanded="popoverVisible"
+      :aria-label="themeStore.sidebarCollapsed ? `${displayName}，打开用户菜单` : '打开用户菜单'"
+      @click.stop="togglePopover"
+    >
+      <UserAvatar :src="userStore.user?.avatar" :name="avatarName" :size="36" />
+      <span v-show="!themeStore.sidebarCollapsed" class="user-info">
+        <span class="user-nickname">{{ displayName }}</span>
+        <span v-if="currentTenantName" class="user-tenant">
+          <span class="tenant-status" aria-hidden="true"></span>
+          <span class="user-tenant-name">{{ currentTenantName }}</span>
+        </span>
+      </span>
+      <DownOutlined 
+        v-show="!themeStore.sidebarCollapsed" 
+        class="user-arrow"
+        :class="{ expanded: popoverVisible }"
+      />
+    </button>
   </div>
 </template>
 
 <style lang="scss" scoped>
 .sidebar-user-area {
-  border-top: 1px solid $color-border;
-  flex-shrink: 0;
   position: relative;
   z-index: 10;
+  flex: 0 0 76px;
+  // flex-shrink: 0;
+  padding: 10px;
+  border-top: 1px solid $color-border;
 }
 
-// ========== 触发区域 ==========
 .user-trigger {
+  width: 100%;
+  height: 54px;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: $radius-button;
+  background: transparent;
+  color: $color-text-primary;
+  font-family: $font-family;
+  text-align: left;
   cursor: pointer;
   transition: background 0.15s;
-  overflow: hidden;
 
-  &:hover {
+  &:hover,
+  &[aria-expanded='true'] {
     background: $color-bg-secondary;
+  }
+
+  &:focus-visible {
+    outline: 2px solid rgba($color-primary, 0.35);
+    outline-offset: 1px;
+  }
+}
+
+.user-info {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.user-nickname {
+  overflow: hidden;
+  color: $color-text-primary;
+  font-size: $font-size-body;
+  font-weight: 500;
+  line-height: 1.35;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.user-tenant {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: $color-text-secondary;
+  font-size: $font-size-caption;
+  line-height: 1.35;
+}
+
+.tenant-status {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 6px;
+  border-radius: 50%;
+  background: $color-success;
+}
+
+.user-tenant-name {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.user-arrow {
+  flex: 0 0 auto;
+  color: #98a2b3;
+  font-size: 12px;
+  transition: transform 0.2s ease;
+
+  &.expanded {
+    transform: rotate(180deg);
   }
 }
 
 .sidebar-user-area.collapsed .user-trigger {
   justify-content: center;
-  padding: 12px 8px;
+  padding: 7px 0;
 }
 
-// ========== 用户信息 ==========
-.user-info {
-  overflow: hidden;
-  flex: 1;
-  min-width: 0;
-}
-
-.user-nickname {
-  font-size: $font-size-body;
-  font-weight: 500;
-  color: $color-text-primary;
-  line-height: 1.35;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.user-tenant {
-  font-size: $font-size-caption;
-  color: #bfbfbf;
-  line-height: 1.35;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-// ========== 弹出菜单 ==========
 .user-popover {
+  width: 224px;
   position: absolute;
-  bottom: 100%;
-  left: 12px;
-  margin-bottom: 8px;
-  background: $color-bg;
+  bottom: calc(100% + 8px);
+  left: 10px;
+  padding: 6px;
+  border: 1px solid $color-border;
   border-radius: $radius-card;
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
-  min-width: 180px;
-  padding: 4px;
-  animation: popoverIn 0.15s ease;
+  background: $color-bg;
+  box-shadow: $shadow-light;
+  animation: popover-in 0.15s ease;
 }
 
 .sidebar-user-area.collapsed .user-popover {
-  left: 8px;
+  bottom: 10px;
+  left: calc(100% + 8px);
 }
 
-@keyframes popoverIn {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
+@keyframes popover-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.popover-item {
+.popover-account {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 12px;
-  border-radius: $radius-button;
-  cursor: pointer;
-  font-size: $font-size-body;
-  color: $color-text-primary;
-  transition: background 0.12s;
-  position: relative;
-  white-space: nowrap;
+  padding: 8px;
+}
 
-  &:hover {
-    background: #f5f5f5;
+.popover-account-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+
+  strong,
+  span {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  strong {
+    color: $color-text-primary;
+    font-size: $font-size-body;
+    font-weight: 500;
+  }
+
+  span {
+    color: $color-text-secondary;
+    font-size: $font-size-caption;
+  }
+}
+
+.popover-item {
+  width: 100%;
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: $radius-button;
+  background: transparent;
+  color: $color-text-primary;
+  font-family: $font-family;
+  font-size: $font-size-body;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s;
+
+  &:hover,
+  &.sub-open {
+    background: $color-bg-secondary;
+  }
+
+  &:focus-visible {
+    outline: 2px solid rgba($color-primary, 0.35);
+    outline-offset: -2px;
   }
 
   &.danger {
     color: $color-danger;
 
     &:hover {
-      background: #fff1f0;
+      background: rgba($color-danger, 0.06);
     }
   }
 }
 
 .item-icon {
-  flex-shrink: 0;
-  font-size: 16px;
+  flex: 0 0 auto;
   color: $color-text-secondary;
+  font-size: 16px;
 }
 
 .popover-item.danger .item-icon {
@@ -290,99 +387,131 @@ async function handleSwitchTenant(tenantId: string, tenantName: string) {
 
 .item-arrow {
   margin-left: auto;
-  color: #bfbfbf;
-  font-size: 16px;
+  color: #98a2b3;
+  font-size: 12px;
 }
 
 .popover-divider {
   height: 1px;
+  margin: 4px 6px;
   background: $color-border;
-  margin: 4px 8px;
 }
 
-// ========== 租户子面板 ==========
-.tenant-subpanel {
-  position: absolute;
-  left: calc(100% + 4px);
-  top: 50%;
-  transform: translateY(-50%);
-  background: $color-bg;
-  border-radius: $radius-card;
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
-  min-width: 200px;
-  padding: 4px;
-  animation: subpanelIn 0.12s ease;
+.tenant-list {
+  max-height: 220px;
+  margin: 2px 0 4px 24px;
+  padding: 2px 0;
+  overflow-y: auto;
 }
 
-@keyframes subpanelIn {
-  from { opacity: 0; transform: translateY(-50%) translateX(-4px); }
-  to { opacity: 1; transform: translateY(-50%) translateX(0); }
-}
-
-.subpanel-label {
-  font-size: $font-size-caption;
-  color: #bfbfbf;
-  padding: 6px 12px 2px;
-}
-
-.subpanel-item {
+.tenant-item {
+  width: 100%;
+  min-height: 46px;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 12px;
+  padding: 5px 7px;
+  border: 0;
   border-radius: $radius-button;
-  cursor: pointer;
-  font-size: $font-size-body;
+  background: transparent;
   color: $color-text-primary;
+  font-family: $font-family;
+  text-align: left;
+  cursor: pointer;
   transition: background 0.12s;
-  white-space: nowrap;
 
   &:hover {
-    background: #f5f5f5;
+    background: $color-bg-secondary;
+  }
+
+  &:focus-visible {
+    outline: 2px solid rgba($color-primary, 0.35);
+    outline-offset: -2px;
   }
 
   &.current {
     color: $color-primary;
-    font-weight: 500;
   }
 }
 
+.tenant-symbol {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 26px;
+  border-radius: 6px;
+  background: rgba($color-primary, 0.09);
+  color: $color-primary;
+  font-size: $font-size-caption;
+  font-weight: 500;
+}
+
+.tenant-copy {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.tenant-name {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.tenant-role {
+  color: $color-text-secondary;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
 .check-icon {
-  flex-shrink: 0;
+  flex: 0 0 auto;
   color: $color-primary;
   font-size: 13px;
 }
 
-.check-placeholder {
-  width: 13px;
-  flex-shrink: 0;
-}
-
-.tenant-name {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.tenant-role-tag {
-  font-size: 11px;
-  padding: 1px 6px;
-  border-radius: 4px;
-  background: #f0f0f0;
+.tenant-list-empty {
+  padding: 16px 8px;
   color: $color-text-secondary;
-  flex-shrink: 0;
-
-  &.super_admin,
-  &.admin {
-    background: #e6f4ff;
-    color: $color-primary;
-  }
+  font-size: 13px;
+  text-align: center;
 }
 
-.subpanel-empty {
-  padding: 16px 12px;
-  text-align: center;
-  color: #bfbfbf;
-  font-size: 13px;
+.tenant-expand-enter-active,
+.tenant-expand-leave-active {
+  overflow: hidden;
+  transition:
+    max-height 0.2s ease,
+    opacity 0.15s ease,
+    transform 0.2s ease;
+}
+
+.tenant-expand-enter-from,
+.tenant-expand-leave-to {
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+.tenant-expand-enter-to,
+.tenant-expand-leave-from {
+  max-height: 220px;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.item-arrow {
+  margin-left: auto;
+  color: #98a2b3;
+  font-size: 12px;
+  transition: transform 0.2s ease;
+
+  &.rotated {
+    transform: rotate(90deg);
+  }
 }
 </style>
