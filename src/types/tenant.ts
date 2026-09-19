@@ -42,6 +42,7 @@ export interface TenantSettingsRespDTO {
   description: string | null
   joinApprovalMode: 0 | 1
   auditEnabled: boolean
+  activityRecordingEnabled: boolean
   rateLimitRpm: number | null
   rateLimitTpm: number | null
   role: Role
@@ -53,6 +54,7 @@ export interface TenantSettingsUpdateReqDTO {
   description: string | null
   joinApprovalMode: 0 | 1
   auditEnabled: boolean
+  activityRecordingEnabled: boolean
   rateLimitRpm: number | null
   rateLimitTpm: number | null
 }
@@ -198,4 +200,48 @@ export interface TenantSendNotificationReq {
   title: string
   content: string
   receiverType: ReceiverType
+}
+
+// ========== 租户动态 ==========
+
+export interface TenantActivityStatusRespDTO {
+  enabled: boolean
+}
+
+export interface TenantActivityDetails {
+  changedFields?: string[]
+  joinSource?: string
+  oldRole?: string
+  newRole?: string
+  status?: string
+  expiresAt?: string
+  provider?: string
+  modelName?: string
+  credentialChanged?: boolean
+  [key: string]: unknown
+}
+
+export interface TenantActivityItemRespDTO {
+  eventId: string
+  category: string
+  activityType: string
+  actorUserId: string
+  actorUsername: string
+  actorNickname: string | null
+  targetType: string | null
+  targetId: string | null
+  targetName: string | null
+  details: TenantActivityDetails
+  occurredAt: string
+}
+
+export interface TenantActivityListRespDTO {
+  items: TenantActivityItemRespDTO[]
+  nextCursor: string | null
+  hasMore: boolean
+}
+
+export interface TenantActivityListParams {
+  limit?: number
+  cursor?: string
 }

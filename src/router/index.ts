@@ -63,10 +63,16 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true },
   },
   {
+    path: '/tenants/:tenantId/activities',
+    name: 'TenantActivities',
+    component: () => import('@/views/tenant/TenantActivityPage.vue'),
+    meta: { requiresAuth: true, tenantScoped: true },
+  },
+  {
     path: '/tenants/:tenantId',
     name: 'TenantDetail',
     component: () => import('@/views/tenant/TenantDetail.vue'),
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, tenantScoped: true },
   },
   {
     path: '/api-keys',
@@ -156,8 +162,8 @@ router.beforeEach(async (to, _from, next) => {
         return
       }
 
-      // 直接进入租户详情时，必须先完成服务端租户切换再挂载页面。
-      if (to.name === 'TenantDetail') {
+      // 直接进入任意租户作用域页面时，必须先完成服务端租户切换再挂载页面。
+      if (to.meta.tenantScoped === true) {
         const targetTenantId = String(to.params.tenantId)
         const target = tenantStore.tenants.find((tenant) => tenant.tenantId === targetTenantId)
         if (!target) {

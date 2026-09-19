@@ -1,4 +1,5 @@
 import request from './request'
+import type { AxiosRequestConfig } from 'axios'
 import type {
   TenantCreateReqDTO,
   TenantInfoListRespDTO,
@@ -23,6 +24,9 @@ import type {
   TenantMediaUploadRespDTO,
   TenantSettingsRespDTO,
   TenantSettingsUpdateReqDTO,
+  TenantActivityStatusRespDTO,
+  TenantActivityListRespDTO,
+  TenantActivityListParams,
 } from '@/types/tenant'
 
 // 获取当前用户的租户列表
@@ -56,6 +60,20 @@ export function updateTenantSettings(
   data: TenantSettingsUpdateReqDTO,
 ): Promise<TenantSettingsRespDTO> {
   return request.post(`/tenants/${tenantId}/settings/update`, data)
+}
+
+// 查询租户动态记录功能状态
+export function getTenantActivityStatus(tenantId: string): Promise<TenantActivityStatusRespDTO> {
+  return request.get(`/tenants/${tenantId}/activities/status`)
+}
+
+// 按服务端游标查询租户动态
+export function listTenantActivities(
+  tenantId: string,
+  params: TenantActivityListParams = {},
+  config: AxiosRequestConfig = {},
+): Promise<TenantActivityListRespDTO> {
+  return request.get(`/tenants/${tenantId}/activities`, { ...config, params })
 }
 
 // 上传租户 Logo

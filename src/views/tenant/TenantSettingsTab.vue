@@ -20,6 +20,7 @@ interface SettingsForm {
   description: string
   joinApprovalMode: 0 | 1
   auditEnabled: boolean
+  activityRecordingEnabled: boolean
   rpmEnabled: boolean
   rateLimitRpm: number | null
   tpmEnabled: boolean
@@ -35,6 +36,7 @@ const form = reactive<SettingsForm>({
   description: '',
   joinApprovalMode: 0,
   auditEnabled: false,
+  activityRecordingEnabled: false,
   rpmEnabled: false,
   rateLimitRpm: null,
   tpmEnabled: false,
@@ -76,6 +78,7 @@ function snapshotPayload(settings: TenantSettingsRespDTO): TenantSettingsUpdateR
     description: settings.description,
     joinApprovalMode: settings.type === 'PERSONAL' ? 0 : settings.joinApprovalMode,
     auditEnabled: settings.auditEnabled,
+    activityRecordingEnabled: settings.activityRecordingEnabled,
     rateLimitRpm: settings.rateLimitRpm,
     rateLimitTpm: settings.rateLimitTpm,
   }
@@ -87,6 +90,7 @@ function toPayload(): TenantSettingsUpdateReqDTO {
     description: form.description.trim() || null,
     joinApprovalMode: isTeam.value ? form.joinApprovalMode : 0,
     auditEnabled: form.auditEnabled,
+    activityRecordingEnabled: form.activityRecordingEnabled,
     rateLimitRpm: form.rpmEnabled ? form.rateLimitRpm : null,
     rateLimitTpm: form.tpmEnabled ? form.rateLimitTpm : null,
   }
@@ -98,6 +102,7 @@ function applySnapshot(settings: TenantSettingsRespDTO) {
   form.description = settings.description ?? ''
   form.joinApprovalMode = settings.type === 'PERSONAL' ? 0 : settings.joinApprovalMode
   form.auditEnabled = settings.auditEnabled
+  form.activityRecordingEnabled = settings.activityRecordingEnabled
   form.rpmEnabled = settings.rateLimitRpm !== null && settings.rateLimitRpm > 0
   form.rateLimitRpm = settings.rateLimitRpm
   form.tpmEnabled = settings.rateLimitTpm !== null && settings.rateLimitTpm > 0
@@ -185,6 +190,19 @@ onMounted(loadSettings)
             <span class="option-desc">持有有效邀请码的用户可直接加入，请谨慎启用。</span>
           </a-radio>
         </a-radio-group>
+      </a-card>
+
+      <a-card class="settings-section activity-settings" title="租户动态">
+        <div class="setting-row compact-row">
+          <div>
+            <div class="setting-title">记录租户动态</div>
+            <div class="setting-desc">
+              开启后会记录租户设置、成员和模型服务等关键变更；关闭后不再产生新动态，
+              历史记录仍会保留，但重新开启前无法查看。
+            </div>
+          </div>
+          <a-switch v-model:checked="form.activityRecordingEnabled" :disabled="!editable" />
+        </div>
       </a-card>
 
       <a-card class="settings-section" title="模型调用">
@@ -354,6 +372,11 @@ onMounted(loadSettings)
 
   &:first-child { padding-top: 0; }
   &:last-child { padding-bottom: 0; border-bottom: 0; }
+}
+
+.compact-row {
+  min-height: 48px;
+  padding: 0;
 }
 
 .limit-control {

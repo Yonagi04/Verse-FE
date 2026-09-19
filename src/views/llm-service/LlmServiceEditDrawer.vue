@@ -197,7 +197,6 @@ async function handleSave() {
         :rules="rules"
         layout="vertical"
       >
-        <div class="form-hint form-hint-block">留空字段保持不变，修改后提交对应字段</div>
 
         <a-form-item label="供应商">
           <div class="provider-readonly">

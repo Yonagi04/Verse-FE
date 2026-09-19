@@ -13,6 +13,7 @@ import TenantLeaveModal from './TenantLeaveModal.vue'
 import TenantMemberTab from './TenantMemberTab.vue'
 import TenantNotificationModal from './TenantNotificationModal.vue'
 import TenantSettingsTab from './TenantSettingsTab.vue'
+import TenantRecentActivity from './TenantRecentActivity.vue'
 import type { TenantInfoRespDTO } from '@/types/tenant'
 import type { Role } from '@/types/user'
 
@@ -289,27 +290,30 @@ async function handleLeaveDone() {
                 <h2>租户简介</h2>
                 <p>{{ tenant.description || '管理员暂未添加租户简介。' }}</p>
               </div>
-              <div class="tenant-facts">
-                <div class="fact-row">
-                  <span>租户类型</span>
-                  <strong>{{ tenant.type === 'TEAM' ? '团队空间' : '个人空间' }}</strong>
+              <div class="home-side">
+                <div class="tenant-facts">
+                  <div class="fact-row">
+                    <span>租户类型</span>
+                    <strong>{{ tenant.type === 'TEAM' ? '团队空间' : '个人空间' }}</strong>
+                  </div>
+                  <div class="fact-row">
+                    <span>我的角色</span>
+                    <strong>{{ roleLabel }}</strong>
+                  </div>
+                  <div v-if="tenant.type === 'TEAM'" class="fact-row">
+                    <span>成员数量</span>
+                    <strong>{{ tenant.memberCount }}</strong>
+                  </div>
+                  <div class="fact-row">
+                    <span>加入时间</span>
+                    <strong>{{ currentTenantEntry?.joinedAt ? formatDate(currentTenantEntry.joinedAt) : '-' }}</strong>
+                  </div>
+                  <div class="fact-row">
+                    <span>最近访问</span>
+                    <strong>{{ currentTenantEntry?.lastAccessedAt ? formatDateTime(currentTenantEntry.lastAccessedAt) : '从未访问' }}</strong>
+                  </div>
                 </div>
-                <div class="fact-row">
-                  <span>我的角色</span>
-                  <strong>{{ roleLabel }}</strong>
-                </div>
-                <div v-if="tenant.type === 'TEAM'" class="fact-row">
-                  <span>成员数量</span>
-                  <strong>{{ tenant.memberCount }}</strong>
-                </div>
-                <div class="fact-row">
-                  <span>加入时间</span>
-                  <strong>{{ currentTenantEntry?.joinedAt ? formatDate(currentTenantEntry.joinedAt) : '-' }}</strong>
-                </div>
-                <div class="fact-row">
-                  <span>最近访问</span>
-                  <strong>{{ currentTenantEntry?.lastAccessedAt ? formatDateTime(currentTenantEntry.lastAccessedAt) : '从未访问' }}</strong>
-                </div>
+                <TenantRecentActivity :tenant-id="tenantId" />
               </div>
             </section>
 
@@ -687,6 +691,13 @@ async function handleLeaveDone() {
 .tenant-facts {
   border-left: 1px solid $color-border;
   padding-left: 24px;
+}
+
+.home-side {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 20px;
 }
 
 .fact-row {
