@@ -2,6 +2,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { message } from 'ant-design-vue'
 import { getTenantSettings, updateTenantSettings } from '@/api/tenant'
+import { usePlaygroundStore } from '@/stores/playground'
 import { useTenantStore } from '@/stores/tenant'
 import type { TenantSettingsRespDTO, TenantSettingsUpdateReqDTO } from '@/types/tenant'
 
@@ -21,6 +22,7 @@ interface SettingsForm {
   joinApprovalMode: 0 | 1
   auditEnabled: boolean
   activityRecordingEnabled: boolean
+  playgroundEnabled: boolean
   rpmEnabled: boolean
   rateLimitRpm: number | null
   tpmEnabled: boolean
@@ -28,6 +30,7 @@ interface SettingsForm {
 }
 
 const tenantStore = useTenantStore()
+const playgroundStore = usePlaygroundStore()
 const loading = ref(true)
 const saving = ref(false)
 const snapshot = ref<TenantSettingsRespDTO | null>(null)
@@ -37,6 +40,7 @@ const form = reactive<SettingsForm>({
   joinApprovalMode: 0,
   auditEnabled: false,
   activityRecordingEnabled: false,
+  playgroundEnabled: false,
   rpmEnabled: false,
   rateLimitRpm: null,
   tpmEnabled: false,
@@ -79,6 +83,7 @@ function snapshotPayload(settings: TenantSettingsRespDTO): TenantSettingsUpdateR
     joinApprovalMode: settings.type === 'PERSONAL' ? 0 : settings.joinApprovalMode,
     auditEnabled: settings.auditEnabled,
     activityRecordingEnabled: settings.activityRecordingEnabled,
+    playgroundEnabled: settings.playgroundEnabled,
     rateLimitRpm: settings.rateLimitRpm,
     rateLimitTpm: settings.rateLimitTpm,
   }
@@ -91,6 +96,7 @@ function toPayload(): TenantSettingsUpdateReqDTO {
     joinApprovalMode: isTeam.value ? form.joinApprovalMode : 0,
     auditEnabled: form.auditEnabled,
     activityRecordingEnabled: form.activityRecordingEnabled,
+    playgroundEnabled: form.playgroundEnabled,
     rateLimitRpm: form.rpmEnabled ? form.rateLimitRpm : null,
     rateLimitTpm: form.tpmEnabled ? form.rateLimitTpm : null,
   }
@@ -103,6 +109,7 @@ function applySnapshot(settings: TenantSettingsRespDTO) {
   form.joinApprovalMode = settings.type === 'PERSONAL' ? 0 : settings.joinApprovalMode
   form.auditEnabled = settings.auditEnabled
   form.activityRecordingEnabled = settings.activityRecordingEnabled
+  form.playgroundEnabled = settings.playgroundEnabled
   form.rpmEnabled = settings.rateLimitRpm !== null && settings.rateLimitRpm > 0
   form.rateLimitRpm = settings.rateLimitRpm
   form.tpmEnabled = settings.rateLimitTpm !== null && settings.rateLimitTpm > 0
@@ -130,7 +137,10 @@ async function saveSettings() {
   try {
     const saved = await updateTenantSettings(props.tenantId, toPayload())
     applySnapshot(saved)
-    await tenantStore.fetchTenants()
+    await Promise.all([
+      tenantStore.fetchTenants(),
+      playgroundStore.refresh(props.tenantId),
+    ])
     emit('saved', saved)
     message.success('租户设置已保存')
   } catch {
@@ -202,6 +212,19 @@ onMounted(loadSettings)
             </div>
           </div>
           <a-switch v-model:checked="form.activityRecordingEnabled" :disabled="!editable" />
+        </div>
+      </a-card>
+
+      <a-card class="settings-section" title="PlayGround">
+        <div class="setting-row compact-row">
+          <div>
+            <div class="setting-title">启用 PlayGround</div>
+            <div class="setting-desc">
+              开启后，租户成员可使用 Playground 直接调用当前租户的 LLM 服务，产生的 Token 用量将计入租户消耗。
+            </div>
+            <div class="setting-desc">平台固定限额：每模型 6 RPM / 120 RPH。</div>
+          </div>
+          <a-switch v-model:checked="form.playgroundEnabled" :disabled="!editable" />
         </div>
       </a-card>
 

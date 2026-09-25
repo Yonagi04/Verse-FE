@@ -43,6 +43,7 @@ export interface TenantSettingsRespDTO {
   joinApprovalMode: 0 | 1
   auditEnabled: boolean
   activityRecordingEnabled: boolean
+  playgroundEnabled: boolean
   rateLimitRpm: number | null
   rateLimitTpm: number | null
   role: Role
@@ -55,6 +56,7 @@ export interface TenantSettingsUpdateReqDTO {
   joinApprovalMode: 0 | 1
   auditEnabled: boolean
   activityRecordingEnabled: boolean
+  playgroundEnabled: boolean
   rateLimitRpm: number | null
   rateLimitTpm: number | null
 }

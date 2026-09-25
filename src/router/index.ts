@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { useTenantStore } from '@/stores/tenant'
+import { usePlaygroundStore } from '@/stores/playground'
 
 const routes: RouteRecordRaw[] = [
   {
@@ -99,6 +100,12 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true },
   },
   {
+    path: '/playground',
+    name: 'Playground',
+    component: () => import('@/views/playground/PlaygroundPage.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/profile',
     name: 'UserCenter',
     component: () => import('@/views/user/UserCenter.vue'),
@@ -177,6 +184,14 @@ router.beforeEach(async (to, _from, next) => {
             next('/tenants')
             return
           }
+        }
+      }
+      if (to.path === '/playground') {
+        const currentTenantId = tenantStore.currentTenantId
+        const playground = usePlaygroundStore()
+        if (!currentTenantId || !(await playground.refresh(currentTenantId))?.enabled) {
+          next('/dashboard')
+          return
         }
       }
       next()

@@ -49,7 +49,7 @@ onBeforeUnmount(()=>window.clearTimeout(timer))
 <template>
  <div class="usage-page">
   <div class="page-header">
-   <div><h2 class="page-title">用量统计</h2><p class="page-desc">按时间、模型服务、API Key 和成员查看 Token 与预估费用</p></div>
+   <div><h2 class="page-title">API 调用用量</h2><p class="page-desc">按时间、模型服务、API Key 和成员查看 API 调用的 Token 与预估费用</p></div>
    <a-dropdown :disabled="Boolean(exporting)" placement="bottomRight">
     <a-button :loading="Boolean(exporting)"><DownloadOutlined/>导出报表<DownOutlined/></a-button>
     <template #overlay>

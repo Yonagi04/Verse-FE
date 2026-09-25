@@ -3,6 +3,8 @@ import { computed, ref, watch } from 'vue'
 import type { Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useThemeStore } from '@/stores/theme'
+import { useTenantStore } from '@/stores/tenant'
+import { usePlaygroundStore } from '@/stores/playground'
 import {
   ApiOutlined,
   BarChartOutlined,
@@ -11,6 +13,7 @@ import {
   KeyOutlined,
   RightOutlined,
   TeamOutlined,
+  ExperimentOutlined,
 } from '@ant-design/icons-vue'
 
 interface NavigationItem {
@@ -20,7 +23,7 @@ interface NavigationItem {
 }
 
 interface NavigationGroup {
-  key: 'llm' | 'usage'
+  key: 'llm' | 'usage' | 'explore'
   label: string
   icon: Component
   children: NavigationItem[]
@@ -29,6 +32,8 @@ interface NavigationGroup {
 const router = useRouter()
 const route = useRoute()
 const themeStore = useThemeStore()
+const tenantStore = useTenantStore()
+const playgroundStore = usePlaygroundStore()
 
 const overviewItems: NavigationItem[] = [
   { key: '/dashboard', label: '仪表盘', icon: DashboardOutlined },
@@ -38,7 +43,7 @@ const managementItems: NavigationItem[] = [
   { key: '/tenants', label: '租户管理', icon: TeamOutlined },
 ]
 
-const navigationGroups: NavigationGroup[] = [
+const navigationGroups = computed<NavigationGroup[]>(() => [
   {
     key: 'llm',
     label: 'LLM 服务',
@@ -57,11 +62,18 @@ const navigationGroups: NavigationGroup[] = [
       { key: '/logs', label: '调用日志', icon: FileTextOutlined },
     ],
   },
-]
+  ...(playgroundStore.status?.enabled ? [{
+    key: 'explore' as const,
+    label: '探索',
+    icon: ExperimentOutlined,
+    children: [{ key: '/playground', label: 'PlayGround', icon: ExperimentOutlined }],
+  }] : []),
+])
 
 const expandedGroups = ref<Record<NavigationGroup['key'], boolean>>({
   llm: true,
   usage: true,
+  explore: true,
 })
 
 const activeKey = computed(() => {
@@ -91,7 +103,7 @@ function toggleGroup(group: NavigationGroup) {
 watch(
   activeKey,
   (key) => {
-    const activeGroup = navigationGroups.find((group) =>
+    const activeGroup = navigationGroups.value.find((group) =>
       group.children.some((item) => item.key === key),
     )
     if (activeGroup) {
@@ -100,6 +112,11 @@ watch(
   },
   { immediate: true },
 )
+
+watch(() => tenantStore.currentTenantId, (tenantId) => {
+  playgroundStore.reset(tenantId)
+  if (tenantId) void playgroundStore.refresh(tenantId)
+}, { immediate: true })
 </script>
 
 <template>
