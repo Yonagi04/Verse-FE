@@ -2,7 +2,7 @@ import request from './request'
 import { getToken, clearAuth } from '@/utils/auth'
 import { triggerTenantContextRecovery } from '@/utils/tenantContextRecovery'
 import type {
-  PlaygroundStatus, PlaygroundModel, PlaygroundSession, PlaygroundSessions,
+  PlaygroundStatus, PlaygroundModel, PlaygroundPrompt, PlaygroundSession, PlaygroundSessions,
   PlaygroundDetail, PlaygroundEvent,
 } from '@/types/playground'
 
@@ -13,6 +13,9 @@ export const getPlaygroundStatus = (tenantId: string): Promise<PlaygroundStatus>
 
 export const getPlaygroundModels = (tenantId: string): Promise<{ items: PlaygroundModel[] }> =>
   request.get(`${path(tenantId)}/models`)
+
+export const getPlaygroundPrompts = (tenantId: string): Promise<{ items: PlaygroundPrompt[] }> =>
+  request.get(`${path(tenantId)}/prompts`)
 
 export const createPlaygroundSession = (tenantId: string, serviceId: string): Promise<PlaygroundSession> =>
   request.post(`${path(tenantId)}/sessions`, { serviceId })

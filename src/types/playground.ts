@@ -1,5 +1,6 @@
 export interface PlaygroundStatus { enabled: boolean; limitRpm: number; limitRph: number }
 export interface PlaygroundModel { serviceId: string; name: string; provider: string; description: string | null; contextWindow: number | null }
+export interface PlaygroundPrompt { id: string; title: string; description: string; prompt: string }
 export interface PlaygroundSession { sessionId: string; title: string; serviceId: string; modelName: string; turnCount: number; createdAt: string; updatedAt: string }
 export interface PlaygroundTurn { turnId: string; prompt: string; reply: string | null; status: 'PENDING' | 'STREAMING' | 'COMPLETED' | 'STOPPED' | 'FAILED'; requestId: string; createdAt: string; finishedAt: string | null }
 export interface PlaygroundDetail extends PlaygroundSession { modelAvailable: boolean; turns: PlaygroundTurn[] }
