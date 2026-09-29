@@ -1,13 +1,15 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, watch } from 'vue'
+import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useThemeStore } from '@/stores/theme'
 import { useUserStore } from '@/stores/user'
 import { useWebSocketNotification } from '@/composables/useWebSocketNotification'
 import SideMenu from './SideMenu.vue'
+import TenantSwitcher from './TenantSwitcher.vue'
 import SidebarUserArea from './SidebarUserArea.vue'
 import {
   MenuFoldOutlined,
+  MenuOutlined,
 } from '@ant-design/icons-vue'
 import NotificationPopover from './NotificationPopover.vue'
 import { useTenantStore } from '@/stores/tenant'
@@ -18,6 +20,8 @@ const themeStore = useThemeStore()
 const userStore = useUserStore()
 const tenantStore = useTenantStore()
 const router = useRouter()
+const isNarrow = ref(false)
+const mobileDrawerOpen = ref(false)
 const { connect, disconnect } = useWebSocketNotification()
 
 // 登录后连接 WebSocket，登出时断开
@@ -30,19 +34,36 @@ watch(() => userStore.token, (token) => {
 }, { immediate: true })
 
 let unregisterRecovery: (() => void) | null = null
+let narrowViewport: MediaQueryList | null = null
+function collapseOnNarrowViewport(event: MediaQueryListEvent | MediaQueryList) {
+  isNarrow.value = event.matches
+  mobileDrawerOpen.value = false
+  themeStore.setSidebarCollapsed(event.matches)
+}
+watch(mobileDrawerOpen, (open) => {
+  if (isNarrow.value) themeStore.setSidebarCollapsed(!open)
+})
+watch(() => router.currentRoute.value.fullPath, () => { mobileDrawerOpen.value = false })
 onMounted(() => {
+  narrowViewport = window.matchMedia('(max-width: 760px)')
+  collapseOnNarrowViewport(narrowViewport)
+  narrowViewport.addEventListener('change', collapseOnNarrowViewport)
   unregisterRecovery = registerTenantContextRecovery(async () => {
     await tenantStore.initialize(true)
     message.warning('租户上下文已变化，已为你恢复到当前工作空间')
     await router.replace('/dashboard')
   })
 })
-onUnmounted(() => unregisterRecovery?.())
+onUnmounted(() => {
+  narrowViewport?.removeEventListener('change', collapseOnNarrowViewport)
+  unregisterRecovery?.()
+})
 </script>
 
 <template>
   <a-layout style="height: 100vh">
     <a-layout-sider
+      v-if="!isNarrow"
       v-model:collapsed="themeStore.sidebarCollapsed"
       :trigger="null"
       collapsible
@@ -79,13 +100,24 @@ onUnmounted(() => unregisterRecovery?.())
           </a-tooltip>
         </template>
       </div>
+      <TenantSwitcher />
       <div class="sider-menu-wrap">
         <SideMenu />
       </div>
       <SidebarUserArea />
     </a-layout-sider>
+    <a-drawer v-model:open="mobileDrawerOpen" placement="left" :width="260" :closable="false"
+      :body-style="{ padding: '0', display: 'flex', flexDirection: 'column' }" title="Verse 导航">
+      <div class="mobile-nav">
+        <TenantSwitcher />
+        <div class="sider-menu-wrap"><SideMenu /></div>
+        <SidebarUserArea />
+      </div>
+    </a-drawer>
     <a-layout>
       <a-layout-header class="header">
+        <button v-if="isNarrow" type="button" class="mobile-menu-button" aria-label="打开导航"
+          @click="mobileDrawerOpen = true"><MenuOutlined /></button>
         <div class="header-right">
           <NotificationPopover />
         </div>
@@ -198,6 +230,9 @@ onUnmounted(() => unregisterRecovery?.())
   overflow-y: auto;
   overflow-x: hidden;
 }
+.mobile-nav { display: flex; flex-direction: column; min-height: 100%; }
+.mobile-menu-button { width: 36px; height: 36px; border: 0; border-radius: $radius-button; background: transparent; color: $color-text-primary; cursor: pointer; }
+.mobile-menu-button:focus-visible { outline: 2px solid $color-primary; }
 
 // ========== Header ==========
 .header {
@@ -220,5 +255,10 @@ onUnmounted(() => unregisterRecovery?.())
   padding: $content-padding;
   background: $color-bg-secondary;
   overflow-y: auto;
+}
+
+@media (max-width: 760px) {
+  .header { justify-content: space-between; padding: 0 12px; }
+  .content { padding: 16px 12px; }
 }
 </style>

@@ -27,11 +27,30 @@ import type {
   TenantActivityStatusRespDTO,
   TenantActivityListRespDTO,
   TenantActivityListParams,
+  TenantAnnouncementList,
+  TenantOverviewBatch,
+  TenantOverviewDetail,
+  TenantPreference,
 } from '@/types/tenant'
 
 // 获取当前用户的租户列表
 export function listTenants(): Promise<TenantInfoListRespDTO[]> {
   return request.get('/tenants')
+}
+
+/** 一次读取本人全部有效租户的授权摘要。 */
+export function getTenantOverviewBatch(): Promise<TenantOverviewBatch> {
+  return request.get('/tenants/overview', { silentError: true })
+}
+
+/** 重新校验目标成员关系后读取单租户授权摘要。 */
+export function getTenantOverview(tenantId: string): Promise<TenantOverviewDetail> {
+  return request.get(`/tenants/${tenantId}/overview`, { silentError: true })
+}
+
+/** 服务端持久化本人的收藏与置顶偏好，跨设备读取列表时同步。 */
+export function saveTenantPreference(tenantId: string, favorite: boolean, pinned: boolean): Promise<TenantPreference> {
+  return request.put(`/tenants/${tenantId}/preference`, { favorite, pinned })
 }
 
 // 创建团队租户
@@ -74,6 +93,11 @@ export function listTenantActivities(
   config: AxiosRequestConfig = {},
 ): Promise<TenantActivityListRespDTO> {
   return request.get(`/tenants/${tenantId}/activities`, { ...config, params })
+}
+
+/** 当前用户在该租户最近 24 小时收到的公告。 */
+export function listRecentTenantAnnouncements(tenantId: string): Promise<TenantAnnouncementList> {
+  return request.get('/notifications/recent', { params: { tenantId }, silentError: true })
 }
 
 // 上传租户 Logo

@@ -301,6 +301,7 @@ onMounted(fetchTags)
 
 <template>
   <div class="llm-service-list">
+    <div class="page-eyebrow">LLM Service</div>
     <div class="page-header">
       <div>
         <h2 class="page-title">模型服务</h2>
@@ -459,11 +460,11 @@ onMounted(fetchTags)
 }
 
 .page-eyebrow {
-  margin-bottom: 4px;
+  margin-bottom: 8px;
   color: $color-primary;
   font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
+  font-weight: 700;
+  letter-spacing: 1px;
 }
 
 .page-title {

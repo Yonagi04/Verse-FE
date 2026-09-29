@@ -165,25 +165,22 @@ router.beforeEach(async (to, _from, next) => {
           tenantStore.initialize(),
         ])
       } catch {
+        // 列表失败仍允许进入列表的重试页；详情由 info 接口独立判断目标访问资格。
+        if (to.name === 'TenantList' || to.name === 'TenantDetail') {
+          next()
+          return
+        }
         next('/tenants')
         return
       }
 
-      // 直接进入任意租户作用域页面时，必须先完成服务端租户切换再挂载页面。
-      if (to.meta.tenantScoped === true) {
+      // 详情页由 info 接口校验目标成员资格，保留无权访问时的错误页面。
+      // 动态等当前租户业务页面仍须匹配服务端当前上下文。
+      if (to.meta.tenantScoped === true && to.name !== 'TenantDetail') {
         const targetTenantId = String(to.params.tenantId)
-        const target = tenantStore.tenants.find((tenant) => tenant.tenantId === targetTenantId)
-        if (!target) {
-          next('/tenants')
-          return
-        }
         if (tenantStore.currentTenantId !== targetTenantId) {
-          try {
-            await tenantStore.switchToTenant(targetTenantId)
-          } catch {
-            next('/tenants')
-            return
-          }
+          next('/dashboard')
+          return
         }
       }
       if (to.path === '/playground') {

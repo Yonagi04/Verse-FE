@@ -28,6 +28,51 @@ export interface TenantInfoListRespDTO {
   current: boolean
   joinedAt: string
   lastAccessedAt: string
+  favorite: boolean
+  pinned: boolean
+}
+
+export interface TenantOverviewUsage {
+  scope: 'TENANT' | 'SELF'
+  totalTokens: string | null
+  requestCount: string
+  tokenQuality: 'COMPLETE' | 'PARTIAL'
+}
+
+export interface TenantOverviewItem {
+  tenantId: string
+  memberCount: number | null
+  availableServiceCount: number | null
+  usage: TenantOverviewUsage | null
+  pendingJoinRequestCount: number | null
+}
+
+export interface TenantOverviewBatch {
+  from: string
+  to: string
+  updatedAt: string | null
+  dataDelayMinutes: number
+  items: TenantOverviewItem[]
+}
+
+export interface TenantOverviewActivity {
+  type: string
+  title: string
+  occurredAt: string
+}
+
+export interface TenantOverviewDetail extends TenantOverviewItem {
+  from: string
+  to: string
+  updatedAt: string | null
+  dataDelayMinutes: number
+  recentActivities: TenantOverviewActivity[] | null
+}
+
+export interface TenantPreference {
+  tenantId: string
+  favorite: boolean
+  pinned: boolean
 }
 
 export interface TenantUpdateReqDTO {
@@ -246,4 +291,16 @@ export interface TenantActivityListRespDTO {
 export interface TenantActivityListParams {
   limit?: number
   cursor?: string
+}
+
+export interface TenantAnnouncement {
+  notificationId: string
+  title: string
+  content: string
+  severity: 'INFO' | 'WARNING' | 'CRITICAL'
+  createTime: string
+}
+
+export interface TenantAnnouncementList {
+  records: TenantAnnouncement[]
 }

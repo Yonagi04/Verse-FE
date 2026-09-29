@@ -40,7 +40,7 @@ const overviewItems: NavigationItem[] = [
 ]
 
 const managementItems: NavigationItem[] = [
-  { key: '/tenants', label: '租户管理', icon: TeamOutlined },
+  { key: '/tenants', label: '我的租户', icon: TeamOutlined },
 ]
 
 const navigationGroups = computed<NavigationGroup[]>(() => [

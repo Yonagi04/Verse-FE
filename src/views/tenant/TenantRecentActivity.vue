@@ -48,7 +48,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <a-card v-if="visible" size="small" class="recent-activity-card" title="最新动态">
+  <a-card v-if="visible" size="small" class="recent-activity-card" title="最近动态">
     <template #extra>
       <router-link :to="`/tenants/${tenantId}/activities`">全部</router-link>
     </template>

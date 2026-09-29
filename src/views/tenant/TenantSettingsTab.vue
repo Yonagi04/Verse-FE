@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { message } from 'ant-design-vue'
 import { getTenantSettings, updateTenantSettings } from '@/api/tenant'
 import { usePlaygroundStore } from '@/stores/playground'
@@ -67,6 +67,10 @@ const dirty = computed(() => {
   if (!snapshot.value) return false
   return JSON.stringify(toPayload()) !== JSON.stringify(snapshotPayload(snapshot.value))
 })
+
+// 切换租户前由统一 store 检查未保存表单，取消时不发送切换请求。
+watch(dirty, (value) => { tenantStore.settingsDirty = value }, { immediate: true })
+onUnmounted(() => { tenantStore.settingsDirty = false })
 
 function validateLimit(enabled: boolean, value: number | null, label: string) {
   if (!enabled) return ''
