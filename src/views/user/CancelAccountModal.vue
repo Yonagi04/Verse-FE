@@ -1,454 +1,78 @@
 <script setup lang="ts">
-import { ref, computed, watch, onUnmounted } from 'vue'
+import { computed, nextTick, reactive, ref, watch, onUnmounted } from 'vue'
+import { CloseOutlined, ReloadOutlined } from '@ant-design/icons-vue'
 import { useCancelAccount } from '@/hooks/useCancelAccount'
 
-const props = defineProps<{
-  visible: boolean
-  phone: string // 用户手机号（完整），如 "13812341234"
-}>()
-
-const emit = defineEmits<{
-  (e: 'close'): void
-  (e: 'success'): void
-}>()
-
-const {
-  step,
-  loading,
-  prepareData,
-  countdown,
-  fetchPrepare,
-  sendCode,
-  confirm,
-  reset,
-  cleanup,
-} = useCancelAccount()
-
-// 6 位验证码分格输入
-const codeCells = ref<string[]>(['', '', '', '', '', ''])
-
-function getCodeValue(): string {
-  return codeCells.value.join('')
+const props = defineProps<{ visible: boolean; phone: string }>()
+const emit = defineEmits<{ (e: 'close'): void; (e: 'success'): void }>()
+const { loading, prepareData, countdown, fetchPrepare, sendCode, confirm, reset, cleanup } = useCancelAccount()
+const prepared = ref(false)
+const prepareFailed = ref(false)
+const form = reactive({ code: '', acknowledged: false })
+const codeInputRef = ref<{ focus: () => void } | null>(null)
+const maskedPhone = computed(() => props.phone.replace(/^(\d{3})\d+(\d{4})$/, '$1****$2'))
+async function prepare() {
+  prepared.value = false
+  prepareFailed.value = false
+  prepared.value = await fetchPrepare()
+  prepareFailed.value = !prepared.value
 }
-
-function resetCodeInputs() {
-  codeCells.value = ['', '', '', '', '', '']
-}
-
-function focusCell(idx: number) {
-  const cells = document.querySelectorAll<HTMLInputElement>('.code-cell')
-  if (cells[idx]) {
-    cells[idx].focus()
-  }
-}
-
-function handleCodeInput(e: Event, idx: number) {
-  const target = e.target as HTMLInputElement
-  const val = target.value.replace(/[^0-9]/g, '')
-  target.value = val.slice(0, 1)
-  codeCells.value[idx] = target.value
-
-  if (val) {
-    target.classList.remove('error')
-    if (idx < 5) focusCell(idx + 1)
-  }
-}
-
-function handleCodeKeydown(e: KeyboardEvent, idx: number) {
-  if (e.key === 'Backspace') {
-    const target = e.target as HTMLInputElement
-    if (!target.value) {
-      if (idx > 0) {
-        const cells = document.querySelectorAll<HTMLInputElement>('.code-cell')
-        if (cells[idx - 1]) {
-          cells[idx - 1].focus()
-          cells[idx - 1].value = ''
-          codeCells.value[idx - 1] = ''
-        }
-      }
-    }
-  }
-  if (e.key === 'ArrowLeft' && idx > 0) focusCell(idx - 1)
-  if (e.key === 'ArrowRight' && idx < 5) focusCell(idx + 1)
-}
-
-function handleCodePaste(e: ClipboardEvent) {
-  e.preventDefault()
-  const paste = (e.clipboardData || (window as any).clipboardData).getData('text')
-  const digits = paste.replace(/[^0-9]/g, '').slice(0, 6)
-  const cells = document.querySelectorAll<HTMLInputElement>('.code-cell')
-  codeCells.value.fill('')
-  digits.split('').forEach((d: string, i: number) => {
-    if (cells[i]) {
-      cells[i].value = d
-      codeCells.value[i] = d
-    }
-  })
-  if (digits.length === 6 && cells[5]) {
-    cells[5].focus()
-  }
-}
-
-function showCodeError() {
-  const cells = document.querySelectorAll<HTMLInputElement>('.code-cell')
-  cells.forEach(c => c.classList.add('error'))
-  setTimeout(() => {
-    cells.forEach(c => c.classList.remove('error'))
-  }, 500)
-  resetCodeInputs()
-  focusCell(0)
-}
-
-// ========== 步骤切换 ==========
-
-// 弹窗打开 → 加载 prepare
-watch(() => props.visible, async (val) => {
-  if (val) {
+watch(() => props.visible, async (visible) => {
+  if (visible) {
     reset()
-    resetCodeInputs()
-    await fetchPrepare()
-  }
+    Object.assign(form, { code: '', acknowledged: false })
+    await prepare()
+  } else cleanup()
 })
-
-// 步骤 1 → 2：发送验证码并滑到验证码页
-async function goToVerifyCode() {
-  const ok = await sendCode()
-  if (ok) {
-    step.value = 2
-    resetCodeInputs()
-    // 等滑动动画结束后聚焦第一个输入格
-    setTimeout(() => focusCell(0), 400)
-  }
-  // 即使 sendCode 失败（如限流 B000211），若 step 已改变或倒计时已启动，也滑动到验证码页
-  if (!ok && countdown.value > 0) {
-    step.value = 2
-    resetCodeInputs()
-    setTimeout(() => focusCell(0), 400)
-  }
+async function handleSendCode() {
+  if (!prepared.value || loading.value || countdown.value > 0) return
+  await sendCode()
+  await nextTick()
+  codeInputRef.value?.focus()
 }
-
-// 步骤 2：确认注销
-async function handleConfirmCancel() {
-  const codeVal = getCodeValue()
-  if (codeVal.length !== 6) return
-
-  const ok = await confirm(codeVal)
-  if (ok) {
-    // 注销成功 — 关闭弹窗，通知父组件
+async function handleConfirm() {
+  if (!prepared.value || loading.value || !form.acknowledged || !/^\d{6}$/.test(form.code)) return
+  if (await confirm(form.code)) {
     cleanup()
     emit('success')
-  } else {
-    // 验证码错误等 — 抖动 + 清空
-    showCodeError()
   }
 }
-
-// 重新发送验证码
-async function handleResendCode() {
-  if (countdown.value > 0) return
-  await sendCode()
-  resetCodeInputs()
-  setTimeout(() => focusCell(0), 200)
-}
-
-// 关闭弹窗
-function handleClose() {
-  cleanup()
-  emit('close')
-}
-
-const canConfirm = computed(() => getCodeValue().length === 6)
-
-onUnmounted(() => {
-  cleanup()
-})
+function close() { if (!loading.value) { cleanup(); emit('close') } }
+onUnmounted(cleanup)
 </script>
 
 <template>
-  <a-modal
-    :open="visible"
-    :footer="null"
-    :width="480"
-    :closable="false"
-    :mask-closable="false"
-    :destroy-on-close="true"
-    wrap-class-name="cancel-modal-wrap"
-    @cancel="handleClose"
-  >
-    <!-- 标题栏 -->
-    <div class="modal-header">
-      <span class="modal-title">
-        {{ step === 1 ? '确认要继续注销吗？' : '验证验证码' }}
-      </span>
-      <button class="close-btn" @click="handleClose" title="关闭">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-          <path d="M4 4L12 12M12 4L4 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-        </svg>
-      </button>
-    </div>
-
-    <!-- 滑动容器 -->
-    <div class="slide-container">
-      <div class="slide-track" :class="{ 'at-step2': step === 2 }">
-        <!-- ========== 步骤 1：警告页 ========== -->
-        <div class="slide-page">
-          <div class="page-body">
-            <p class="warning-desc">{{ prepareData?.warningDescription }}</p>
-            <ul class="warning-tips" v-if="prepareData?.warningTips?.length">
-              <li v-for="(tip, idx) in prepareData.warningTips" :key="idx">{{ tip }}</li>
-            </ul>
-          </div>
-          <div class="modal-footer">
-            <a-button
-              type="primary"
-              danger
-              class="footer-btn"
-              block
-              :loading="loading"
-              @click="goToVerifyCode"
-            >
-              确认
-            </a-button>
-          </div>
-        </div>
-
-        <!-- ========== 步骤 2：验证码页 ========== -->
-        <div class="slide-page">
-          <div class="page-body">
-            <p class="verify-desc">
-              输入发送至 <span class="verify-phone">{{ phone }}</span> 的验证码
-            </p>
-            <div class="code-input-row">
-              <input
-                v-for="(_, idx) in 6"
-                :key="idx"
-                class="code-cell"
-                type="text"
-                maxlength="1"
-                inputmode="numeric"
-                pattern="[0-9]"
-                :data-idx="idx"
-                :value="codeCells[idx]"
-                @input="handleCodeInput($event, idx)"
-                @keydown="handleCodeKeydown($event, idx)"
-                @paste="handleCodePaste"
-              />
-            </div>
-          </div>
-          <div class="modal-footer">
-            <a-button
-              type="primary"
-              danger
-              class="footer-btn"
-              block
-              :loading="loading"
-              :disabled="!canConfirm"
-              @click="handleConfirmCancel"
-            >
-              验证并注销
-            </a-button>
-          </div>
-          <div class="resend-row">
-            <a
-              class="resend-link"
-              :class="{ disabled: countdown > 0 }"
-              @click="handleResendCode"
-            >
-              重新获取验证码
-            </a>
-            <span class="countdown-text" v-if="countdown > 0">{{ countdown }} 秒后可重新获取</span>
-          </div>
-        </div>
-      </div>
+  <a-modal :open="visible" :footer="null" :width="440" :closable="false" :mask-closable="!loading" :keyboard="!loading" :destroy-on-close="true" @cancel="close">
+    <div class="cancel-dialog">
+      <div class="dialog-heading"><h3>注销用户</h3><button type="button" class="dialog-close" :disabled="loading" aria-label="关闭" @click="close"><CloseOutlined /></button></div>
+      <a-skeleton v-if="loading && !prepared" :paragraph="{ rows: 3 }" aria-label="正在检查账户注销条件" />
+      <div v-else-if="prepareFailed" class="prepare-error"><p>暂时无法继续注销，请处理账户检查提示后重试。</p><a-button @click="prepare"><ReloadOutlined />重新检查</a-button></div>
+      <template v-else-if="prepared">
+        <div class="cancel-alert">{{ prepareData?.warningDescription || '注销后将无法登录该账户。请先检查租户归属，并确认已处理相关数据。' }}</div>
+        <ul v-if="prepareData?.warningTips?.length" class="warning-tips"><li v-for="(tip, index) in prepareData.warningTips" :key="index">{{ tip }}</li></ul>
+        <a-form class="cancel-form" layout="vertical" :model="form" :disabled="loading" @finish="handleConfirm">
+          <a-form-item label="手机验证码" name="code" :rules="[{ required: true, message: '请输入手机验证码' }, { pattern: /^\d{6}$/, message: '请输入 6 位验证码' }]">
+            <p class="phone-hint">验证码将发送至 {{ maskedPhone }}</p>
+            <div class="code-row"><a-input ref="codeInputRef" v-model:value="form.code" inputmode="numeric" autocomplete="one-time-code" :maxlength="6" placeholder="6 位验证码" /><a-button :disabled="countdown > 0 || loading" @click="handleSendCode">{{ countdown > 0 ? `${countdown}s 后重试` : '获取验证码' }}</a-button></div>
+          </a-form-item>
+          <a-form-item name="acknowledged" class="acknowledgement"><a-checkbox v-model:checked="form.acknowledged">我已了解注销影响并确认继续</a-checkbox></a-form-item>
+          <div class="dialog-actions"><a-button :disabled="loading" @click="close">取消</a-button><a-button type="primary" danger html-type="submit" :disabled="!form.acknowledged" :loading="loading">确认注销</a-button></div>
+        </a-form>
+      </template>
     </div>
   </a-modal>
 </template>
 
 <style lang="scss" scoped>
-// ========== 弹窗头部 ==========
-.modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 0 8px;
-}
-
-.modal-title {
-  font-size: 18px;
-  font-weight: 600;
-  color: $color-text-primary;
-}
-
-.close-btn {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  background: none;
-  border-radius: 8px;
-  cursor: pointer;
-  color: $color-text-secondary;
-  transition: all 0.15s;
-
-  &:hover {
-    background: #f5f5f5;
-    color: $color-text-primary;
-  }
-}
-
-// ========== 滑动容器 ==========
-.slide-container {
-  overflow: hidden;
-}
-
-.slide-track {
-  display: flex;
-  width: 200%;
-  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-
-  &.at-step2 {
-    transform: translateX(-50%);
-  }
-}
-
-.slide-page {
-  width: 50%;
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.page-body {
-  padding: 16px 0;
-}
-
-// ========== 警告页（步骤 1） ==========
-.warning-desc {
-  color: $color-danger;
-  font-size: 14px;
-  font-weight: 500;
-  line-height: 1.6;
-  margin: 0 0 16px;
-}
-
-.warning-tips {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-
-  li {
-    position: relative;
-    padding: 8px 0 8px 16px;
-    color: $color-danger;
-    font-size: 14px;
-    line-height: 1.6;
-    border-bottom: 1px solid #fff0f0;
-
-    &::before {
-      content: '·';
-      position: absolute;
-      left: 0;
-      font-weight: bold;
-      font-size: 18px;
-      line-height: 1.4;
-    }
-  }
-}
-
-// ========== 验证码页（步骤 2） ==========
-.verify-desc {
-  color: $color-text-secondary;
-  font-size: 14px;
-  margin: 0 0 20px;
-  text-align: center;
-}
-
-.verify-phone {
-  font-weight: 500;
-  color: $color-text-primary;
-}
-
-.code-input-row {
-  display: flex;
-  gap: 8px;
-  justify-content: center;
-  margin-bottom: 8px;
-}
-
-.code-cell {
-  width: 44px;
-  height: 52px;
-  border: 1px solid #d9d9d9;
-  border-radius: $radius-input;
-  text-align: center;
-  font-size: 22px;
-  font-weight: 600;
-  color: $color-text-primary;
-  outline: none;
-  transition: border-color 0.2s, box-shadow 0.2s;
-  font-family: $font-family;
-  caret-color: $color-primary;
-  background: transparent;
-
-  &:focus {
-    border-color: $color-primary;
-    box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.1);
-  }
-
-  &.error {
-    border-color: $color-danger;
-    animation: shake 0.4s ease;
-  }
-}
-
-@keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-4px); }
-  75% { transform: translateX(4px); }
-}
-
-// ========== 底部按钮 ==========
-.modal-footer {
-  padding: 8px 0 0;
-}
-
-.footer-btn {
-  height: 42px;
-  border-radius: $radius-button;
-  font-size: $font-size-body;
-  font-weight: 500;
-}
-
-// ========== 重新获取验证码 ==========
-.resend-row {
-  text-align: center;
-  padding: 12px 0 4px;
-}
-
-.resend-link {
-  color: $color-danger;
-  font-size: 13px;
-  cursor: pointer;
-  text-decoration: none;
-  transition: opacity 0.15s;
-
-  &:hover {
-    opacity: 0.8;
-    text-decoration: underline;
-  }
-
-  &.disabled {
-    color: $color-text-secondary;
-    cursor: not-allowed;
-    pointer-events: none;
-  }
-}
-
-.countdown-text {
-  font-size: 13px;
-  color: $color-text-secondary;
-  margin-left: 8px;
-}
+@use './user-center';
+.dialog-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; gap: 16px; h3 { margin: 0; font-size: $font-size-h3; font-weight: 600; } }
+.dialog-close { width: 32px; height: 32px; padding: 0; display: grid; place-items: center; background: transparent; color: $color-text-secondary; border: 0; border-radius: $radius-button; font-size: 18px; cursor: pointer; &:focus-visible { outline: 2px solid $color-primary; } }
+.cancel-alert { padding: 14px 16px; background: rgba($color-danger, 0.08); border: 1px solid rgba($color-danger, 0.45); border-radius: $radius-input; font-size: 13px; line-height: 1.8; margin-bottom: 16px; white-space: pre-wrap; }
+.warning-tips { padding-left: 20px; color: $color-text-secondary; font-size: 13px; line-height: 1.8; li { margin: 6px 0; } }
+.cancel-form { margin-top: 20px; }
+.phone-hint { margin: 0 0 8px; font-size: $font-size-caption; color: $color-text-secondary; }
+.code-row { display: flex; gap: 10px; :deep(.ant-input) { height: 40px; border-radius: $radius-input; } :deep(.ant-btn) { height: 40px; } }
+.acknowledgement { margin-bottom: 0; :deep(.ant-checkbox-wrapper) { font-size: $font-size-caption; color: $color-text-secondary; } }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
+.prepare-error { color: $color-text-secondary; line-height: 1.8; p { margin: 0 0 16px; } }
 </style>

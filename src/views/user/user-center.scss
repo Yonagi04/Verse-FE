@@ -1,0 +1,75 @@
+// Shared sample styles, imported only by scoped user-center component styles.
+@use 'assets/styles/variables' as *;
+.profile-card {
+  border: 1px solid $color-border;
+  border-radius: $radius-card;
+  background: $color-bg;
+  overflow: hidden;
+}
+.card-body, .panel-card { padding: 24px; }
+.card-head, .panel-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+  h2 { margin: 0; font-size: $font-size-h2; font-weight: 600; }
+  h3 { margin: 0; font-size: $font-size-h3; font-weight: 600; }
+  p { margin: 5px 0 0; font-size: $font-size-caption; color: $color-text-secondary; line-height: 1.6; }
+  > .anticon { font-size: 18px; color: $color-text-secondary; }
+}
+.panel-heading {
+  margin-bottom: 24px;
+  p { margin-top: 8px; font-size: 13px; line-height: 1.7; }
+}
+.muted, .caption { color: $color-text-secondary; }
+.caption { font-size: $font-size-caption; line-height: 1.6; }
+.mono { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+.notice {
+  display: flex;
+  gap: 7px;
+  align-items: flex-start;
+  font-size: $font-size-caption;
+  color: $color-text-secondary;
+  margin: 20px 0 0;
+  line-height: 1.7;
+  .anticon { flex-shrink: 0; font-size: 14px; margin-top: 3px; }
+}
+:deep(.ant-btn) {
+  height: 36px;
+  padding: 7px 14px;
+  border-radius: $radius-button;
+  font-weight: 500;
+  line-height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  box-shadow: none;
+  > .anticon + span { margin-inline-start: 0; }
+  &:focus-visible { outline: 2px solid $color-primary; outline-offset: 3px; }
+}
+:deep(.ant-btn.text-button) {
+  color: $color-primary;
+  border: 0;
+  background: transparent;
+  height: auto;
+  min-height: 28px;
+  padding: 4px 0;
+  box-shadow: none;
+}
+.state-card {
+  padding: 64px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+  > .anticon { font-size: 36px; color: $color-text-secondary; margin-bottom: 4px; }
+  h3 { margin: 0; font-size: $font-size-h3; font-weight: 600; }
+  p { margin: 0; font-size: $font-size-caption; color: $color-text-secondary; }
+}
+@container profile (max-width: 540px) {
+  .card-body, .panel-card { padding: 20px; }
+  .card-head { flex-wrap: wrap; }
+}

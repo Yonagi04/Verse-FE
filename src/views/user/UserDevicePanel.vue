@@ -1,67 +1,64 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { message, Modal } from 'ant-design-vue'
-import {
-  DesktopOutlined,
-  LaptopOutlined,
-  MobileOutlined,
-  TabletOutlined,
-  WindowsOutlined,
-} from '@ant-design/icons-vue'
+import { DesktopOutlined, LaptopOutlined, MobileOutlined, TabletOutlined, WindowsOutlined, ReloadOutlined, LockOutlined, InfoCircleOutlined } from '@ant-design/icons-vue'
 import { getDevices, kickDevice } from '@/api/user'
 import type { DeviceInfo } from '@/types/user'
 
-// ========== State ==========
 const loading = ref(false)
+const failed = ref(false)
+const kicking = ref<string | null>(null)
+const confirming = ref(false)
 const devices = ref<DeviceInfo[]>([])
-
-// ========== Fetch ==========
 async function fetchDevices() {
+  if (loading.value) return
   loading.value = true
+  failed.value = false
   try {
     devices.value = await getDevices()
   } catch {
+    failed.value = true
     // handled by interceptor
   } finally {
     loading.value = false
   }
 }
-
 onMounted(fetchDevices)
-
-// ========== Device Icon ==========
 function getDeviceIcon(deviceName: string) {
   const lower = deviceName.toLowerCase()
-  if (lower.includes('iphone') || lower.includes('android')) return 'mobile'
-  if (lower.includes('ipad') || lower.includes('tablet')) return 'tablet'
-  if (lower.includes('mac')) return 'mac'
-  if (lower.includes('windows')) return 'windows'
-  return 'desktop'
+  if (lower.includes('iphone') || lower.includes('android')) return MobileOutlined
+  if (lower.includes('ipad') || lower.includes('tablet')) return TabletOutlined
+  if (lower.includes('mac')) return LaptopOutlined
+  if (lower.includes('windows')) return WindowsOutlined
+  return DesktopOutlined
 }
-
-// ========== Format Time ==========
-function formatTime(dateStr: string) {
-  if (!dateStr) return '-'
-  const d = new Date(dateStr)
+function formatTime(value: string) {
+  if (!value) return '—'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
   const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
-
-// ========== Kick Device ==========
 function handleKick(device: DeviceInfo) {
+  if (device.currentDevice || !device.online || confirming.value || kicking.value) return
+  confirming.value = true
   Modal.confirm({
     title: '踢设备下线',
-    content: `确定要将设备「${device.deviceName}」踢下线吗？该设备的下次请求将被拒绝。`,
-    okText: '确认踢下线',
-    cancelText: '取消',
-    okType: 'danger',
+    content: `确定要将「${device.deviceName}」踢下线吗？该设备需要重新登录才能继续使用。`,
+    okText: '确认踢下线', cancelText: '取消', okType: 'danger',
+    afterClose: () => { confirming.value = false },
     onOk: async () => {
+      if (kicking.value) return
+      kicking.value = device.deviceId
       try {
         await kickDevice(device.deviceId)
         message.success('设备已踢下线')
         await fetchDevices()
-      } catch {
+      } catch (error) {
         // handled by interceptor
+        throw error
+      } finally {
+        kicking.value = null
       }
     },
   })
@@ -69,193 +66,46 @@ function handleKick(device: DeviceInfo) {
 </script>
 
 <template>
-  <div class="device-panel">
-    <h2 class="panel-title">登录设备管理</h2>
-    <p class="panel-desc">查看和管理所有登录过的设备</p>
-
-    <!-- Loading -->
-    <div v-if="loading" class="loading-state">
-      <a-spin />
-      <span style="margin-left: 12px; color: #bfbfbf;">加载中...</span>
-    </div>
-
-    <!-- Empty -->
-    <div v-else-if="devices.length === 0" class="empty-state">
-      <DesktopOutlined style="font-size: 48px; color: #d9d9d9;" />
-      <p style="color: #bfbfbf; margin-top: 16px;">暂无登录设备</p>
-    </div>
-
-    <!-- Device List -->
+  <section class="profile-card panel-card">
+    <div class="panel-heading"><div><h2>登录设备</h2><p>查看账户的登录设备。发现不认识的设备时，可以将其踢下线。</p></div><a-button :loading="loading" :disabled="!!kicking" @click="fetchDevices"><ReloadOutlined />刷新</a-button></div>
+    <div v-if="loading" class="state-card" aria-busy="true"><a-spin /><p>正在加载登录设备…</p></div>
+    <div v-else-if="failed" class="state-card"><InfoCircleOutlined /><h3>登录设备暂时无法加载</h3><a-button type="primary" @click="fetchDevices">重新加载</a-button></div>
+    <div v-else-if="!devices.length" class="state-card"><DesktopOutlined /><p>暂无登录设备</p></div>
     <div v-else class="device-list">
-      <div
-        v-for="device in devices"
-        :key="device.deviceId"
-        class="device-card"
-        :class="{ 'current-device': device.currentDevice }"
-      >
-        <div class="device-icon-col">
-          <div class="device-icon" :class="getDeviceIcon(device.deviceName)">
-            <LaptopOutlined v-if="getDeviceIcon(device.deviceName) === 'mac'" />
-            <WindowsOutlined v-else-if="getDeviceIcon(device.deviceName) === 'windows'" />
-            <MobileOutlined v-else-if="getDeviceIcon(device.deviceName) === 'mobile'" />
-            <TabletOutlined v-else-if="getDeviceIcon(device.deviceName) === 'tablet'" />
-            <DesktopOutlined v-else />
-          </div>
+      <article v-for="device in devices" :key="device.deviceId" class="device" :class="{ current: device.currentDevice }">
+        <span class="device-mark"><component :is="getDeviceIcon(device.deviceName)" /></span>
+        <div class="device-copy">
+          <div class="device-title"><strong>{{ device.deviceName }}</strong><a-tag v-if="device.currentDevice" color="blue">当前设备</a-tag><a-tag v-else-if="device.online" color="success">在线</a-tag><a-tag v-else>离线</a-tag></div>
+          <div class="device-meta"><span class="mono">{{ device.ip }}</span><span>{{ device.region || '未知地区' }}</span><span>最近登录 {{ formatTime(device.lastLoginAt) }}</span></div>
         </div>
-
-        <div class="device-info">
-          <div class="device-header">
-            <span class="device-name">{{ device.deviceName }}</span>
-            <a-tag v-if="device.currentDevice" color="blue">当前设备</a-tag>
-            <a-tag v-else-if="device.online" color="green">在线</a-tag>
-            <a-tag v-else color="default">离线</a-tag>
-          </div>
-          <div class="device-meta">
-            <span>{{ device.ip }}</span>
-            <span class="meta-divider">·</span>
-            <span>{{ device.region }}</span>
-            <span class="meta-divider">·</span>
-            <span>最近登录 {{ formatTime(device.lastLoginAt) }}</span>
-          </div>
-        </div>
-
-        <div class="device-actions">
-          <a-button
-            v-if="!device.currentDevice && device.online"
-            danger
-            size="small"
-            @click="handleKick(device)"
-          >
-            踢下线
-          </a-button>
-          <a-button
-            v-else-if="!device.currentDevice && !device.online"
-            size="small"
-            disabled
-          >
-            已离线
-          </a-button>
-        </div>
-      </div>
+        <a-button v-if="!device.currentDevice" :danger="device.online" :disabled="!device.online || !!kicking" :loading="kicking === device.deviceId" @click="handleKick(device)">{{ device.online ? '踢下线' : '已离线' }}</a-button>
+      </article>
     </div>
-  </div>
+    <p class="notice"><LockOutlined />当前设备无法在此踢下线。被踢下线的设备需要重新登录。</p>
+  </section>
 </template>
 
 <style lang="scss" scoped>
-.device-panel {
-  max-width: 720px;
+@use './user-center';
+.device-list { display: flex; flex-direction: column; gap: 12px; }
+.device {
+  display: flex; align-items: center; gap: 16px; padding: 20px; border: 1px solid $color-border; border-radius: $radius-input;
+  &.current { background: $color-primary-bg; border-color: rgba($color-primary, 0.45); }
 }
-
-.panel-title {
-  font-size: $font-size-h2;
-  font-weight: 600;
-  color: $color-text-primary;
-  margin: 0 0 4px;
+.device-mark {
+  width: 44px; height: 44px; border-radius: $radius-button; background: $color-bg-secondary; display: grid; place-items: center; color: $color-text-secondary; flex-shrink: 0; font-size: 22px;
+  .current & { background: rgba($color-primary, 0.08); color: $color-primary; }
 }
-
-.panel-desc {
-  font-size: $font-size-body;
-  color: $color-text-secondary;
-  margin: 0 0 24px;
+.device-copy { flex: 1; min-width: 0; }
+.device-title {
+  display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px;
+  strong { font-weight: 500; overflow-wrap: anywhere; }
+  :deep(.ant-tag) { margin: 0; }
 }
-
-// ========== States ==========
-.loading-state,
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 200px;
-}
-
-.loading-state {
-  flex-direction: row;
-}
-
-// ========== Device List ==========
-.device-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.device-card {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 16px 20px;
-  background: $color-bg;
-  border: 1px solid $color-border;
-  border-radius: $radius-card;
-  transition: border-color 0.15s;
-
-  &:hover {
-    border-color: #d9d9d9;
-  }
-
-  &.current-device {
-    border-color: $color-primary;
-    background: #f6f9ff;
-  }
-}
-
-// ========== Device Icon ==========
-.device-icon-col {
-  flex-shrink: 0;
-}
-
-.device-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: $radius-button;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 20px;
-  color: $color-text-secondary;
-  background: $color-bg-secondary;
-
-  .current-device & {
-    color: $color-primary;
-    background: #e6f4ff;
-  }
-}
-
-// ========== Device Info ==========
-.device-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.device-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 4px;
-}
-
-.device-name {
-  font-size: $font-size-body;
-  font-weight: 500;
-  color: $color-text-primary;
-}
-
-.device-meta {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: $font-size-caption;
-  color: $color-text-secondary;
-  flex-wrap: wrap;
-}
-
-.meta-divider {
-  color: #d9d9d9;
-}
-
-// ========== Actions ==========
-.device-actions {
-  flex-shrink: 0;
+.device-meta { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: $font-size-caption; color: $color-text-secondary; line-height: 1.7; overflow-wrap: anywhere; }
+@container profile (max-width: 540px) {
+  .device { flex-wrap: wrap; padding: 16px; gap: 12px; }
+  .device > :deep(.ant-btn) { margin-left: 56px; }
+  .device-copy { flex-basis: calc(100% - 56px); }
 }
 </style>
