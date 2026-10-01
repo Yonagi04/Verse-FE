@@ -67,6 +67,8 @@ export interface LlmServiceAddReqDTO {
   tagCodes?: string[]
   contextWindow?: number
   maxOutputTokens?: number
+  /** 已配置的协议设置；playground 为细分能力 JSON 字符串。 */
+  providerSettings?: Record<string, string>
   pricing?: PricingRequest
 }
 
@@ -83,6 +85,8 @@ export interface LlmServiceUpdateReqDTO {
   tagCodes?: string[]
   contextWindow?: number
   maxOutputTokens?: number
+  /** 已配置的协议设置；playground 为细分能力 JSON 字符串。 */
+  providerSettings?: Record<string, string>
   pricing?: PricingRequest
 }
 
@@ -129,6 +133,7 @@ export interface LlmServiceInfoRespDTO {
   tagCodes: string[]
   contextWindow: number | null
   maxOutputTokens: number | null
+  providerSettings?: Record<string, string>
   pricing: PricingResponse
 }
 

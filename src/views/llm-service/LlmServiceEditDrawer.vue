@@ -6,8 +6,10 @@ import { getLlmServiceInfo, updateLlmService, listLlmServices, listLlmServiceTag
 import { getProviderBySlug } from '@/constants/providers'
 import ProviderLogo from '@/components/ProviderLogo.vue'
 import ModelMetadataFields from './components/ModelMetadataFields.vue'
+import PlaygroundCapabilityFields from './components/PlaygroundCapabilityFields.vue'
 import PricingFormSection from './components/PricingFormSection.vue'
 import { validatePeakPeriods, validateTokenLimits } from '@/utils/peakPeriod'
+import { usePlaygroundStore } from '@/stores/playground'
 import type { LlmServiceInfo, LlmServiceInfoRespDTO, LlmServiceUpdateReqDTO, PricingRequest, TagInfo } from '@/types/llmService'
 
 const props = defineProps<{
@@ -21,6 +23,10 @@ const emit = defineEmits<{
   (e: 'done'): void
 }>()
 
+const playgroundSettings = ref('')
+const playgroundStore = usePlaygroundStore()
+// 关闭 Playground 后保留已保存的能力配置，编辑其他字段时不提交隐藏配置。
+const playgroundEnabled = computed(() => playgroundStore.tenantId === props.tenantId && playgroundStore.status?.enabled === true)
 const formRef = ref<FormInstance>()
 const loading = ref(false)
 const fetching = ref(false)
@@ -63,6 +69,7 @@ watch(
   () => props.visible,
   async (v) => {
     if (!v || !props.record) return
+    playgroundSettings.value = ''
     form.name = ''
     form.apiUrl = ''
     form.apiKey = ''
@@ -98,6 +105,7 @@ watch(
       contextWindow.value = info.contextWindow
       maxOutputTokens.value = info.maxOutputTokens
       pricing.value = info.pricing
+      playgroundSettings.value = info.providerSettings?.playground || ''
       originalSnapshot.value = structuredClone(info)
       fallbackServices.value = (resp.serviceInfoList ?? []).filter(
         (s) => s.serviceId !== props.record?.serviceId,
@@ -126,6 +134,7 @@ async function handleSave() {
   }
 
   const payload: LlmServiceUpdateReqDTO = {}
+  if (playgroundEnabled.value && originalSnapshot.value && playgroundSettings.value !== (originalSnapshot.value.providerSettings?.playground || '')) payload.providerSettings = { ...originalSnapshot.value.providerSettings, playground: playgroundSettings.value }
   if (!originalSnapshot.value) return
   if (form.name.trim() && form.name.trim() !== originalSnapshot.value.name) payload.name = form.name.trim()
   if (form.apiUrl.trim() && form.apiUrl.trim() !== originalSnapshot.value.apiUrl) payload.apiUrl = form.apiUrl.trim()
@@ -278,6 +287,7 @@ async function handleSave() {
         </a-form-item>
 
         <PricingFormSection v-model="pricing" />
+        <PlaygroundCapabilityFields v-if="playgroundEnabled" v-model:value="playgroundSettings" />
       </a-form>
     </a-spin>
 

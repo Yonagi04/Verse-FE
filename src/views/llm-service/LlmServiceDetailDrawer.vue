@@ -176,7 +176,7 @@ function handleCompare() {
 
         <div class="detail-item"><span class="detail-label">能力标签</span><span class="detail-value"><ModelTagList :codes="info.tagCodes" :dictionary="dictionary" /></span></div>
         <div class="detail-item"><span class="detail-label">上下文长度</span><span class="detail-value">{{ info.contextWindow ?? '未配置' }}</span></div>
-        <div class="detail-item"><span class="detail-label">最大输出 Token</span><span class="detail-value">{{ info.maxOutputTokens ?? '未配置' }}</span></div>
+        <div class="detail-item"><span class="detail-label">API 转发输出上限</span><span class="detail-value">{{ info.maxOutputTokens ?? '未配置' }}</span></div>
 
         <div class="detail-item">
           <span class="detail-label">计费</span>

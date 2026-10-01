@@ -102,7 +102,7 @@ onBeforeUnmount(clearTimers)
             <dd :title="detail.modelName">{{ detail.modelName || '未配置' }}</dd>
           </div>
           <div>
-            <dt>上下文 / 最大输出</dt>
+            <dt>上下文 / API 输出上限</dt>
             <dd>{{ tokenText(detail.contextWindow) }} / {{ tokenText(detail.maxOutputTokens) }}</dd>
           </div>
           <div>

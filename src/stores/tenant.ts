@@ -16,6 +16,13 @@ export const useTenantStore = defineStore('tenant', () => {
   let initializationPromise: Promise<void> | null = null
   let listRequestSequence = 0
   let tenantStateRevision = 0
+  const switchGuards = new Set<() => boolean | Promise<boolean>>()
+
+  /** 页面登记活跃操作确认；卸载时移除，不影响其他页面的租户切换。 */
+  function registerSwitchGuard(guard: () => boolean | Promise<boolean>) {
+    switchGuards.add(guard)
+    return () => switchGuards.delete(guard)
+  }
 
   const currentRole = computed(() => currentTenant.value?.role ?? null)
   const currentTenantId = computed(() => currentTenant.value?.tenantId ?? null)
@@ -69,6 +76,7 @@ export const useTenantStore = defineStore('tenant', () => {
     if (settingsDirty.value && !window.confirm('租户设置有未保存的更改，确定切换租户吗？')) return false
     isSwitching.value = true
     try {
+      for (const guard of switchGuards) if (!(await guard())) return false
       const result = await switchTenantApi(tenantId)
       tenantStateRevision++
       listRequestSequence++
@@ -129,6 +137,7 @@ export const useTenantStore = defineStore('tenant', () => {
     fetchTenantInfo,
     fetchMembers,
     switchToTenant,
+    registerSwitchGuard,
     setPreference,
   }
 })

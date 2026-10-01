@@ -1,13 +1,15 @@
 <script setup lang="ts">
-import { reactive, ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { message } from 'ant-design-vue'
 import type { FormInstance } from 'ant-design-vue'
 import { addLlmService, listLlmServiceTags } from '@/api/llmService'
 import { PROVIDER_GROUPS, getProviderBySlug, prefixProviderName } from '@/constants/providers'
 import ProviderLogo from '@/components/ProviderLogo.vue'
 import ModelMetadataFields from './components/ModelMetadataFields.vue'
+import PlaygroundCapabilityFields from './components/PlaygroundCapabilityFields.vue'
 import PricingFormSection from './components/PricingFormSection.vue'
 import { validatePeakPeriods, validateTokenLimits } from '@/utils/peakPeriod'
+import { usePlaygroundStore } from '@/stores/playground'
 import type { LlmServiceAddReqDTO, PricingRequest, TagInfo } from '@/types/llmService'
 
 const props = defineProps<{
@@ -20,6 +22,10 @@ const emit = defineEmits<{
   (e: 'done'): void
 }>()
 
+const playgroundSettings = ref('')
+const playgroundStore = usePlaygroundStore()
+// 仅使用当前租户的开关，状态尚未加载或租户不匹配时不展示、不提交配置。
+const playgroundEnabled = computed(() => playgroundStore.tenantId === props.tenantId && playgroundStore.status?.enabled === true)
 const formRef = ref<FormInstance>()
 const loading = ref(false)
 
@@ -56,6 +62,7 @@ watch(
   () => props.visible,
   (v) => {
     if (v) {
+      playgroundSettings.value = ''
       form.name = ''
       form.provider = ''
       form.apiUrl = ''
@@ -125,6 +132,7 @@ async function handleCreate() {
       ...(tagCodes.value.length ? { tagCodes: tagCodes.value } : {}),
       ...(contextWindow.value != null ? { contextWindow: contextWindow.value } : {}),
       ...(maxOutputTokens.value != null ? { maxOutputTokens: maxOutputTokens.value } : {}),
+      ...(playgroundEnabled.value && playgroundSettings.value ? { providerSettings: { playground: playgroundSettings.value } } : {}),
       pricing: pricing.value,
     }
     await addLlmService(props.tenantId, payload)
@@ -242,6 +250,7 @@ async function handleCreate() {
       </a-form-item>
 
       <PricingFormSection v-model="pricing" />
+      <PlaygroundCapabilityFields v-if="playgroundEnabled" v-model:value="playgroundSettings" />
     </a-form>
 
     <template #footer>

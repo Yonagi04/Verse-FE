@@ -112,8 +112,8 @@ function price(info: LlmServiceInfoRespDTO | null) {
           </a-descriptions-item>
           <a-descriptions-item label="上下文长度">{{ left.contextWindow ?? '未配置' }}</a-descriptions-item>
           <a-descriptions-item label="上下文长度">{{ right.contextWindow ?? '未配置' }}</a-descriptions-item>
-          <a-descriptions-item label="最大输出 Token">{{ left.maxOutputTokens ?? '未配置' }}</a-descriptions-item>
-          <a-descriptions-item label="最大输出 Token">{{ right.maxOutputTokens ?? '未配置' }}</a-descriptions-item>
+          <a-descriptions-item label="API 转发输出上限">{{ left.maxOutputTokens ?? '未配置' }}</a-descriptions-item>
+          <a-descriptions-item label="API 转发输出上限">{{ right.maxOutputTokens ?? '未配置' }}</a-descriptions-item>
           <a-descriptions-item label="限流">{{ rateLimit(left) }}</a-descriptions-item>
           <a-descriptions-item label="限流">{{ rateLimit(right) }}</a-descriptions-item>
           <a-descriptions-item label="价格">{{ price(left) }}</a-descriptions-item>

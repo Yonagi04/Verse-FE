@@ -9,7 +9,7 @@ const emit = defineEmits<{
   (e: 'update:maxOutputTokens', value: number | null): void
 }>()
 const tokenError = computed(() => props.contextWindow != null && props.maxOutputTokens != null && props.maxOutputTokens > props.contextWindow
-  ? '最大输出 Token 不能超过上下文长度' : '')
+  ? 'API 转发输出上限 不能超过上下文长度' : '')
 
 function getPopupContainer(triggerNode: HTMLElement): HTMLElement {
   return triggerNode.parentElement ?? triggerNode
@@ -30,7 +30,7 @@ function getPopupContainer(triggerNode: HTMLElement): HTMLElement {
   <a-form-item label="上下文长度">
     <a-input-number :value="contextWindow" :min="1" :precision="0" style="width: 100%" placeholder="未配置" @update:value="emit('update:contextWindow', $event)" />
   </a-form-item>
-  <a-form-item label="最大输出 Token" :validate-status="tokenError ? 'error' : undefined" :help="tokenError || undefined">
+  <a-form-item label="API 转发输出上限" :validate-status="tokenError ? 'error' : undefined" :help="tokenError || undefined" extra="仅约束普通 API 文本生成请求，与 PlayGround 输出上限独立；留空不设置转发限额。">
     <a-input-number :value="maxOutputTokens" :min="1" :precision="0" style="width: 100%" placeholder="未配置" @update:value="emit('update:maxOutputTokens', $event)" />
   </a-form-item>
 </template>

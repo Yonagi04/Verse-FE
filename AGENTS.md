@@ -112,6 +112,7 @@ src/
 
 - SCSS auto-injects `variables.scss` via Vite's `additionalData` — all SCSS files have access to `$color-*`, `$font-*`, `$radius-*`, `$shadow-*`, `$sidebar-width`, `$header-height`, etc.
 - Pages use scoped SCSS with design tokens, not hardcoded values
+- 多行描述输入框固定高度，禁止拖拽调整高度；内容超出可视范围时在输入框内部滚动。除非用户明确要求，不使用随内容自动增高的 `auto-size`。这是用户的长期 UI 偏好，后续新增或修改描述输入框时默认遵循。
 - Ant Design components styled via props where possible; custom CSS only in `<style lang="scss" scoped>`
 - Design system: primary `#1677ff`, bg `#ffffff`/`#fafafa`, text `#1f2328`/`#667085`, font "Inter, PingFang SC, Microsoft YaHei"
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useThemeStore } from '@/stores/theme'
 import { useUserStore } from '@/stores/user'
@@ -20,6 +20,8 @@ const themeStore = useThemeStore()
 const userStore = useUserStore()
 const tenantStore = useTenantStore()
 const router = useRouter()
+// Playground 采用铺满内容区的工作台布局，其他页面保持原有间距。
+const isPlayground = computed(() => router.currentRoute.value.path === '/playground')
 const isNarrow = ref(false)
 const mobileDrawerOpen = ref(false)
 const { connect, disconnect } = useWebSocketNotification()
@@ -122,7 +124,7 @@ onUnmounted(() => {
           <NotificationPopover />
         </div>
       </a-layout-header>
-      <a-layout-content class="content">
+      <a-layout-content class="content" :class="{ 'workbench-content': isPlayground }">
         <slot />
       </a-layout-content>
     </a-layout>
@@ -257,7 +259,10 @@ onUnmounted(() => {
   overflow-y: auto;
 }
 
+.workbench-content { padding: 0; overflow: hidden; min-height: 0; }
+
 @media (max-width: 760px) {
+  .content.workbench-content { padding: 0; }
   .header { justify-content: space-between; padding: 0 12px; }
   .content { padding: 16px 12px; }
 }

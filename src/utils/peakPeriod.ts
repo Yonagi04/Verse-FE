@@ -3,11 +3,11 @@ import type { PeakPeriod } from '@/types/llmService'
 export interface ValidationResult { valid: boolean; message?: string; conflictingIndexes?: number[] }
 
 export function validateTokenLimits(contextWindow?: number | null, maxOutputTokens?: number | null): ValidationResult {
-  for (const [label, value] of [['上下文长度', contextWindow], ['最大输出 Token', maxOutputTokens]] as const) {
+  for (const [label, value] of [['上下文长度', contextWindow], ['API 转发输出上限', maxOutputTokens]] as const) {
     if (value != null && (!Number.isInteger(value) || value <= 0)) return { valid: false, message: `${label}必须是正整数` }
   }
   if (contextWindow != null && maxOutputTokens != null && maxOutputTokens > contextWindow) {
-    return { valid: false, message: '最大输出 Token 不能超过上下文长度' }
+    return { valid: false, message: 'API 转发输出上限 不能超过上下文长度' }
   }
   return { valid: true }
 }

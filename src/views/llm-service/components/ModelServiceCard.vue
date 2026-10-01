@@ -171,8 +171,8 @@ const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
       <div class="metrics">
         <div class="metric">
           <div class="metric-label"><GlobalOutlined /> 上下文</div>
-          <div class="metric-value" :title="`${record.contextWindow ?? '未配置'} · 输出 ${record.maxOutputTokens ?? '未配置'}`">
-            {{ tokenText(record.contextWindow) }} · 输出 {{ tokenText(record.maxOutputTokens) }}
+          <div class="metric-value" :title="`${record.contextWindow ?? '未配置'} · API 输出 ${record.maxOutputTokens ?? '未配置'}`">
+            {{ tokenText(record.contextWindow) }} · API 输出 {{ tokenText(record.maxOutputTokens) }}
           </div>
         </div>
         <div class="metric">

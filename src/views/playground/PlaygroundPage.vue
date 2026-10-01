@@ -1,405 +1,318 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
-import { message, Modal } from 'ant-design-vue'
-import { BulbOutlined } from '@ant-design/icons-vue'
-import { useTenantStore } from '@/stores/tenant'
-import { usePlaygroundStore } from '@/stores/playground'
-import { getPlaygroundModels, getPlaygroundPrompts, createPlaygroundSession, listPlaygroundSessions, getPlaygroundSession,
-  updatePlaygroundSessionModel, deletePlaygroundSession, streamPlaygroundTurn } from '@/api/playground'
-import type { PlaygroundDetail, PlaygroundEvent, PlaygroundModel, PlaygroundPrompt, PlaygroundSession } from '@/types/playground'
+import { computed, ref, watch, onBeforeUnmount } from 'vue'
+import { Modal } from 'ant-design-vue'
+import { PlusOutlined, SettingOutlined, DownloadOutlined, SaveOutlined, CloseOutlined, ExperimentOutlined, SendOutlined, StopOutlined, SearchOutlined, MoreOutlined, DownOutlined, HistoryOutlined, ArrowRightOutlined, CopyOutlined, CodeOutlined, BranchesOutlined, ReloadOutlined } from '@ant-design/icons-vue'
+import { onBeforeRouteLeave } from 'vue-router'
+import { useWorkbench } from '@/hooks/usePlaygroundWorkbench'
+import { useUserStore } from '@/stores/user'
+import * as api from '@/api/playgroundWorkbench'
+import type { Attempt, WorkbenchConfig, WorkbenchResource } from '@/types/playgroundWorkbench'
+import { copyWorkbenchText } from '@/utils/playgroundExport'
+import ProviderLogo from '@/components/ProviderLogo.vue'
+import { getProviderBySlug } from '@/constants/providers'
+import MarkdownReply from './MarkdownReply.vue'
+import ExportDialog from './ExportDialog.vue'
+import PresetDialog from './PresetDialog.vue'
+import LegacyPlaygroundPage from './LegacyPlaygroundPage.vue'
 
-const tenantStore = useTenantStore()
-const playgroundStore = usePlaygroundStore()
-const tenantId = computed(() => tenantStore.currentTenantId)
-const models = ref<PlaygroundModel[]>([])
-const starterPrompts = ref<PlaygroundPrompt[]>([])
-const sessions = ref<PlaygroundSession[]>([])
-const selectedModel = ref<string>()
-const active = ref<PlaygroundDetail | null>(null)
-const keyword = ref('')
-const page = ref(1)
-const total = ref(0)
-const prompt = ref('')
-const sending = ref(false)
-const creating = ref(false)
-const updatingModel = ref(false)
-const pendingPrompt = ref('')
-const pendingReply = ref('')
-const streamError = ref('')
-const scroller = ref<HTMLElement | null>(null)
-const composer = ref<HTMLElement | null>(null)
-const promptTrack = ref<HTMLElement | null>(null)
-const canScrollLeft = ref(false)
-const canScrollRight = ref(false)
-let generation = 0
-let viewRevision = 0
-let promptResizeObserver: ResizeObserver | null = null
-let requestController: AbortController | null = null
-let accepted = false
-let terminal = false
-
-const busy = computed(() => sending.value || creating.value || updatingModel.value)
-const showStarter = computed(() => !!models.value.length && !busy.value
-  && (!active.value || (active.value.turnCount === 0 && !active.value.turns.length)))
-const canSend = computed(() => !!selectedModel.value && (!active.value || active.value.modelAvailable)
-  && !!prompt.value.trim() && !busy.value)
-
-function reset() {
-  generation++
-  viewRevision++
-  requestController?.abort()
-  requestController = null
-  models.value = []
-  starterPrompts.value = []
-  sessions.value = []
-  active.value = null
-  selectedModel.value = undefined
-  page.value = 1
-  total.value = 0
-  prompt.value = ''
-  pendingPrompt.value = ''
-  pendingReply.value = ''
-  streamError.value = ''
-  sending.value = false
-  creating.value = false
-  updatingModel.value = false
+const { tenant, models, groups, presets, legacy, examples, active, config, prompt, loading, streamError, selectedAttempts,
+  enabled, attempts, busy, roundNumbers, source, validation, canSend,
+  modelFor, lane, picked, draft, open, guarded, send, stop, stopAll, retry, fork, topology, patch, synchronize, draftRequest, refreshLists } = useWorkbench()
+// 宽屏停靠会话列表，窄屏通过同一入口展开，避免挤压模型对比区。
+const libraryTab = ref('sessions'), keyword = ref(''), libraryOpen = ref(false), libraryCollapsed = ref(false)
+const providerName = (slug: string) => getProviderBySlug(slug)?.displayName || slug
+const configOpen = ref(false), configIndex = ref(0), modelOpen = ref(false), modelIndex = ref(0)
+const modelSearch = ref(''), provider = ref<string>(), capabilityFilter = ref(false)
+const exportOpen = ref(false), exportInitial = ref<Attempt>(), presetOpen = ref(false), presetResource = ref<WorkbenchResource>()
+const legacyOpen = ref(false), legacyId = ref(''), renameOpen = ref(false), renameValue = ref(''), renameResource = ref<WorkbenchResource>()
+let identity = 0
+const userStore = useUserStore()
+let searchTimer: ReturnType<typeof setTimeout> | undefined
+watch([tenant, () => userStore.user?.userId], () => { identity++; modelOpen.value = exportOpen.value = presetOpen.value = legacyOpen.value = renameOpen.value = configOpen.value = libraryOpen.value = false; keyword.value = ''; configIndex.value = 0; clearTimeout(searchTimer) })
+watch(keyword, value => { clearTimeout(searchTimer); searchTimer = setTimeout(() => { void refreshLists(value) }, 250) })
+watch(() => config.value.lanes.length, n => { if (configIndex.value >= n) configIndex.value = 0 })
+const filteredGroups = computed(() => groups.value.filter(g => g.title.toLowerCase().includes(keyword.value.toLowerCase())))
+const filteredPresets = computed(() => presets.value.filter(p => `${p.title} ${p.description || ''}`.toLowerCase().includes(keyword.value.toLowerCase())))
+const filteredLegacy = computed(() => legacy.value.filter(s => s.title.toLowerCase().includes(keyword.value.toLowerCase())))
+const filteredModels = computed(() => models.value.filter(m => `${m.name} ${m.provider} ${m.description || ''}`.toLowerCase().includes(modelSearch.value.toLowerCase()) && (!provider.value || m.provider === provider.value) && (!capabilityFilter.value || m.capabilities.temperature && m.capabilities.topP)))
+const laneNames = computed(() => config.value.lanes.map((l, i) => `配置 ${String.fromCharCode(65 + i)} · ${modelFor(l.serviceId)?.name || '模型已失效'}`))
+const focusedLane = computed(() => config.value.lanes[configIndex.value])
+const statusLabel = (status: string) => ({ PENDING: '等待', STREAMING: '生成中', STOPPING: '停止中', COMPLETED: '完成', STOPPED: '已停止', FAILED: '失败' }[status] || status)
+function bounds(name: 'temperature' | 'topP') {
+  const targets = config.value.synced ? config.value.lanes : [focusedLane.value]
+  const ranges = targets.map(l => l && modelFor(l.serviceId)?.capabilities[name])
+  if (!ranges.length || ranges.some(r => !r)) return null
+  const min = Math.max(...ranges.map(r => r!.min)), max = Math.min(...ranges.map(r => r!.max))
+  return min <= max ? { min, max } : null
 }
-
-async function load(tenant: string, ticket: number) {
-  const [modelResult, listResult, promptResult] = await Promise.allSettled([
-    getPlaygroundModels(tenant), listPlaygroundSessions(tenant), getPlaygroundPrompts(tenant),
-  ])
-  if (ticket !== generation) return
-  if (modelResult.status === 'fulfilled') {
-    models.value = modelResult.value.items
-    selectedModel.value = modelResult.value.items[0]?.serviceId
-  }
-  if (listResult.status === 'fulfilled') {
-    sessions.value = listResult.value.sessions
-    total.value = listResult.value.total
-  }
-  if (promptResult.status === 'fulfilled') starterPrompts.value = promptResult.value.items
-}
-
-async function refreshList() {
-  const tenant = tenantId.value
-  const ticket = generation
-  if (!tenant) return
-  try {
-    const result = await listPlaygroundSessions(tenant, page.value, 20, keyword.value)
-    if (ticket !== generation) return
-    sessions.value = result.sessions
-    total.value = result.total
-  } catch { /* 统一请求拦截器已提示。 */ }
-}
-
-async function openSession(sessionId: string, preserveInput = false) {
-  const tenant = tenantId.value
-  const ticket = generation
-  const view = ++viewRevision
-  if (!tenant) return
-  try {
-    const result = await getPlaygroundSession(tenant, sessionId)
-    if (ticket !== generation || view !== viewRevision) return
-    active.value = result
-    selectedModel.value = result.serviceId
-    if (!preserveInput) {
-      prompt.value = ''
-      streamError.value = ''
-    }
-    pendingPrompt.value = ''
-    pendingReply.value = ''
-    await scrollBottom()
-  } catch { /* 统一请求拦截器已提示。 */ }
-}
-
-function newSession(serviceId = selectedModel.value) {
-  if (busy.value) return
-  viewRevision++
-  active.value = null
-  selectedModel.value = models.value.some(model => model.serviceId === serviceId)
-    ? serviceId : models.value[0]?.serviceId
-  prompt.value = ''
-  pendingPrompt.value = ''
-  pendingReply.value = ''
-  streamError.value = ''
-  void nextTick(() => composer.value?.querySelector('textarea')?.focus())
-}
-
-async function changeModel(serviceId: string) {
-  selectedModel.value = serviceId
-  const tenant = tenantId.value
-  if (!tenant || busy.value || !active.value || active.value.serviceId === serviceId) return
-  if (active.value.turnCount > 0) { newSession(serviceId); return }
-  const ticket = generation
-  updatingModel.value = true
-  try {
-    await updatePlaygroundSessionModel(tenant, active.value.sessionId, serviceId)
-    if (ticket !== generation) return
-    await openSession(active.value.sessionId)
-    await refreshList()
-  } catch {
-    if (ticket === generation && active.value) selectedModel.value = active.value.serviceId
-    // 统一请求拦截器已提示。
-  }
-  finally { if (ticket === generation) updatingModel.value = false }
-}
-
-function fillPrompt(value: string) {
-  if (busy.value) return
-  prompt.value = value
-  void nextTick(() => {
-    const input = composer.value?.querySelector('textarea')
-    input?.focus()
-    input?.setSelectionRange(value.length, value.length)
-  })
-}
-
-function updatePromptOverflow() {
-  const track = promptTrack.value
-  canScrollLeft.value = !!track && track.scrollLeft > 1
-  canScrollRight.value = !!track && track.scrollLeft + track.clientWidth < track.scrollWidth - 1
-}
-
-function confirmDelete(session: PlaygroundSession) {
-  if (busy.value) return
-  Modal.confirm({
-    title: '删除这段会话？', content: `“${session.title}”将从你的历史列表移除。`,
-    okText: '删除', okType: 'danger', cancelText: '取消',
-    async onOk() {
-      const tenant = tenantId.value
-      if (!tenant) return
-      await deletePlaygroundSession(tenant, session.sessionId)
-      if (active.value?.sessionId === session.sessionId) active.value = null
-      await refreshList()
-    },
-  })
-}
-
-async function scrollBottom() {
-  await nextTick()
-  scroller.value?.scrollTo({ top: scroller.value.scrollHeight, behavior: 'smooth' })
-}
-
-function handleEvent(event: PlaygroundEvent) {
-  if (event.type === 'accepted') { accepted = true; prompt.value = ''; streamError.value = '' }
-  else if (event.type === 'delta') pendingReply.value += event.text
-  else if (event.type === 'completed' || event.type === 'stopped') { terminal = true; pendingReply.value = event.reply }
-  else if (event.type === 'error') { terminal = true; streamError.value = event.message; prompt.value = pendingPrompt.value }
-  void scrollBottom()
-}
-
-async function send() {
-  const tenant = tenantId.value
-  const text = prompt.value.trim()
-  const serviceId = selectedModel.value
-  if (!tenant || !serviceId || !text || busy.value || (active.value && !active.value.modelAvailable)) return
-  const ticket = generation
-  viewRevision++
-  let sessionId = active.value?.sessionId
-  accepted = false
-  terminal = false
-  streamError.value = ''
-  creating.value = !sessionId
-  try {
-    if (!sessionId) {
-      const session = await createPlaygroundSession(tenant, serviceId)
-      if (ticket !== generation) return
-      sessionId = session.sessionId
-      active.value = { ...session, modelAvailable: true, turns: [] }
-    }
-    if (ticket !== generation) return
-    creating.value = false
-    sending.value = true
-    pendingPrompt.value = text
-    pendingReply.value = ''
-    requestController = new AbortController()
-    await streamPlaygroundTurn(tenant, sessionId, text, crypto.randomUUID(),
-      requestController.signal, event => { if (ticket === generation) handleEvent(event) })
-    if (!accepted || !terminal) throw new Error('连接已结束，发送状态未确认')
-  } catch (error) {
-    if (ticket === generation && (error as Error).name !== 'AbortError') {
-      prompt.value = text
-      if (sessionId) {
-        streamError.value = (error as Error).message || '发送失败'
-        message.error(streamError.value)
-      }
-    }
-  } finally {
-    if (ticket === generation) {
-      creating.value = false
-      sending.value = false
-      requestController = null
-      pendingPrompt.value = ''
-      pendingReply.value = ''
-      if (sessionId) {
-        await openSession(sessionId, true)
-        await refreshList()
-        if (active.value?.turns.at(-1)?.status === 'STREAMING') {
-          const currentSessionId = sessionId
-          window.setTimeout(() => { if (ticket === generation) void openSession(currentSessionId, true) }, 500)
-        }
-      }
-    }
-  }
-}
-
-function stop() { requestController?.abort() }
-function onPromptKeydown(event: KeyboardEvent) {
-  if (event.key !== 'Enter' || event.shiftKey || event.ctrlKey || event.altKey
-    || event.metaKey || event.isComposing) return
-  event.preventDefault()
-  void send()
-}
-
-async function copy(text: string | null) {
-  if (!text) return
-  try { await navigator.clipboard.writeText(text); message.success('已复制回复') }
-  catch { message.error('复制失败') }
-}
-
-watch(tenantId, next => {
-  reset()
-  if (next) {
-    const ticket = generation
-    void playgroundStore.refresh(next).then(status => {
-      if (ticket === generation && status?.enabled) void load(next, ticket)
-    })
-  }
-}, { immediate: true })
-watch(keyword, () => { page.value = 1; void refreshList() })
-watch(page, () => { void refreshList() })
-watch(promptTrack, element => {
-  promptResizeObserver?.disconnect()
-  if (!element) { canScrollLeft.value = false; canScrollRight.value = false; return }
-  promptResizeObserver = new ResizeObserver(updatePromptOverflow)
-  promptResizeObserver.observe(element)
-  void nextTick(updatePromptOverflow)
+const maxTokens = computed(() => {
+  const targets = config.value.synced ? config.value.lanes : [focusedLane.value]
+  const values = targets.map(l => l && modelFor(l.serviceId)?.capabilities.maxTokens)
+  return values.length && values.every(v => v != null) ? Math.min(...values as number[]) : undefined
 })
-onBeforeUnmount(() => { promptResizeObserver?.disconnect(); reset() })
+const systemSupported = computed(() => (config.value.synced ? config.value.lanes : [focusedLane.value]).every(l => l && modelFor(l.serviceId)?.capabilities.system))
+function selectModel(index: number) { modelIndex.value = index; modelSearch.value = ''; provider.value = undefined; capabilityFilter.value = false; modelOpen.value = true }
+async function chooseModel(serviceId: string) {
+  if (busy.value) return
+  const next = JSON.parse(JSON.stringify(config.value)) as WorkbenchConfig
+  const sourceLaneId = next.lanes[modelIndex.value]?.laneId
+  // 添加和替换共享选择窗口；选定模型后再修改栏位，取消不会产生空栏。
+  if (modelIndex.value === next.lanes.length) {
+    if (next.lanes.length >= 3) return
+    const added = lane(serviceId)
+    if (next.synced) added.config = { ...next.lanes[0]?.config }
+    next.lanes.push(added)
+  } else if (next.lanes[modelIndex.value]) next.lanes[modelIndex.value]!.serviceId = serviceId
+  else return
+  modelOpen.value = false
+  await topology(next, sourceLaneId)
+}
+function addLane() { if (!busy.value && config.value.lanes.length < 3) selectModel(config.value.lanes.length) }
+function toggleLibrary() {
+  if (window.matchMedia('(max-width: 1200px)').matches) libraryOpen.value = !libraryOpen.value
+  else libraryCollapsed.value = !libraryCollapsed.value
+}
+async function removeLane(index: number) { const next = JSON.parse(JSON.stringify(config.value)) as WorkbenchConfig; next.lanes.splice(index, 1); await topology(next) }
+function details(a?: Attempt) { exportInitial.value = a; exportOpen.value = true }
+function savePreset(resource?: WorkbenchResource) { presetResource.value = resource; presetOpen.value = true }
+function newDraft(next?: WorkbenchConfig) { void guarded(() => { draft(next); libraryOpen.value = false }) }
+function loadGroup(id: string) { void guarded(async () => { await open(id); libraryOpen.value = false }) }
+function exportGroup(id: string) { void guarded(async () => { await open(id); if (active.value?.id === id) details() }) }
+function oldSession(id: string) { void guarded(() => { legacyId.value = id; legacyOpen.value = true; libraryOpen.value = false }) }
+function resetConfig() { if (config.value.synced) config.value.lanes.forEach(l => l.config = { system: '' }); else if (focusedLane.value) focusedLane.value.config = { system: '' } }
+function rename(r: WorkbenchResource) { renameResource.value = r; renameValue.value = r.title; renameOpen.value = true }
+async function saveName() {
+  const t = tenant.value, r = renameResource.value, ticket = identity
+  if (!t || !r || !renameValue.value.trim()) return
+  try { const saved = await api.workbenchUpdate(t, r, { title: renameValue.value.trim() }); if (ticket !== identity) return; if (active.value?.id === r.id) active.value = { ...saved, attempts: attempts.value }; renameOpen.value = false; await refreshLists() }
+  catch { /* 统一拦截器已提示。 */ }
+}
+function remove(r: WorkbenchResource) {
+  const t = tenant.value, ticket = identity
+  if (!t) return
+  Modal.confirm({ title: '删除这段会话？', content: '已创建分叉的上下文快照仍然保留。', okText: '删除', okType: 'danger', cancelText: '取消', async onOk() {
+    await api.workbenchDelete(t, r); if (ticket !== identity) return; if (active.value?.id === r.id) draft(); else if (active.value?.payload.source?.groupId === r.id) active.value.sourceAvailable = false; await refreshLists()
+  } })
+}
+const price = (id: string) => {
+  const p = modelFor(id)?.pricing
+  if (!p) return '暂无价格'
+  if (p.billingMode === 'REQUEST') return `${p.currency} ${Number(p.requestPriceFen || 0) / 100} / 次`
+  return `${p.currency} 输入 ${Number(p.inputPriceFen || 0) / 100} / 输出 ${Number(p.outputPriceFen || 0) / 100} 每百万 Token${p.periodType === 'PEAK' ? '（高峰价）' : ''}`
+}
+function enter(e: KeyboardEvent) { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); if (canSend.value) void send() } }
+function keydown(e: KeyboardEvent) { if (e.key === 'Escape') libraryOpen.value = false; if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); newDraft() } }
+window.addEventListener('keydown', keydown)
+onBeforeUnmount(() => { window.removeEventListener('keydown', keydown); clearTimeout(searchTimer) })
+onBeforeRouteLeave(async () => {
+  if (!busy.value) return true
+  return new Promise<boolean>(resolve => Modal.confirm({ title: '离开将停止当前生成', okText: '停止并离开', cancelText: '继续生成', onOk: async () => { await stopAll(); resolve(true) }, onCancel: () => resolve(false) }))
+})
 </script>
 
 <template>
-  <div class="playground-page">
-    <header class="page-header">
-      <div><h1>PlayGround</h1><p>在当前租户中与已配置的模型进行私有对话</p></div>
-      <!-- <div class="limit-hint">每模型 {{ playgroundStore.status?.limitRpm ?? 6 }} RPM / {{ playgroundStore.status?.limitRph ?? 120 }} RPH</div> -->
+  <div class="workbench-page" :class="{ 'library-collapsed': libraryCollapsed }">
+    <header class="page-heading">
+      <div><div class="page-eyebrow">EXPERIMENTS</div><h1 class="page-title">Playground</h1></div>
+      <div class="page-actions">
+        <a-button aria-controls="playground-library" @click="toggleLibrary"><HistoryOutlined /><span>会话与预设</span></a-button>
+        <a-button type="primary" class="new-session" @click="newDraft()"><PlusOutlined />新建对话</a-button>
+        <a-dropdown :trigger="['click']"><a-button type="text" aria-label="更多会话操作"><MoreOutlined /></a-button><template #overlay><a-menu>
+          <a-menu-item :disabled="busy || !config.lanes.length" @click="savePreset()"><SaveOutlined /> 保存为个人预设</a-menu-item>
+          <a-menu-item :disabled="!config.lanes.length" @click="details()"><DownloadOutlined /> 请求详情与导出</a-menu-item>
+        </a-menu></template></a-dropdown>
+      </div>
     </header>
-    <div class="chat-layout">
-      <aside class="session-panel">
-        <a-button type="primary" block :disabled="!models.length || busy" @click="newSession()">新建会话</a-button>
-        <a-input v-model:value="keyword" placeholder="搜索会话标题" allow-clear />
-        <div class="session-list">
-          <div v-if="!sessions.length" class="empty-list">{{ keyword ? '没有找到会话' : '暂无会话' }}</div>
-          <button v-for="session in sessions" :key="session.sessionId" class="session-item"
-            :class="{ active: active?.sessionId === session.sessionId }" :disabled="busy" @click="openSession(session.sessionId)">
-            <span class="session-title">{{ session.title }}</span>
-            <span class="session-meta">{{ session.modelName }} · {{ session.turnCount }} 轮</span>
-            <a-button size="small" type="text" danger :disabled="busy" @click.stop="confirmDelete(session)">删除</a-button>
-          </button>
-        </div>
-        <a-pagination v-if="total > 20" v-model:current="page" :total="total" :page-size="20" size="small" simple />
-      </aside>
-      <section class="chat-panel">
-        <div class="chat-toolbar">
-          <div><strong>{{ active?.title ?? '新会话' }}</strong><span>单模型多轮聊天</span></div>
-          <a-select v-model:value="selectedModel" placeholder="选择模型" style="min-width: 190px"
-            :disabled="busy || !models.length" @change="changeModel">
-            <a-select-option v-for="model in models" :key="model.serviceId" :value="model.serviceId">{{ model.name }}</a-select-option>
-          </a-select>
-        </div>
-        <div ref="scroller" class="messages">
-          <div v-if="!models.length" class="empty-chat">当前租户没有可用的文本聊天模型。</div>
-          <div v-else-if="showStarter" class="empty-hero">
-            <div class="empty-mark"><BulbOutlined /></div>
-            <h2>从一个问题开始</h2>
-            <p>选择租户内已配置的模型，输入提示词，并开始多轮会话。</p>
+    <a-spin :spinning="loading" wrapper-class-name="workbench-spin">
+      <div v-if="!enabled && !loading" class="gate"><ExperimentOutlined /><h2>当前租户未开启 PlayGround</h2><p>请在租户设置中开启。已有会话与预设会保留。</p></div>
+      <div v-else class="workbench-layout">
+        <button v-if="libraryOpen" class="library-backdrop" aria-label="关闭会话列表" @click="libraryOpen = false" />
+        <aside id="playground-library" class="library" :class="{ 'mobile-open': libraryOpen }" aria-label="会话与预设">
+          <div class="library-title"><span class="section-label">工作区</span></div>
+          <a-segmented v-model:value="libraryTab" :options="[{label:'我的会话',value:'sessions'},{label:'个人预设',value:'presets'}]" block />
+          <a-input v-model:value="keyword" placeholder="搜索会话与预设" allow-clear><template #prefix><SearchOutlined /></template></a-input>
+          <div class="library-items">
+            <template v-if="libraryTab === 'sessions'">
+              <div v-for="g in filteredGroups" :key="g.id" class="library-item" :class="{ active: active?.id === g.id }">
+                <button class="resource-button" @click="loadGroup(g.id)"><strong>{{ g.title }}</strong><small>{{ g.payload.lanes.length === 1 ? '单模型' : `${g.payload.lanes.length} 模型对比` }}{{ g.payload.source ? ' · 分叉' : '' }}</small></button>
+                <a-dropdown :trigger="['click']"><a-button type="text" size="small" :disabled="busy" aria-label="会话操作">···</a-button><template #overlay><a-menu><a-menu-item @click="rename(g)">重命名</a-menu-item><a-menu-item @click="exportGroup(g.id)">导出</a-menu-item><a-menu-item danger @click="remove(g)">删除</a-menu-item></a-menu></template></a-dropdown>
+              </div>
+              <template v-if="filteredLegacy.length"><div class="legacy-title">历史会话</div><button v-for="s in filteredLegacy" :key="s.sessionId" class="resource-button legacy-item" @click="oldSession(s.sessionId)"><strong>{{ s.title }}</strong><small>{{ s.modelName }} · {{ s.turnCount }} 轮</small></button></template>
+              <a-empty v-if="!filteredGroups.length && !filteredLegacy.length" :description="keyword ? '没有找到会话' : '发送后会自动保存会话'" :image="undefined" />
+            </template>
+            <template v-else><div v-for="p in filteredPresets" :key="p.id" class="library-item"><button class="resource-button" :disabled="busy" @click="savePreset(p)"><strong>{{ p.title }}</strong><small>v{{ p.payload.versions?.at(-1)?.number }} · {{ p.payload.versions?.at(-1)?.config.lanes.length }} 栏配置</small><small>{{ p.description }}</small></button></div><a-empty v-if="!filteredPresets.length" :description="keyword ? '没有找到预设' : '保存配置，方便下次复用'" /></template>
           </div>
-          <template v-for="turn in active?.turns ?? []" :key="turn.turnId">
-            <div class="message user"><small>我</small><div class="bubble">{{ turn.prompt }}</div></div>
-            <div class="message assistant"><small>{{ active?.modelName }}</small>
-              <div class="bubble">{{ turn.reply || (turn.status === 'FAILED' ? '回复失败' : '等待回复…') }}</div>
-              <div class="reply-actions"><span v-if="turn.status !== 'COMPLETED'">{{ turn.status === 'STOPPED' ? '已停止' : turn.status === 'FAILED' ? '失败' : '生成中' }}</span>
-                <a-button v-if="turn.reply" size="small" type="link" @click="copy(turn.reply)">复制</a-button></div>
+        </aside>
+        <main class="workspace" :class="{ 'single-workspace': config.lanes.length === 1 }">
+          <div v-if="models.length" class="model-toolbar" aria-label="已选模型">
+            <div class="selected-models">
+              <a-tooltip title="添加模型"><a-button class="add-lane" aria-label="添加模型" :disabled="busy || config.lanes.length >= 3" @click="addLane"><PlusOutlined /></a-button></a-tooltip>
+              <div v-for="(l, i) in config.lanes" :key="l.laneId" class="model-chip">
+                <button class="model-select" :disabled="busy" :aria-label="`选择模型 ${String.fromCharCode(65 + i)}`" @click="selectModel(i)"><ProviderLogo v-if="modelFor(l.serviceId)" :slug="modelFor(l.serviceId)!.provider" :size="22" /><span v-if="config.lanes.length > 1" class="lane-badge">{{ String.fromCharCode(65 + i) }}</span><strong>{{ modelFor(l.serviceId)?.name || '模型已失效，请替换' }}</strong><DownOutlined /></button>
+                <a-button v-if="config.lanes.length > 1" type="text" size="small" :disabled="busy" :aria-label="`移除模型 ${String.fromCharCode(65 + i)}`" @click="removeLane(i)"><CloseOutlined /></a-button>
+              </div>
             </div>
-          </template>
-          <template v-if="sending">
-            <div class="message user"><small>我</small><div class="bubble">{{ pendingPrompt }}</div></div>
-            <div class="message assistant"><small>{{ active?.modelName }}</small><div class="bubble">{{ pendingReply || '等待回复…' }}</div></div>
-          </template>
-        </div>
-        <div ref="composer" class="composer" :class="{ 'composer-starter': showStarter }">
-          <a-alert v-if="streamError" :message="streamError" type="error" show-icon class="stream-error" />
-          <a-alert v-if="active && !active.modelAvailable" message="当前模型已停用，请选择其他模型创建新会话。" type="warning" show-icon class="stream-error" />
-          <div v-if="showStarter && starterPrompts.length" class="prompt-collection">
-            <div ref="promptTrack" class="prompt-track"
-              :class="{ 'has-before': canScrollLeft, 'has-more': canScrollRight }"
-              role="group" aria-label="示例提示词，可横向滚动" @scroll="updatePromptOverflow">
-              <button v-for="item in starterPrompts" :key="item.id" type="button" class="prompt-card"
-                :title="item.prompt" @click="fillPrompt(item.prompt)">
-                <strong>{{ item.title }}</strong>
-                <span>{{ item.description }}</span>
-              </button>
+            <a-button class="parameter-control" type="text" aria-label="模型参数" @click="configOpen = true"><SettingOutlined /><span>参数</span></a-button>
+          </div>
+          <div v-if="source" class="source-note">分叉自 {{ source.title }} · {{ source.laneLabel || '配置 A' }}{{ source.roundNo ? ` · 第 ${source.roundNo} 轮` : '' }} <a-button v-if="active?.sourceAvailable !== false" type="link" size="small" @click="loadGroup(source.groupId)">返回源会话</a-button><span v-else> · 来源会话已删除</span></div>
+          <div class="conversation" :class="{ 'is-empty': !roundNumbers.length, 'is-single': config.lanes.length === 1 }" :style="{ '--lane-count': config.lanes.length || 1 }">
+            <div v-if="!models.length" class="empty-workspace"><ExperimentOutlined /><h2>没有可用的文本聊天模型</h2><p>请先在当前租户配置并启用文本聊天服务。</p></div>
+            <div v-else-if="!roundNumbers.length" class="empty-workspace welcome">
+              <div class="welcome-symbol"><ExperimentOutlined /></div>
+              <h2>{{ config.lanes.length === 1 ? '从一个好问题开始' : '一个问题，多种可能' }}</h2>
+              <p>{{ config.lanes.length === 1 ? '探索模型能力，找到适合你的回答。' : '并排探索不同模型，比较回答、速度与费用。' }}</p>
+              <small v-if="active?.payload.prefix?.length">已继承 {{ active.payload.prefix.length }} 条有效历史消息</small>
+              <div v-if="examples.length" class="examples"><button v-for="p in examples" :key="p.id" @click="prompt = p.prompt"><span class="example-copy"><strong>{{ p.title }}</strong><span>{{ p.description }}</span></span><ArrowRightOutlined /></button></div>
+            </div>
+            <section v-for="n in roundNumbers" :key="n" class="round"><div class="user-prompt"><p>{{ attempts.find(a => a.roundNo === n)?.prompt }}</p></div>
+              <div class="lane-grid result-grid">
+                <div v-for="(l, i) in config.lanes" :key="l.laneId" class="result-cell">
+                  <template v-for="a in [picked(n, l.laneId)]" :key="a?.attemptId"><template v-if="a">
+                    <div v-if="config.lanes.length > 1" class="reply-model"><span class="lane-badge">{{ String.fromCharCode(65 + i) }}</span><strong>{{ a.snapshot.modelName }}</strong></div>
+                    <div v-if="a.status !== 'COMPLETED' || attempts.filter(x => x.roundNo === n && x.laneId === l.laneId).length > 1" class="result-status"><a-tag v-if="a.status !== 'COMPLETED'" :color="a.status === 'FAILED' ? 'error' : undefined">{{ statusLabel(a.status) }}</a-tag><a-select v-if="attempts.filter(x => x.roundNo === n && x.laneId === l.laneId).length > 1" :value="a.attemptId" size="small" :options="attempts.filter(x => x.roundNo === n && x.laneId === l.laneId).map(x => ({ value: x.attemptId, label: `尝试 ${x.attemptNo} · ${statusLabel(x.status)}` }))" @update:value="selectedAttempts[`${n}:${l.laneId}`] = $event" /></div>
+                    <MarkdownReply v-if="a.reply" :text="a.reply" /><div v-else class="waiting">{{ ['PENDING','STREAMING'].includes(a.status) ? '等待模型内容…' : '没有生成内容' }}</div>
+                    <a-alert v-if="a.error" :message="a.error.message" :description="a.error.retryAfterSeconds ? `可在 ${a.error.retryAfterSeconds} 秒后重试` : undefined" type="error" show-icon />
+                    <small v-if="a.status === 'STOPPED'" class="muted">部分输出已保留，不计入后续上下文</small>
+                    <div class="result-actions" aria-label="回答操作">
+                      <a-tooltip title="复制回答"><a-button type="text" size="small" aria-label="复制回答" :disabled="!a.reply" @click="copyWorkbenchText(a.reply)"><CopyOutlined /></a-button></a-tooltip>
+                      <a-tooltip title="请求详情"><a-button type="text" size="small" aria-label="请求详情" @click="details(a)"><CodeOutlined /></a-button></a-tooltip>
+                      <a-tooltip v-if="['PENDING','STREAMING','STOPPING'].includes(a.status)" title="停止生成"><a-button type="text" size="small" danger aria-label="停止生成" @click="stop(a)"><StopOutlined /></a-button></a-tooltip>
+                      <a-tooltip v-else-if="['FAILED','STOPPED'].includes(a.status)" title="重试本模型"><a-button type="text" size="small" aria-label="重试本模型" :disabled="busy" @click="retry(a)"><ReloadOutlined /></a-button></a-tooltip>
+                      <a-tooltip title="从此回答分叉"><a-button type="text" size="small" aria-label="从此回答分叉" :disabled="busy || a.status !== 'COMPLETED'" @click="fork(a)"><BranchesOutlined /></a-button></a-tooltip>
+                      <a-tooltip title="重新生成"><a-button type="text" size="small" aria-label="重新生成" :disabled="busy" @click="fork(a, true)"><ReloadOutlined /></a-button></a-tooltip>
+                    </div>
+                  </template></template>
+                </div>
+              </div>
+            </section>
+          </div>
+          <div class="composer">
+            <a-alert v-if="streamError" :message="streamError" type="error" show-icon closable @close="streamError = ''" />
+            <a-alert v-if="validation && models.length" :message="validation" type="warning" show-icon />
+            <div class="composer-box">
+              <a-textarea v-model:value="prompt" aria-label="输入问题" :auto-size="{ minRows: 2, maxRows: 6 }" :maxlength="100000" :disabled="!models.length" :placeholder="config.lanes.length > 1 ? '输入问题，同时发送给所选模型…' : '输入问题，开始探索…'" @keydown="enter" />
+              <div class="composer-footer"><span class="keyboard-hint">Enter 发送 · Shift + Enter 换行</span><a-button v-if="busy" danger @click="stopAll"><StopOutlined />停止全部</a-button><a-button v-else type="primary" :disabled="!canSend" @click="send()"><SendOutlined />发送</a-button></div>
             </div>
           </div>
-          <div class="prompt-box">
-            <a-textarea v-model:value="prompt" :rows="4" :disabled="busy || !models.length"
-              placeholder="随心输入。Enter 发送，Shift+Enter 换行" @keydown="onPromptKeydown" />
-            <a-button v-if="sending" class="prompt-action" danger @click="stop">停止</a-button>
-            <a-button v-else-if="creating" class="prompt-action" disabled>创建中</a-button>
-            <a-button v-else class="prompt-action" type="primary" :disabled="!canSend" @click="send">发送</a-button>
-          </div>
-          <div class="composer-note">模型回答可能不准确，请核对重要信息。</div>
-        </div>
-      </section>
-    </div>
+        </main>
+      </div>
+    </a-spin>
+    <a-drawer v-model:open="configOpen" title="模型配置" width="min(420px, 100vw)" class="config-drawer">
+      <template v-if="focusedLane"><a-alert message="配置变更将应用于下一轮，历史快照保持不变" type="info" show-icon /><div class="sync-row"><strong>同步到各栏</strong><a-switch :checked="config.synced" :disabled="busy" @change="synchronize(configIndex, Boolean($event))" /></div>
+        <a-radio-group v-model:value="configIndex" :disabled="busy" size="small"><a-radio-button v-for="(_, i) in config.lanes" :key="i" :value="i">配置 {{ String.fromCharCode(65 + i) }}</a-radio-button></a-radio-group>
+        <a-form layout="vertical" class="config-form"><a-form-item label="系统提示词"><a-textarea :value="focusedLane.config.system || ''" :rows="6" :disabled="busy || !systemSupported" placeholder="例如：你是一位严谨的技术顾问，请用中文回答。" @update:value="patch(configIndex, 'system', $event)" /><small v-if="!systemSupported" class="muted">当前模型不支持系统提示词</small></a-form-item>
+          <a-form-item v-for="[key, label] in [['temperature','Temperature'],['topP','Top P']] as const" :key="key" :label="label"><div class="parameter-row"><a-slider :value="focusedLane.config[key] ?? undefined" :min="bounds(key)?.min ?? 0" :max="bounds(key)?.max ?? 1" :step="0.01" :disabled="busy || !bounds(key)" @change="patch(configIndex, key, Number($event))" /><a-input-number :value="focusedLane.config[key]" :min="bounds(key)?.min" :max="bounds(key)?.max" :step="0.01" :disabled="busy || !bounds(key)" placeholder="默认" @update:value="patch(configIndex, key, $event == null ? null : Number($event))" /></div><small class="muted">{{ bounds(key) ? '留空使用模型默认值' : '模型未配置支持信息或共享范围冲突，参数未应用；可切换独立配置' }}</small><a-button v-if="focusedLane.config[key] != null" type="link" size="small" :disabled="busy" @click="patch(configIndex, key, null)">清空</a-button></a-form-item>
+          <a-form-item label="输出 Token 数"><a-input-number :value="focusedLane.config.maxTokens" :min="1" :max="maxTokens" :precision="0" :disabled="busy || !maxTokens" placeholder="留空使用 PlayGround 上限" style="width: 100%" @update:value="patch(configIndex, 'maxTokens', $event == null ? null : Number($event))" /><small class="muted">{{ maxTokens ? `PlayGround 上限 ${maxTokens}；留空使用该上限` : '模型未配置支持信息，参数未应用' }}</small></a-form-item>
+        </a-form><a-space><a-button :disabled="busy" @click="resetConfig">恢复默认</a-button><a-button type="primary" :disabled="busy" @click="savePreset()">保存预设</a-button></a-space>
+      </template>
+    </a-drawer>
+    <a-modal v-model:open="modelOpen" :title="modelIndex === config.lanes.length ? '添加模型' : '选择模型'" :width="800" :footer="null">
+      <div class="model-picker-controls"><a-input v-model:value="modelSearch" placeholder="搜索模型、供应商或介绍" allow-clear><template #prefix><SearchOutlined /></template></a-input><a-select v-model:value="provider" allow-clear placeholder="全部供应商" :options="[...new Set(models.map(m => m.provider))].map(p => ({label:providerName(p),value:p}))" /><a-checkbox v-model:checked="capabilityFilter">支持数值参数</a-checkbox></div>
+      <div class="model-list"><button v-for="m in filteredModels" :key="m.serviceId" class="model-card" @click="chooseModel(m.serviceId)"><div class="model-card-heading"><ProviderLogo :slug="m.provider" :size="28" /><strong>{{ m.name }}</strong><span class="model-provider">{{ providerName(m.provider) }}</span><a-tag v-if="config.lanes[modelIndex]?.serviceId === m.serviceId" color="blue">当前模型</a-tag></div><p>{{ m.description || '暂无模型介绍' }}</p><small>上下文 {{ m.contextWindow ? `${m.contextWindow.toLocaleString()} Token` : '未知' }} · {{ price(m.serviceId) }}</small><small>参数：{{ [m.capabilities.system ? 'System' : '', m.capabilities.temperature ? 'Temperature' : '', m.capabilities.topP ? 'Top P' : '', m.capabilities.maxTokens ? 'Max Token' : ''].filter(Boolean).join(' / ') || '暂无已确认能力' }}</small></button><a-empty v-if="!filteredModels.length" description="没有符合条件的模型" /></div></a-modal>
+    <ExportDialog v-model:open="exportOpen" :group="active" :draft-request="draftRequest" :lane-names="laneNames" :initial="exportInitial" />
+    <PresetDialog v-if="tenant" v-model:open="presetOpen" :tenant="tenant" :config="config" :resource="presetResource" :presets="presets" :models="models" @changed="refreshLists" @load="newDraft" />
+    <a-modal v-model:open="renameOpen" title="会话名称" :width="420" @ok="saveName"><a-input v-model:value="renameValue" :maxlength="60" @press-enter="saveName" /></a-modal>
+    <a-drawer v-model:open="legacyOpen" title="一期会话 · 可继续聊天" width="100%" :destroy-on-close="true"><LegacyPlaygroundPage v-if="legacyOpen" :initial-session-id="legacyId" /></a-drawer>
   </div>
 </template>
 
-<style scoped lang="scss">
-.playground-page { height: calc(100vh - 110px); min-height: 550px; display: flex; flex-direction: column; gap: 18px; }
-.page-header { display: flex; align-items: flex-end; justify-content: space-between; h1 { margin: 0; font-size: 24px; } p { margin: 5px 0 0; color: $color-text-secondary; } }
-.limit-hint { color: $color-text-secondary; font-size: 13px; }
-.chat-layout { min-height: 0; flex: 1; display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 16px; }
-.session-panel, .chat-panel { min-height: 0; border: 1px solid $color-border; border-radius: 12px; background: #fff; }
-.session-panel { display: flex; flex-direction: column; padding: 14px; gap: 12px; }
-.session-list { flex: 1; overflow-y: auto; }
-.session-item { width: 100%; border: 0; border-radius: 8px; display: flex; align-items: flex-start; flex-direction: column; padding: 9px 10px; text-align: left; background: transparent; cursor: pointer; position: relative; &:hover, &.active { background: #f0f6ff; } .ant-btn { position: absolute; right: 3px; bottom: 4px; } }
-.session-title { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
-.session-meta { color: $color-text-secondary; font-size: 12px; margin-top: 4px; padding-right: 36px; }
-.empty-list, .empty-chat { color: $color-text-secondary; text-align: center; padding: 50px 16px; }
-.empty-hero { height: 100%; min-height: 210px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 24px 16px; }
-.empty-mark { width: 56px; height: 56px; display: grid; place-items: center; border-radius: 16px; background: #eaf3ff; color: $color-primary; font-size: 27px; }
-.empty-hero h2 { margin: 20px 0 7px; color: $color-text-primary; font-size: 22px; font-weight: 700; }
-.empty-hero p { margin: 0; color: $color-text-secondary; font-size: 14px; line-height: 1.6; }
-.chat-panel { display: flex; flex-direction: column; }
-.chat-toolbar { min-height: 67px; padding: 12px 20px; border-bottom: 1px solid $color-border; display: flex; align-items: center; justify-content: space-between; gap: 16px; span { display: block; color: $color-text-secondary; font-size: 12px; } }
-.messages { min-height: 0; flex: 1; overflow-y: auto; padding: 24px max(22px, 7%); }
-.message { margin-bottom: 22px; max-width: 85%; small { display: block; margin-bottom: 5px; color: $color-text-secondary; } &.user { margin-left: auto; .bubble { background: #eaf3ff; } } }
-.bubble { white-space: pre-wrap; overflow-wrap: anywhere; border-radius: 12px; background: #f6f7f9; padding: 12px 15px; line-height: 1.6; }
-.reply-actions { color: $color-text-secondary; font-size: 12px; margin-top: 4px; }
-.composer { border-top: 1px solid $color-border; padding: 14px 18px; }
-.composer-starter { border-top: 0; }
-.prompt-collection { width: min(100%, 780px); min-width: 0; margin: 0 auto 12px; }
-.prompt-track { min-width: 0; display: flex; justify-content: safe center; gap: 14px; overflow-x: auto; overscroll-behavior-inline: contain; scroll-snap-type: x proximity; scrollbar-width: none; }
-.prompt-track::-webkit-scrollbar { display: none; }
-.prompt-track.has-before { -webkit-mask-image: linear-gradient(to right, transparent, #000 64px); mask-image: linear-gradient(to right, transparent, #000 64px); }
-.prompt-track.has-more { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 64px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 64px), transparent); }
-.prompt-track.has-before.has-more { -webkit-mask-image: linear-gradient(to right, transparent, #000 64px, #000 calc(100% - 64px), transparent); mask-image: linear-gradient(to right, transparent, #000 64px, #000 calc(100% - 64px), transparent); }
-.prompt-card { flex: 0 0 204px; min-width: 0; scroll-snap-align: start; border: 1px solid $color-border; border-radius: 10px; padding: 12px 14px; background: $color-bg-secondary; color: $color-text-primary; text-align: left; cursor: pointer; transition: border-color .15s, background .15s; strong, span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } strong { font-size: 14px; font-weight: 600; } span { margin-top: 5px; color: $color-text-secondary; font-size: 12px; } &:hover, &:focus-visible { border-color: $color-primary; background: #f0f6ff; } }
-.stream-error { margin-bottom: 10px; }
-.prompt-box { position: relative; }
-.prompt-box :deep(textarea) {
-  height: 112px !important;
-  min-height: 112px !important;
-  max-height: 112px !important;
-  overflow-y: auto !important;
-  resize: none !important;
-  padding: 12px 96px 42px 14px;
+<style lang="scss" scoped>
+// 工作台以内容为中心：会话导航、模型选择、回答与输入分别建立视觉层级。
+.workbench-page { height: 100%; min-height: 0; display: flex; flex-direction: column; color: $color-text-primary; background: $color-bg; }
+.workbench-spin { flex: 1; min-height: 0; overflow: hidden; :deep(.ant-spin-container) { height: 100%; } }
+.workbench-layout { display: grid; grid-template-columns: 216px minmax(0, 1fr); height: 100%; position: relative; }
+.library { background: $color-bg-secondary; border-right: 1px solid $color-border; padding: 18px 12px 14px; display: flex; flex-direction: column; gap: 16px; min-height: 0; }
+.library-title, .library-item { display: flex; align-items: center; justify-content: space-between; }
+.section-label { font-size: $font-size-caption; font-weight: 600; color: $color-text-secondary; letter-spacing: .8px; padding-left: 8px; }
+.library :deep(.ant-segmented) { font-size: $font-size-caption; background: rgba($color-text-secondary, .07); }
+.library :deep(.ant-input-affix-wrapper) { background: transparent; border-color: transparent; padding-left: 8px; box-shadow: none; &:focus-within { background: $color-bg; border-color: $color-primary; } input { background: transparent; font-size: $font-size-caption; } }
+.library-items { flex: 1; min-height: 0; overflow-y: auto; .ant-empty { margin: 32px 0; font-size: $font-size-caption; } }
+.library-item { border-radius: $radius-input; margin-bottom: 5px; transition: background .15s; &:hover { background: rgba($color-text-secondary, .06); } &.active { background: rgba($color-primary, .07); .resource-button strong { color: $color-primary; } } }
+.resource-button { flex: 1; min-width: 0; border: 0; background: transparent; text-align: left; cursor: pointer; padding: 11px 10px; color: $color-text-primary; strong, small { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } strong { font-size: 13px; font-weight: 500; } small { color: $color-text-secondary; font-size: 11px; margin-top: 5px; } }
+.legacy-title { color: $color-text-secondary; font-size: 11px; padding: 16px 10px 6px; }
+.legacy-item { width: 100%; border-radius: $radius-input; &:hover { background: rgba($color-text-secondary, .06); } }
+.workspace { display: flex; flex-direction: column; overflow: hidden; min-width: 0; min-height: 0; background: $color-bg; }
+.source-note { font-size: $font-size-caption; color: $color-text-secondary; background: $color-bg-secondary; padding: 8px 24px; }
+.conversation { flex: 1; min-height: 0; overflow: auto; padding: 0 24px 24px; scroll-padding-top: 24px; }
+.lane-grid { display: grid; grid-template-columns: repeat(var(--lane-count), minmax(0, 1fr)); gap: 16px; }
+.lane-badge { width: 18px; height: 18px; display: grid; place-items: center; border-radius: 5px; color: $color-text-secondary; background: $color-bg-secondary; font-size: 10px; font-weight: 600; }
+.empty-workspace, .gate { display: flex; align-items: center; justify-content: center; flex-direction: column; text-align: center; padding: 32px 12px; h2 { margin: 16px 0 10px; font-size: $font-size-h2; font-weight: 600; } p, small { color: $color-text-secondary; line-height: 1.8; } }
+.gate { height: 100%; > .anticon { font-size: 36px; color: $color-primary; } }
+.is-empty { display: flex; flex-direction: column; }
+.welcome { flex: 1; width: 100%; max-width: 640px; margin: 0 auto; padding: 22px 12px 16px; h2 { font-size: 28px; letter-spacing: -1px; margin: 8px 0 10px; } > p { font-size: 13px; margin: 0; } }
+.welcome-symbol { width: 44px; height: 44px; display: grid; place-items: center; font-size: 24px; color: $color-primary; background: rgba($color-primary, .06); border-radius: 14px; margin-bottom: 14px; }
+.examples { width: 100%; max-width: 520px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 24px; button { display: flex; gap: 10px; align-items: center; justify-content: space-between; min-width: 0; background: $color-bg; border: 1px solid rgba($color-text-secondary, .12); border-radius: $radius-card; padding: 13px 14px; text-align: left; cursor: pointer; transition: border-color .15s, background .15s; .example-copy { min-width: 0; strong, > span { display: block; } strong { font-size: $font-size-caption; color: $color-text-primary; font-weight: 500; } > span { color: $color-text-secondary; font-size: 11px; margin-top: 5px; line-height: 1.5; } } > .anticon { color: $color-text-secondary; font-size: 11px; flex-shrink: 0; } &:hover { border-color: rgba($color-primary, .4); background: rgba($color-primary, .025); > .anticon { color: $color-primary; } } } }
+.round { margin: 8px auto 28px; }
+.is-single .round { max-width: 800px; }
+.user-prompt { width: fit-content; max-width: 85%; margin: 16px 0 24px auto; padding: 10px 16px; background: $color-bg-secondary; border-radius: 16px; p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: $font-size-body; line-height: 1.8; } }
+.result-cell { min-width: 0; padding: 0 14px 12px; border-right: 1px solid $color-border; &:last-child { border-right: 0; } }
+.result-status { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 14px; .ant-tag { font-size: 10px; border: 0; border-radius: 5px; } .ant-select { min-width: 140px; max-width: 100%; } }
+.waiting, .muted { color: $color-text-secondary; font-size: $font-size-caption; }
+.result-actions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 10px; .ant-btn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; color: $color-text-secondary; font-size: 14px; &:hover { color: $color-text-primary; } } }
+.single-workspace .composer { max-width: 848px; margin: 0 auto; }
+.composer { flex-shrink: 0; width: 100%; padding: 12px 24px 16px; background: $color-bg; .ant-alert { margin-bottom: 10px; } }
+.composer-box { border: 1px solid rgba($color-text-secondary, .2); border-radius: 14px; padding: 12px 14px 10px; box-shadow: 0 3px 14px rgba($color-text-primary, .035); transition: border-color .15s, box-shadow .15s; &:focus-within { border-color: rgba($color-primary, .6); box-shadow: 0 0 0 3px rgba($color-primary, .05); } :deep(textarea.ant-input) { padding: 2px; border: 0; box-shadow: none; resize: none; font-size: 13px; line-height: 1.7; background: transparent; } }
+.composer-footer { margin-top: 8px; display: flex; gap: 12px; align-items: center; justify-content: space-between; .ant-btn { height: 32px; font-size: $font-size-caption; border-radius: $radius-input; box-shadow: none; } }
+.sync-row { display: flex; justify-content: space-between; margin: 24px 0 18px; } .config-form { margin-top: 22px; }
+.parameter-row { display: flex; gap: 14px; align-items: center; .ant-slider { flex: 1; } .ant-input-number { width: 84px; } }
+.model-list { max-height: 55vh; overflow: auto; display: grid; gap: 10px; }
+.model-card { padding: 16px; background: $color-bg; border: 1px solid rgba($color-text-secondary, .16); border-radius: $radius-card; text-align: left; cursor: pointer; color: $color-text-primary; p { margin: 10px 0; color: $color-text-secondary; font-size: 13px; line-height: 1.7; } small { display: block; margin-top: 6px; color: $color-text-secondary; line-height: 1.6; } &:hover { border-color: rgba($color-primary, .5); background: rgba($color-primary, .02); } }
+.model-card-heading { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; strong { font-size: $font-size-body; overflow-wrap: anywhere; } }
+.model-provider { margin-left: auto; color: $color-text-secondary; font-size: 11px; }
+.library-backdrop { display: none; }
+.library-collapsed { .workbench-layout { grid-template-columns: minmax(0, 1fr); } .library { display: none; } }
+button:focus-visible { outline: 2px solid rgba($color-primary, .7); outline-offset: 3px; }
+button:disabled { cursor: not-allowed; }
 
-  border-radius: 12px;
+
+.page-heading { display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; gap: 20px; padding: 24px 28px 22px; border-bottom: 1px solid $color-border; }
+.page-eyebrow { margin-bottom: 8px; color: $color-primary; font-size: 12px; font-weight: 700; letter-spacing: 1px; }
+.page-title { font-size: 27px; font-weight: 700; color: $color-text-primary; margin: 0; }
+.page-actions { display: flex; gap: 12px; align-items: center; }
+.new-session { display: inline-flex; align-items: center; gap: 6px; border-radius: $radius-button; box-shadow: none; }
+.model-toolbar { display: flex; align-items: center; gap: 16px; flex-shrink: 0; padding: 16px 24px; border-bottom: 1px solid $color-border; }
+.selected-models { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; min-width: 0; flex: 1; }
+.add-lane { display: inline-flex; align-items: center; justify-content: center; padding: 0; width: 40px; height: 40px; flex-shrink: 0; border-radius: $radius-input; box-shadow: none; color: $color-text-secondary; border-color: rgba($color-text-secondary, .18); }
+.model-chip { display: flex; align-items: center; min-width: 0; border: 1px solid rgba($color-text-secondary, .18); border-radius: $radius-input; background: $color-bg; padding: 0 5px 0 12px; height: 40px; > .ant-btn { width: 26px; height: 26px; color: $color-text-secondary; font-size: 11px; } }
+.model-select { display: flex; align-items: center; gap: 8px; border: 0; background: transparent; padding: 0 8px 0 0; min-width: 0; height: 100%; cursor: pointer; color: $color-text-primary; strong { font-size: 13px; font-weight: 500; max-width: 200px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; } > .anticon { font-size: 9px; color: $color-text-secondary; } &:hover strong { color: $color-primary; } }
+.parameter-control { flex-shrink: 0; color: $color-text-secondary; font-size: 12px; }
+.reply-model { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; strong { min-width: 0; font-size: 12px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } }
+.keyboard-hint { font-size: 10px; color: $color-text-secondary; }
+.model-picker-controls { display: grid; grid-template-columns: minmax(0, 1fr) 160px auto; align-items: center; gap: 12px; padding: 8px 0 20px; margin-bottom: 20px; border-bottom: 1px solid $color-border; }
+.model-list { padding: 2px; }
+
+// 中等屏幕将会话列表改为覆盖式导航，为并排模型留出空间。
+@media (max-width: 1200px) {
+  .workbench-layout { grid-template-columns: minmax(0, 1fr); }
+  .library, .library-collapsed .library { display: none; position: absolute; top: 0; bottom: 0; left: 0; width: 248px; z-index: 20; box-shadow: 8px 0 32px rgba($color-text-primary, .08); &.mobile-open { display: flex; } }
+  .workbench-page { position: relative; }
+  .library-backdrop { display: block; position: absolute; inset: 0; border: 0; background: rgba($color-text-primary, .16); z-index: 19; }
+  .keyboard-hint { display: none; }
 }
-.prompt-action { position: absolute; right: 12px; bottom: 12px; }
-.composer-note { margin-top: 9px; color: $color-text-secondary; font-size: 12px; text-align: center; }
-@media (max-width: 760px) { .chat-layout { grid-template-columns: 1fr; } .session-panel { max-height: 180px; } .page-header { align-items: flex-start; flex-direction: column; } .prompt-card { flex-basis: 190px; } }
+@media (max-width: 760px) {
+  .page-heading { padding: 20px 16px 16px; gap: 16px; flex-wrap: wrap; }
+  .page-title { font-size: 24px; }
+  .page-actions { gap: 8px; }
+  .page-actions .ant-btn { font-size: 12px; }
+  .model-toolbar { padding: 12px 16px; gap: 6px; }
+  .model-chip { flex-shrink: 0; }
+  .model-select strong { max-width: 180px; }
+  .selected-models { flex-wrap: nowrap; overflow-x: auto; padding: 2px; }
+  .parameter-control { padding: 0 8px; span:not(.anticon) { display: none; } }
+  .conversation { padding: 0 16px 12px; }
+  .lane-grid { gap: 10px; grid-template-columns: repeat(var(--lane-count), minmax(220px, 1fr)); }
+  .round { min-width: calc(var(--lane-count) * 220px + (var(--lane-count) - 1) * 10px); }
+  .welcome { padding: 20px 6px; min-width: 0; h2 { font-size: 24px; } }
+  .welcome-symbol { display: none; }
+  .examples { margin-top: 20px; gap: 8px; button { padding: 12px; .example-copy > span { display: none; } } }
+  .composer { padding: 10px 16px 16px; }
+  .source-note { padding: 6px 16px; }
+  .model-picker-controls { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-height: 820px) and (min-width: 761px) {
+  .welcome { padding-top: 12px; padding-bottom: 12px; h2 { font-size: 24px; } }
+  .welcome-symbol { display: none; }
+  .examples { margin-top: 18px; button { padding: 10px 12px; } }
+}
+@media (prefers-reduced-motion: reduce) { button, .library-item, .composer-box { transition: none; } }
 </style>
