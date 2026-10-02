@@ -24,22 +24,28 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: false },
   },
   {
-    path: '/reset-password/send-code',
-    name: 'SendCode',
-    component: () => import('@/views/reset-password/SendCode.vue'),
+    path: '/reset-password',
+    component: () => import('@/views/reset-password/ResetPasswordLayout.vue'),
     meta: { requiresAuth: false },
-  },
-  {
-    path: '/reset-password/verify-code',
-    name: 'VerifyCode',
-    component: () => import('@/views/reset-password/VerifyCode.vue'),
-    meta: { requiresAuth: false },
-  },
-  {
-    path: '/reset-password/reset',
-    name: 'ResetPassword',
-    component: () => import('@/views/reset-password/ResetPassword.vue'),
-    meta: { requiresAuth: false },
+    // 三个步骤沿用原路径和名称，共用布局只切换右侧业务内容。
+    children: [
+      { path: '', redirect: '/reset-password/send-code' },
+      {
+        path: 'send-code',
+        name: 'SendCode',
+        component: () => import('@/views/reset-password/SendCode.vue'),
+      },
+      {
+        path: 'verify-code',
+        name: 'VerifyCode',
+        component: () => import('@/views/reset-password/VerifyCode.vue'),
+      },
+      {
+        path: 'reset',
+        name: 'ResetPassword',
+        component: () => import('@/views/reset-password/ResetPassword.vue'),
+      },
+    ],
   },
   {
     path: '/join/:code',

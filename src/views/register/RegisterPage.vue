@@ -4,6 +4,8 @@ import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { register as registerApi } from '@/api/user'
 import RegistrationFields from '@/components/auth/RegistrationFields.vue'
+import AuthShell from '@/components/auth/AuthShell.vue'
+import AuthPageHeader from '@/components/auth/AuthPageHeader.vue'
 const router = useRouter(); const loading = ref(false)
 const form = reactive({ username:'', nickname:'', password:'', email:'', phone:'' })
 async function handleSubmit() {
@@ -14,10 +16,28 @@ async function handleSubmit() {
 }
 onUnmounted(() => { form.password = '' })
 </script>
-<template><div class="register-page"><div class="register-card"><div class="register-header"><h1 class="register-title">注册 Verse</h1><p class="register-desc">创建你的 Verse 账号</p></div>
-  <a-form :model="form" layout="vertical" :disabled="loading" @finish="handleSubmit"><RegistrationFields :form="form" /><a-form-item><a-button type="primary" html-type="submit" :loading="loading" block size="large">注册</a-button></a-form-item></a-form>
-  <div class="register-footer"><router-link to="/login" custom v-slot="{href,navigate}"><a-button type="link" block :href="href" @click="navigate">已有账号？立即登录</a-button></router-link></div>
-</div></div></template>
+
+<template>
+  <AuthShell>
+    <AuthPageHeader eyebrow="CREATE YOUR ACCOUNT" title="注册 Verse" description="创建你的 Verse 账号" />
+    <a-form :model="form" layout="vertical" size="large" :disabled="loading" @finish="handleSubmit">
+      <RegistrationFields :form="form" />
+      <a-form-item>
+        <a-button class="submit" type="primary" html-type="submit" :loading="loading" block size="large">注册</a-button>
+      </a-form-item>
+    </a-form>
+    <div class="register-footer">
+      <router-link to="/login" custom v-slot="{ href, navigate }">
+        <a-button type="link" block :href="href" @click="navigate">已有账号？立即登录</a-button>
+      </router-link>
+    </div>
+  </AuthShell>
+</template>
+
 <style lang="scss" scoped>
-.register-page { min-height:100vh; display:flex; align-items:center; justify-content:center; background:$color-bg-secondary; padding:40px 20px; }.register-card { width:440px; max-width:100%; padding:40px; background:$color-bg; border-radius:$radius-card; box-shadow:$shadow-light; }.register-header { text-align:center; margin-bottom:32px; }.register-title { font-size:$font-size-title; font-weight:600; color:$color-text-primary; margin:0 0 8px; }.register-desc { color:$color-text-secondary; margin:0; }.register-footer { margin-top:8px; }
+.submit { height: 46px; font-size: 14px; }
+.register-footer { margin-top: 8px; text-align: center; }
+:deep(.ant-input), :deep(.ant-input-affix-wrapper) { min-height: 44px; font-size: 13px; }
+:deep(.ant-input-affix-wrapper .ant-input) { min-height: unset; }
+:deep(.ant-form-item-label label) { font-size: 13px; }
 </style>
