@@ -13,6 +13,7 @@ import CancelAccountModal from './CancelAccountModal.vue'
 import UserAvatar from '@/components/UserAvatar.vue'
 import UserPublicPreview from './UserPublicPreview.vue'
 import UserProfileSummary from './UserProfileSummary.vue'
+import ExternalAccountsSection from './ExternalAccountsSection.vue'
 import type { UserInfoRespDTO, UserRespDTO } from '@/types/user'
 
 const emit = defineEmits<{ (e: 'navigate', panel: string): void }>()
@@ -36,7 +37,8 @@ const fileInputRef = ref<HTMLInputElement | null>(null)
 const editNameRef = ref<{ focus: () => void } | null>(null)
 const avatarName = computed(() => profile.value?.nickname || profile.value?.username || '')
 const contacts = computed(() => unmasked.value ? unmaskedData.value : profile.value)
-const busy = computed(() => loading.value || avatarUploading.value || maskLoading.value)
+const externalBusy = ref(false)
+const busy = computed(() => loading.value || avatarUploading.value || maskLoading.value || externalBusy.value)
 
 const form = reactive({ nickname: '', email: '', phone: '', bio: '', region: '', timezone: undefined as string | undefined })
 const timezoneOptions = computed(() => [...new Set([...TIMEZONES, ...(form.timezone ? [form.timezone] : [])])].map(value => ({ value, label: value })))
@@ -84,7 +86,7 @@ async function enterEditMode() {
 }
 function cancelEdit() { if (!loading.value) isEditing.value = false }
 function confirmLeave() {
-  if (loading.value || avatarUploading.value) return false
+  if (loading.value || avatarUploading.value || externalBusy.value) return false
   return !isEditing.value || window.confirm('有尚未保存的资料，确定离开编辑吗？')
 }
 defineExpose({ confirmLeave })
@@ -259,7 +261,7 @@ async function handleCancelSuccess() {
           <section class="profile-card"><div class="card-body">
             <div class="card-head"><div><h3>账户安全</h3><p>管理密码与登录设备，掌握账户访问情况。</p></div><SafetyCertificateOutlined /></div>
             <div class="security-rows">
-              <div class="security-row"><div><strong>登录密码</strong><p>使用独立密码，避免与其他平台共用。</p></div><a-button @click="openPasswordDialog">修改密码</a-button></div>
+              <div class="security-row"><div><strong>登录密码</strong><p>使用独立密码，避免与其他平台共用。</p></div><a-button :disabled="busy" @click="openPasswordDialog">修改密码</a-button></div>
               <div class="security-row"><div><strong>设备与登录活动</strong><p>查看已登录的设备与最近的登录记录。</p></div><a-button @click="emit('navigate', 'devices')">管理设备</a-button></div>
             </div>
             <div class="account-danger"><div><strong>注销账户</strong><p>注销前请确认租户归属与数据处理情况。</p></div><a-button danger :disabled="busy" @click="openCancelAccount">注销用户</a-button></div>
@@ -290,6 +292,7 @@ async function handleCancelSuccess() {
         </a-form>
         <UserProfileSummary :profile="profile" :busy="busy" @edit="enterEditMode" @avatar="triggerFilePicker" @navigate="emit('navigate', $event)" />
       </div>
+      <ExternalAccountsSection :disabled="busy || passwordVisible || cancelVisible" :before-leave="confirmLeave" @busy="externalBusy = $event" @navigate="emit('navigate', $event)" />
     </template>
     <a-modal :open="previewVisible" :footer="null" :width="440" :closable="false" @cancel="closePreview">
       <div class="profile-dialog">

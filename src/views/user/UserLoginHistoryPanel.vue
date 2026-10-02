@@ -19,6 +19,7 @@ function formatTime(value: string) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
 }
 const columns = [
+  { title:'登录方式', key:'loginSource', width:100 },
   { title: '登录时间', dataIndex: 'loginTime', key: 'loginTime', width: 180 },
   { title: '设备名称', dataIndex: 'deviceName', key: 'deviceName', width: 160 },
   { title: 'IP 地址', dataIndex: 'ip', key: 'ip', width: 140 },
@@ -58,6 +59,7 @@ function handlePageChange(page: number, size: number) {
       <a-table class="history-table" :columns="columns" :data-source="records" :loading="loading" :pagination="false"
         :row-key="(record: LoginHistoryItem) => `${record.loginTime}-${record.deviceName}-${record.ip}-${record.result}`" size="middle" :scroll="{ x: 810 }">
         <template #bodyCell="{ column, record }">
+          <span v-if="column.key === 'loginSource'">{{ ({ PASSWORD:'密码', GOOGLE:'Google', GITHUB:'GitHub', GITLAB:'GitLab' } as Record<string,string>)[record.loginSource || 'PASSWORD'] || '密码' }}</span>
           <span v-if="column.key === 'loginTime'" class="mono">{{ formatTime(record.loginTime) }}</span>
           <span v-else-if="column.key === 'ip'" class="mono">{{ record.ip }}</span>
           <a-tag v-else-if="column.key === 'result'" :color="record.result === '成功' ? 'success' : 'error'">{{ record.result }}</a-tag>

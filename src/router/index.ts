@@ -2,8 +2,15 @@ import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { useTenantStore } from '@/stores/tenant'
 import { usePlaygroundStore } from '@/stores/playground'
+import { hasStoredFlow } from '@/hooks/useExternalAuthFlow'
+import { getFlow } from '@/api/externalAuth'
+import { readFlow } from '@/hooks/useExternalAuthFlow'
 
 const routes: RouteRecordRaw[] = [
+  ...['/auth/external/callback', '/auth/external/error', '/login/select-account', '/register/external'].map(path => ({
+    path, component: () => import('@/views/external-auth/ExternalFlowPage.vue'), meta: { requiresAuth: false, layout: 'auth', externalFlow: true },
+  })),
+  { path: '/profile/external-account/confirm', component: () => import('@/views/external-auth/ExternalFlowPage.vue'), meta: { requiresAuth: true, layout: 'app', externalFlow: true } },
   {
     path: '/login',
     name: 'Login',
@@ -121,6 +128,7 @@ const routes: RouteRecordRaw[] = [
   },
 ]
 
+routes.forEach(route => { if (route.meta && !route.meta.layout) route.meta.layout = route.meta.requiresAuth === false ? 'auth' : 'app' })
 const router = createRouter({
   history: createWebHistory(),
   routes,
@@ -142,7 +150,11 @@ router.beforeEach(async (to, _from, next) => {
 
   if (to.meta.requiresAuth === false) {
     // 公开页面
-    if (userStore.isLoggedIn && to.path === '/login') {
+    let pendingBinding = false
+    if (to.path === '/login' && typeof to.query.flow === 'string' && hasStoredFlow(to.query.flow)) {
+      try { const flow = readFlow(to.query.flow); pendingBinding = (await getFlow(flow.flowId, flow.flowToken)).stage === 'EXISTING_ACCOUNT_LOGIN' } catch { /* 登录页显示流程错误 */ }
+    }
+    if (userStore.isLoggedIn && to.path === '/login' && !pendingBinding && !to.query.flow) {
       // 登录页：已登录用户优先看 redirect 参数
       const redirect = to.query.redirect
       if (isSafeRedirect(redirect)) {
@@ -166,7 +178,7 @@ router.beforeEach(async (to, _from, next) => {
         ])
       } catch {
         // 列表失败仍允许进入列表的重试页；详情由 info 接口独立判断目标访问资格。
-        if (to.name === 'TenantList' || to.name === 'TenantDetail') {
+        if (to.name === 'TenantList' || to.name === 'TenantDetail' || to.name === 'Dashboard' || to.meta.externalFlow) {
           next()
           return
         }

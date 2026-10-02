@@ -5,12 +5,16 @@ import type { Result } from '@/types/api'
 import { triggerTenantContextRecovery } from '@/utils/tenantContextRecovery'
 
 const TENANT_CONTEXT_MISMATCH = 'B000338'
+let authRequests = new AbortController()
+export function resetAuthRequests() { authRequests.abort(); authRequests = new AbortController() }
 
 declare module 'axios' {
   export interface AxiosRequestConfig {
+    authMode?: 'verse' | 'anonymous'
     silentError?: boolean
   }
   export interface InternalAxiosRequestConfig {
+    authMode?: 'verse' | 'anonymous'
     silentError?: boolean
   }
 }
@@ -23,8 +27,9 @@ const http = axios.create({
 
 // 请求拦截器：注入 JWT
 http.interceptors.request.use((config) => {
+  if (config.authMode !== 'anonymous' && !config.signal) config.signal = authRequests.signal
   const token = getToken()
-  if (token) {
+  if (token && config.authMode !== 'anonymous') {
     config.headers.Authorization = `Bearer ${token}`
   }
   return config
@@ -49,6 +54,9 @@ http.interceptors.response.use(
     return result.data as T
   },
   (error: AxiosError<Result>) => {
+    if (axios.isCancel(error)) return Promise.reject(error)
+    if (error.config?.authMode !== 'anonymous' && error.config?.headers?.Authorization
+      && error.config.headers.Authorization !== `Bearer ${getToken()}`) return Promise.reject(error)
     const status = error.response?.status
     const result = error.response?.data
 
@@ -57,7 +65,7 @@ http.interceptors.response.use(
       return Promise.reject(error)
     }
 
-    if (status === 401) {
+    if (status === 401 && error.config?.authMode !== 'anonymous') {
       clearAuth()
       const path = window.location.pathname
       if (path !== '/login' && !path.startsWith('/join')) {

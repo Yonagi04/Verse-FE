@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, type Component } from 'vue'
-import { onBeforeRouteLeave } from 'vue-router'
+import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router'
 import zhCN from 'ant-design-vue/es/locale/zh_CN'
 import { UserOutlined, SafetyCertificateOutlined, TabletOutlined, HistoryOutlined } from '@ant-design/icons-vue'
 import UserProfilePanel from './UserProfilePanel.vue'
@@ -14,7 +14,9 @@ const panels: { key: string; label: string; description: string; icon: Component
   { key: 'devices', label: '登录设备', description: '管理设备与会话', icon: TabletOutlined, component: UserDevicePanel },
   { key: 'history', label: '登录历史', description: '查看账户登录活动', icon: HistoryOutlined, component: UserLoginHistoryPanel },
 ]
-const activePanel = ref('profile')
+const route = useRoute(); const router = useRouter()
+function panel(value: unknown) { return typeof value === 'string' && panels.some(p => p.key === value) ? value : 'profile' }
+const activePanel = ref(panel(route.query.panel))
 const currentPanel = computed(() => panels.find(panel => panel.key === activePanel.value) || panels[0]!)
 const profileRef = ref<InstanceType<typeof UserProfilePanel> | null>(null)
 const centerRef = ref<HTMLDivElement | null>(null)
@@ -24,10 +26,15 @@ function canLeave() {
 }
 function switchPanel(key: string) {
   if (key === activePanel.value || !panels.some(panel => panel.key === key) || !canLeave()) return
-  activePanel.value = key
+  void router.replace({ path:'/profile', query:{ panel:key } })
   void nextTick(() => centerRef.value?.closest<HTMLElement>('.content')?.scrollTo({ top: 0 }))
 }
 onBeforeRouteLeave(() => canLeave())
+onBeforeRouteUpdate(to => {
+  const nextPanel = panel(to.query.panel)
+  if (nextPanel !== activePanel.value && !canLeave()) return false
+  activePanel.value = nextPanel
+})
 </script>
 
 <template>

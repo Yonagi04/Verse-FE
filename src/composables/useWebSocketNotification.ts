@@ -48,11 +48,13 @@ export function useWebSocketNotification() {
       },
 
       onConnect: () => {
+        if (getToken() !== token) return
         console.log('[WS] Connected to STOMP broker')
 
         try {
           // 订阅新通知推送
           stompClient!.subscribe('/user/queue/notifications', (msg: IMessage) => {
+            if (getToken() !== token) return
             try {
               const notification = JSON.parse(msg.body) as NotificationItem
               newNotification.value = notification
@@ -65,6 +67,7 @@ export function useWebSocketNotification() {
 
           // 订阅未读数推送（服务端权威值，用于修正本地递增）
           stompClient!.subscribe('/user/queue/notifications/unread-count', (msg: IMessage) => {
+            if (getToken() !== token) return
             try {
               const data = JSON.parse(msg.body) as { count: number }
               if (typeof data.count === 'number') {
@@ -80,6 +83,7 @@ export function useWebSocketNotification() {
 
         // 订阅建立后主动拉取当前未读数，填补连接建立前错过的推送
         getUnreadCount().then(res => {
+          if (getToken() !== token) return
           unreadCount.value = res.count
         }).catch(() => {
           // handled by interceptor
@@ -87,6 +91,7 @@ export function useWebSocketNotification() {
       },
 
       onStompError: (frame: IFrame) => {
+        if (getToken() !== token) return
         console.error('[WS] STOMP error:', frame.headers['message'])
         // 认证失败时停止重连，清除 auth 并跳转登录页
         stompClient?.deactivate()

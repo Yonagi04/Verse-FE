@@ -72,6 +72,10 @@ watch(activeTenantId, () => {
       <p class="page-desc">欢迎回来，{{ userStore.user?.nickname || userStore.user?.username }}</p>
     </div>
 
+    <a-alert v-if="!tenantStore.initialized" type="warning" message="租户资料暂时未完成加载，你的登录已成功。" show-icon style="margin-bottom:20px">
+      <template #action><a-button size="small" :loading="tenantStore.isLoading" @click="tenantStore.initialize(true).catch(() => {})">重新加载</a-button></template>
+    </a-alert>
+
     <a-empty v-if="!activeTenantId" description="暂无有效当前租户，请先进入租户管理选择或创建租户">
       <router-link to="/tenants" custom v-slot="{ href, navigate }">
         <a-button type="primary" :href="href" @click="navigate">前往租户管理</a-button>

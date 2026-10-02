@@ -16,6 +16,12 @@ export const useTenantStore = defineStore('tenant', () => {
   let initializationPromise: Promise<void> | null = null
   let listRequestSequence = 0
   let tenantStateRevision = 0
+  function reset() {
+    tenantStateRevision++; listRequestSequence++; initialized.value = false; initializationPromise = null
+    tenants.value = []; currentTenant.value = null; isLoading.value = false; isSwitching.value = false
+    settingsDirty.value = false; preferenceSavingIds.value = []; switchGuards.clear()
+    usePermissionStore().clearPermissions()
+  }
   const switchGuards = new Set<() => boolean | Promise<boolean>>()
 
   /** 页面登记活跃操作确认；卸载时移除，不影响其他页面的租户切换。 */
@@ -58,9 +64,10 @@ export const useTenantStore = defineStore('tenant', () => {
   async function initialize(force = false): Promise<void> {
     if (initialized.value && !force) return
     if (initializationPromise) return initializationPromise
+    const generation = tenantStateRevision
     initializationPromise = fetchTenants()
-      .then(() => { initialized.value = true })
-      .finally(() => { initializationPromise = null })
+      .then(() => { if (generation === tenantStateRevision) initialized.value = true })
+      .finally(() => { if (generation === tenantStateRevision) initializationPromise = null })
     return initializationPromise
   }
 
@@ -122,6 +129,7 @@ export const useTenantStore = defineStore('tenant', () => {
   }
 
   return {
+    reset,
     tenants,
     currentTenant,
     isLoading,

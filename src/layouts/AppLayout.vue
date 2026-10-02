@@ -28,6 +28,7 @@ const { connect, disconnect } = useWebSocketNotification()
 
 // 登录后连接 WebSocket，登出时断开
 watch(() => userStore.token, (token) => {
+  disconnect()
   if (token) {
     connect()
   } else {
@@ -57,6 +58,7 @@ onMounted(() => {
   })
 })
 onUnmounted(() => {
+  disconnect()
   narrowViewport?.removeEventListener('change', collapseOnNarrowViewport)
   unregisterRecovery?.()
 })
