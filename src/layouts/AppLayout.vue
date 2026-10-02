@@ -138,7 +138,7 @@ onUnmounted(() => {
 .app-sider {
   position: relative;
   z-index: 1;
-  background: $color-bg !important;
+  background: $color-bg-sidebar !important;
   border-right: 1px solid $color-border;
 
   :deep(.ant-layout-sider-children) {
@@ -172,12 +172,12 @@ onUnmounted(() => {
   place-items: center;
   flex: 0 0 30px;
   border-radius: $radius-button;
-  background: $color-primary;
-  color: $color-bg;
+  background: $color-primary-solid;
+  color: $color-on-primary;
   font-size: 16px;
   font-weight: 600;
   line-height: 1;
-  box-shadow: 0 2px 8px rgba($color-primary, 0.2);
+  box-shadow: 0 2px 8px theme-alpha('link', 0.2);
 }
 
 .brand-word {
@@ -195,7 +195,7 @@ onUnmounted(() => {
   cursor: pointer;
 
   &:focus-visible {
-    outline: 2px solid rgba($color-primary, 0.35);
+    outline: 2px solid $color-focus;
     outline-offset: 2px;
   }
 }
@@ -257,7 +257,7 @@ onUnmounted(() => {
 // ========== Content ==========
 .content {
   padding: $content-padding;
-  background: $color-bg-secondary;
+  background: $color-bg-canvas;
   overflow-y: auto;
 }
 

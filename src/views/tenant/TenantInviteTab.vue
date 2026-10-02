@@ -191,14 +191,14 @@ const columns = [
 .invite-code-badge {
   display: inline-block;
   padding: 2px 10px;
-  background: #f0f5ff;
-  border: 1px solid #d6e4ff;
+  background: var(--verse-adaptive-selected, #f0f5ff);
+  border: 1px solid var(--verse-adaptive-border-primary, #d6e4ff);
   border-radius: 4px;
   font-family: 'Courier New', monospace;
   font-size: 14px;
   font-weight: 600;
   letter-spacing: 2px;
-  color: #1677ff;
+  color: var(--verse-adaptive-link, #1677ff);
 }
 
 .invite-url-cell {

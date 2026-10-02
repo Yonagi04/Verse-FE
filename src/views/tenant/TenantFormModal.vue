@@ -101,7 +101,7 @@ function handleCancel() {
     </a-form>
     <div
       v-if="mode === 'create'"
-      style="color: #98a2b3; font-size: 12px; margin-top: -8px;"
+      style="color: var(--verse-adaptive-text-tertiary, #98a2b3); font-size: 12px; margin-top: -8px;"
     >
       创建后将自动成为该租户的超级管理员
     </div>

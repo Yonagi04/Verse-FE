@@ -686,7 +686,7 @@ async function handleLeaveDone() {
   position: absolute;
   right: 16px;
   bottom: 16px;
-  background: rgba(255, 255, 255, 0.92);
+  background: var(--verse-adaptive-elevated, rgba(255, 255, 255, 0.92));
   opacity: 0;
   pointer-events: none;
   transform: translateY(4px);
@@ -729,7 +729,7 @@ async function handleLeaveDone() {
   &:hover:not(:disabled),
   &.selected {
     border-color: $color-primary;
-    box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.12);
+    box-shadow: 0 0 0 2px theme-alpha('link', 0.12);
   }
 
   &:disabled {
@@ -787,7 +787,7 @@ async function handleLeaveDone() {
   overflow: hidden;
   border: 4px solid $color-bg;
   border-radius: 50%;
-  background: $color-primary;
+  background: $color-primary-solid;
   color: #fff;
   font-size: 40px;
   font-weight: 600;
@@ -943,7 +943,7 @@ async function handleLeaveDone() {
   transition: border-color .15s, box-shadow .15s;
 }
 .quick-item:hover:not(:disabled),
-.quick-item:focus-visible { border-color: #91caff; box-shadow: $shadow-light; }
+.quick-item:focus-visible { border-color: var(--verse-adaptive-link-hover, #91caff); box-shadow: $shadow-light; }
 .quick-item:focus-visible { outline: 2px solid $color-primary; outline-offset: 2px; }
 .quick-item:disabled { cursor: not-allowed; opacity: .55; }
 .quick-item strong { margin-top: 10px; font-weight: 600; }
@@ -953,7 +953,7 @@ async function handleLeaveDone() {
   width: 34px;
   height: 34px;
   border-radius: 8px;
-  background: #e6f4ff;
+  background: var(--verse-adaptive-selected, #e6f4ff);
   color: $color-primary;
 }
 .quick-desc { margin-top: 4px; color: $color-text-secondary; font-size: 12px; line-height: 1.4; }

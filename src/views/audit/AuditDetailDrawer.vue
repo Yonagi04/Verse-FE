@@ -265,7 +265,7 @@ function handleClose() {
   .info-label {
     display: block;
     font-size: $font-size-caption;
-    color: #98a2b3;
+    color: var(--verse-adaptive-text-tertiary, #98a2b3);
     margin-bottom: 6px;
   }
 
@@ -303,7 +303,7 @@ function handleClose() {
 
 .code-block {
   position: relative;
-  background: #0d1117;
+  background: var(--verse-adaptive-code-bg, #0d1117);
   border-radius: $radius-button;
   overflow: hidden;
 }
@@ -314,7 +314,7 @@ function handleClose() {
   font-family: 'SF Mono', 'JetBrains Mono', Consolas, 'Courier New', monospace;
   font-size: 12.5px;
   line-height: 1.6;
-  color: #e6edf3;
+  color: var(--verse-adaptive-code-text, #e6edf3);
   white-space: pre;
 
   &.collapsed {
@@ -334,7 +334,7 @@ function handleClose() {
   right: 0;
   bottom: 0;
   height: 56px;
-  background: linear-gradient(transparent, #0d1117);
+  background: linear-gradient(transparent, var(--verse-adaptive-code-bg, #0d1117));
   pointer-events: none;
 }
 
@@ -343,7 +343,7 @@ function handleClose() {
   text-align: center;
   color: $color-text-secondary;
   background: $color-bg-secondary;
-  border: 1px dashed #d9d9d9;
+  border: 1px dashed var(--verse-adaptive-border-input, #d9d9d9);
   border-radius: $radius-button;
   font-size: 13px;
 
@@ -359,9 +359,9 @@ function handleClose() {
   }
 }
 
-:deep(.json-key) { color: #79c0ff; }
-:deep(.json-string) { color: #a5d6ff; }
-:deep(.json-number) { color: #ffab70; }
-:deep(.json-boolean) { color: #ff7b72; }
-:deep(.json-null) { color: #8b949e; font-style: italic; }
+:deep(.json-key) { color: var(--verse-adaptive-code-key, #79c0ff); }
+:deep(.json-string) { color: var(--verse-adaptive-code-string, #a5d6ff); }
+:deep(.json-number) { color: var(--verse-adaptive-code-number, #ffab70); }
+:deep(.json-boolean) { color: var(--verse-adaptive-code-boolean, #ff7b72); }
+:deep(.json-null) { color: var(--verse-adaptive-code-null, #8b949e); font-style: italic; }
 </style>

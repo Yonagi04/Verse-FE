@@ -249,7 +249,7 @@ watch(newNotification, (notif) => {
 
   &:hover {
     color: $color-primary;
-    background: #f5f5f5;
+    background: var(--verse-adaptive-subtle, #f5f5f5);
   }
 }
 
@@ -306,7 +306,7 @@ watch(newNotification, (notif) => {
   transition: background 0.15s;
 
   &:hover {
-    background: #e6f4ff;
+    background: var(--verse-adaptive-selected, #e6f4ff);
   }
 }
 
@@ -334,7 +334,7 @@ watch(newNotification, (notif) => {
   padding: 14px 20px;
   cursor: pointer;
   transition: background 0.12s;
-  border-bottom: 1px solid #fafafa;
+  border-bottom: 1px solid var(--verse-adaptive-subtle, #fafafa);
   position: relative;
 
   &:last-child {
@@ -342,14 +342,14 @@ watch(newNotification, (notif) => {
   }
 
   &:hover {
-    background: #fafafa;
+    background: var(--verse-adaptive-subtle, #fafafa);
   }
 
   &.unread {
-    background: #f0f7ff;
+    background: var(--verse-adaptive-selected, #f0f7ff);
 
     &:hover {
-      background: #e6f4ff;
+      background: var(--verse-adaptive-selected, #e6f4ff);
     }
   }
 }
@@ -376,17 +376,17 @@ watch(newNotification, (notif) => {
   font-size: 16px;
 
   &.severity-INFO {
-    background: #e6f4ff;
+    background: var(--verse-adaptive-selected, #e6f4ff);
     color: $color-primary;
   }
 
   &.severity-WARNING {
-    background: #fff7e6;
-    color: #fa8c16;
+    background: var(--verse-adaptive-warning-bg, #fff7e6);
+    color: var(--verse-adaptive-warning, #fa8c16);
   }
 
   &.severity-CRITICAL {
-    background: #fff1f0;
+    background: var(--verse-adaptive-danger-bg, #fff1f0);
     color: $color-danger;
   }
 }
@@ -422,12 +422,12 @@ watch(newNotification, (notif) => {
   white-space: nowrap;
 
   &.type-SYSTEM {
-    background: #e6f4ff;
+    background: var(--verse-adaptive-selected, #e6f4ff);
     color: $color-primary;
   }
 
   &.type-ANNOUNCEMENT {
-    background: #f6ffed;
+    background: var(--verse-adaptive-success-bg, #f6ffed);
     color: $color-success;
   }
 }
@@ -445,7 +445,7 @@ watch(newNotification, (notif) => {
 
 .notif-item-time {
   font-size: $font-size-caption;
-  color: #bfbfbf;
+  color: var(--verse-adaptive-text-tertiary, #bfbfbf);
   margin-top: 4px;
   white-space: nowrap;
 }
@@ -457,25 +457,25 @@ watch(newNotification, (notif) => {
   align-items: center;
   justify-content: center;
   padding: 48px 20px;
-  color: #bfbfbf;
+  color: var(--verse-adaptive-text-tertiary, #bfbfbf);
 }
 
 .notif-empty-icon {
   width: 80px;
   height: 80px;
   border-radius: 50%;
-  background: #fafafa;
+  background: var(--verse-adaptive-subtle, #fafafa);
   display: flex;
   align-items: center;
   justify-content: center;
   margin-bottom: 16px;
   font-size: 36px;
-  color: #d9d9d9;
+  color: var(--verse-adaptive-border-input, #d9d9d9);
 }
 
 .notif-empty-text {
   font-size: $font-size-body;
-  color: #bfbfbf;
+  color: var(--verse-adaptive-text-tertiary, #bfbfbf);
 }
 
 // ========== Footer ==========
@@ -495,7 +495,7 @@ watch(newNotification, (notif) => {
 
   &:hover {
     color: $color-primary;
-    background: #fafafa;
+    background: var(--verse-adaptive-subtle, #fafafa);
   }
 }
 

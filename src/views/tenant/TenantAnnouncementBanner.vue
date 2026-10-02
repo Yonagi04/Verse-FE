@@ -138,9 +138,9 @@ onBeforeUnmount(() => {
   gap: 10px;
   height: 42px;
   padding: 0 8px 0 14px;
-  border: 1px solid #bae0ff;
+  border: 1px solid var(--verse-adaptive-border-primary, #bae0ff);
   border-radius: $radius-button;
-  background: #e6f4ff;
+  background: var(--verse-adaptive-selected, #e6f4ff);
   color: $color-text-primary;
   overflow: hidden;
 }
@@ -186,7 +186,7 @@ onBeforeUnmount(() => {
 }
 .announcement-banner:hover .dismiss-button,
 .announcement-banner:focus-within .dismiss-button { opacity: 1; }
-.dismiss-button:hover { background: #d6eaff; color: $color-text-primary; }
+.dismiss-button:hover { background: var(--verse-adaptive-hover, #d6eaff); color: $color-text-primary; }
 .dismiss-button:focus-visible { opacity: 1; outline: 2px solid $color-primary; }
 @keyframes marquee {
   from { transform: translateX(var(--entry-x)); }

@@ -56,6 +56,6 @@ function toggle(code?: string) {
   transition: border-color 0.15s, color 0.15s, background-color 0.15s;
 }
 .filter-tag:hover { border-color: $color-primary; color: $color-primary; }
-.filter-tag.ant-tag-checkable-checked { color: $color-primary; background: rgba($color-primary, .08); border-color: $color-primary; }
+.filter-tag.ant-tag-checkable-checked { color: $color-primary; background: theme-alpha('link', .08); border-color: $color-primary; }
 .error-text { color: $color-text-secondary; font-size: 13px; }
 </style>

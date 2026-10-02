@@ -193,7 +193,7 @@ const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
   height: 100%;
   padding: 16px;
   overflow: hidden;
-  border: 1px solid #eaecf0;
+  border: 1px solid var(--verse-adaptive-border, #eaecf0);
   border-radius: $radius-card;
   outline: none;
   background: $color-bg;
@@ -204,18 +204,20 @@ const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
   &:hover,
   &:focus-visible,
   &:focus-within {
-    border-color: #b2d6ff;
+    border-color: var(--verse-adaptive-border-primary, #b2d6ff);
     box-shadow: $shadow-light;
     transform: translateY(-2px);
   }
 
   &.selected {
     border-color: $color-primary;
-    box-shadow: 0 0 0 2px rgba($color-primary, 0.1);
+    box-shadow: 0 0 0 2px theme-alpha('link', 0.1);
   }
 
+  &:focus-visible { outline: 2px solid var(--verse-adaptive-focus, transparent); outline-offset: 2px; }
+
   &.disabled {
-    background: #fcfcfd;
+    background: var(--verse-adaptive-subtle, #fcfcfd);
   }
 
   &.disabled .card-main,
@@ -273,11 +275,11 @@ const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
   flex: 0 0 auto;
   border-radius: 50%;
   background: $color-success;
-  box-shadow: 0 0 0 3px rgba($color-success, 0.1);
+  box-shadow: 0 0 0 3px theme-alpha('success', 0.1);
 
   &.stopped {
-    background: #98a2b3;
-    box-shadow: 0 0 0 3px #f2f4f7;
+    background: var(--verse-adaptive-text-tertiary, #98a2b3);
+    box-shadow: 0 0 0 3px var(--verse-adaptive-subtle, #f2f4f7);
   }
 }
 
@@ -308,7 +310,7 @@ const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
 .model-id {
   overflow: hidden;
   margin-top: 15px;
-  color: #344054;
+  color: var(--verse-adaptive-text-primary, #344054);
   font-family: $font-family;
   font-size: 12px;
   line-height: 1.4;
@@ -331,8 +333,8 @@ const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
     margin: 0;
     border: 0;
     border-radius: 6px;
-    color: #475467;
-    background: #f2f4f7;
+    color: var(--verse-adaptive-text-secondary, #475467);
+    background: var(--verse-adaptive-subtle, #f2f4f7);
     font-size: 11px;
     line-height: 23px;
     text-overflow: ellipsis;
@@ -341,7 +343,7 @@ const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
 }
 
 .empty-value {
-  color: #98a2b3;
+  color: var(--verse-adaptive-text-tertiary, #98a2b3);
   font-size: 12px;
 }
 
@@ -366,14 +368,14 @@ const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
   display: flex;
   align-items: center;
   gap: 5px;
-  color: #98a2b3;
+  color: var(--verse-adaptive-text-tertiary, #98a2b3);
   font-size: 11px;
 }
 
 .metric-value {
   overflow: hidden;
   margin-top: 3px;
-  color: #344054;
+  color: var(--verse-adaptive-text-primary, #344054);
   font-size: 12px;
   font-weight: 600;
   text-overflow: ellipsis;

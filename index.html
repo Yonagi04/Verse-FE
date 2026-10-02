@@ -4,6 +4,23 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      // Keep these small startup rules aligned with utils/appearance.ts (covered by tests).
+      (function () {
+        var mode = 'auto';
+        try {
+          var saved = localStorage.getItem('verse_theme_mode');
+          if (saved === 'light' || saved === 'dark') mode = saved;
+        } catch (_) {}
+        var dark = mode === 'dark' || (mode === 'auto' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+        document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+      })();
+    </script>
+    <style>
+      html { background: #fafafa; }
+      html[data-theme='dark'] { background: #101318; }
+    </style>
     <title>Verse — Unified LLM Gateway</title>
   </head>
   <body>

@@ -43,7 +43,7 @@ const names = computed(() => props.selected.length
   padding: 10px 12px 10px 18px;
   align-items: center;
   gap: 12px;
-  border: 1px solid #d6e8ff;
+  border: 1px solid var(--verse-adaptive-border-primary, #d6e8ff);
   border-radius: 14px;
   background: $color-bg;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
@@ -57,8 +57,8 @@ const names = computed(() => props.selected.length
   flex: 0 0 auto;
   place-items: center;
   border-radius: 9px;
-  color: $color-bg;
-  background: $color-primary;
+  color: $color-on-primary;
+  background: $color-primary-solid;
   font-weight: 700;
 }
 

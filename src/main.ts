@@ -3,12 +3,18 @@ import { createPinia } from 'pinia'
 import Antd from 'ant-design-vue'
 import App from './App.vue'
 import router from './router'
+import './assets/styles/theme.scss'
 import './assets/styles/global.scss'
 import { useUserStore } from './stores/user'
+import { useThemeStore } from './stores/theme'
 
 const app = createApp(App)
 
 app.use(createPinia())
+const themeStore = useThemeStore()
+themeStore.initialize()
+app.onUnmount(() => themeStore.dispose())
+if (import.meta.hot) import.meta.hot.dispose(() => themeStore.dispose())
 app.use(router)
 app.use(Antd)
 

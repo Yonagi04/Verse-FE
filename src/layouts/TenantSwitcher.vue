@@ -134,15 +134,15 @@ onUnmounted(() => {
 .tenant-switcher { position: relative; flex: 0 0 auto; padding: 4px 10px 10px; z-index: 20; }
 .switch-trigger { display: flex; align-items: center; gap: 9px; width: 100%; min-height: 54px; padding: 6px 8px; border: 1px solid $color-border; border-radius: $radius-button; background: $color-bg; color: $color-text-primary; text-align: left; cursor: pointer; transition: background .15s ease, border-color .15s ease, box-shadow .15s ease; }
 .switch-trigger:hover, .switch-trigger[aria-expanded='true'] { background: $color-bg-secondary; }
-.switch-trigger[aria-expanded='true'] { border-color: rgba($color-primary, .35); box-shadow: 0 0 0 2px rgba($color-primary, .06); }
+.switch-trigger[aria-expanded='true'] { border-color: theme-alpha('link', .35); box-shadow: 0 0 0 2px theme-alpha('link', .06); }
 .switch-trigger:focus-visible, .switch-option:focus-visible, .all-tenants:focus-visible { outline: 2px solid $color-primary; outline-offset: 2px; }
-.tenant-mark, .option-mark { display: grid; place-items: center; flex: 0 0 30px; width: 30px; height: 30px; border-radius: 7px; background: rgba($color-primary, .1); color: $color-primary; font-weight: 600; }
+.tenant-mark, .option-mark { display: grid; place-items: center; flex: 0 0 30px; width: 30px; height: 30px; border-radius: 7px; background: theme-alpha('link', .1); color: $color-primary; font-weight: 600; }
 .trigger-copy, .option-copy { display: flex; flex: 1; flex-direction: column; min-width: 0; }
 .trigger-copy strong, .option-copy strong { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 13px; }
 .trigger-copy small, .option-copy small { color: $color-text-secondary; font-size: 11px; }
 .trigger-arrow { flex: none; color: $color-text-secondary; font-size: 11px; transition: transform .2s ease; }
 .trigger-arrow.expanded { transform: rotate(180deg); }
-.switch-menu { position: absolute; top: calc(100% - 5px); left: 10px; width: 260px; padding: 10px; border: 1px solid $color-border; border-radius: $radius-card; background: $color-bg; box-shadow: $shadow-light; }
+.switch-menu { position: absolute; top: calc(100% - 5px); left: 10px; width: 260px; padding: 10px; border: 1px solid $color-border; border-radius: $radius-card; background: $color-bg-elevated; box-shadow: $shadow-light; }
 .switch-menu-enter-active, .switch-menu-leave-active { transition: opacity .16s ease, transform .16s ease; }
 .switch-menu-enter-from, .switch-menu-leave-to { opacity: 0; transform: translateY(-4px); }
 .switch-heading { display: flex; gap: 7px; align-items: center; padding: 4px 2px 10px; color: $color-text-secondary; font-size: 12px; }

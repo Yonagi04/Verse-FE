@@ -106,8 +106,8 @@ async function handleStep2() {
           </template>
         </a-alert>
 
-        <div style="margin-bottom: 8px; color: #667085; font-size: 13px;">
-          即将退出的租户：<strong style="color: #1f2328;">{{ tenantName }}</strong>
+        <div style="margin-bottom: 8px; color: var(--verse-adaptive-text-secondary, #667085); font-size: 13px;">
+          即将退出的租户：<strong style="color: var(--verse-adaptive-text-primary, #1f2328);">{{ tenantName }}</strong>
         </div>
 
         <a-checkbox v-model:checked="confirmed">
@@ -124,7 +124,7 @@ async function handleStep2() {
         style="margin-bottom: 16px;"
       >
         <template #message>
-          请输入租户名称 <code style="background:#fff1f0;padding:2px 6px;border-radius:4px;">{{ tenantName }}</code> 以确认退出
+          请输入租户名称 <code style="background:var(--verse-adaptive-danger-bg, #fff1f0);padding:2px 6px;border-radius:4px;">{{ tenantName }}</code> 以确认退出
         </template>
       </a-alert>
 
@@ -157,7 +157,7 @@ async function handleStep2() {
 .leave-step-bar {
   width: 60px;
   height: 4px;
-  background: #e5e7eb;
+  background: var(--verse-adaptive-border, #e5e7eb);
   border-radius: 2px;
   transition: background 0.3s;
 

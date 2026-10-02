@@ -2,17 +2,30 @@
 // Reference: docs/verse_frontend_design_system.md
 
 // Colors
-$color-primary: #1677ff;
-$color-primary-bg: #f6f9ff;
-$color-border-input: #d9d9d9;
-$color-bg: #ffffff;
-$color-bg-secondary: #fafafa;
-$color-border: #f0f0f0;
-$color-text-primary: #1f2328;
-$color-text-secondary: #667085;
-$color-success: #52c41a;
-$color-warning: #faad14;
-$color-danger: #ff4d4f;
+$color-primary: var(--verse-link);
+$color-primary-solid: var(--verse-primary-solid);
+$color-primary-bg: var(--verse-primary-bg);
+$color-border-input: var(--verse-border-input);
+$color-bg: var(--verse-surface);
+$color-bg-secondary: var(--verse-subtle);
+$color-bg-canvas: var(--verse-canvas);
+$color-bg-sidebar: var(--verse-sidebar);
+$color-bg-elevated: var(--verse-elevated);
+$color-bg-hover: var(--verse-hover);
+$color-border: var(--verse-border);
+$color-text-primary: var(--verse-text-primary);
+$color-text-secondary: var(--verse-text-secondary);
+$color-text-tertiary: var(--verse-text-tertiary);
+$color-success: var(--verse-success);
+$color-warning: var(--verse-warning);
+$color-danger: var(--verse-danger);
+$color-focus: var(--verse-focus);
+$color-on-primary: var(--verse-on-primary);
+
+// CSS RGB channels preserve existing alpha values while changing at runtime.
+@function theme-alpha($name, $alpha) {
+  @return rgba(var(--verse-#{$name}-rgb), $alpha);
+}
 
 // Layout
 $sidebar-width: 240px;
@@ -27,7 +40,7 @@ $radius-card: 12px;
 $radius-drawer: 16px;
 
 // Shadow
-$shadow-light: 0 2px 8px rgba(0, 0, 0, 0.06);
+$shadow-light: var(--verse-shadow-light);
 
 // Font
 $font-family: 'Inter', 'PingFang SC', 'Microsoft YaHei', sans-serif;

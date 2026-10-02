@@ -70,15 +70,15 @@ function remove() {
   flex-shrink: 0;
   height: 34px;
   padding: 0 12px;
-  border: 1px solid rgba($color-primary, .18);
+  border: 1px solid theme-alpha('link', .18);
   border-radius: $radius-button;
-  background: rgba($color-primary, .04);
+  background: theme-alpha('link', .04);
   color: $color-primary;
   font-size: $font-size-caption;
   font-weight: 500;
   box-shadow: none;
-  &:hover { border-color: rgba($color-primary, .4); background: rgba($color-primary, .08); color: $color-primary; }
-  &:disabled { border-color: $color-border; background: $color-bg-secondary; color: rgba($color-text-secondary, .55); }
+  &:hover { border-color: theme-alpha('link', .4); background: theme-alpha('link', .08); color: $color-primary; }
+  &:disabled { border-color: $color-border; background: $color-bg-secondary; color: theme-alpha('text-secondary', .55); }
 }
 pre { margin-top: 8px; padding: 12px; border-radius: $radius-input; background: $color-bg-secondary; font-size: $font-size-caption; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 200px; overflow: auto; } summary { cursor: pointer; color: $color-primary; }
 @media (max-width: 560px) { .version { flex-wrap: wrap; } .version-content { flex-basis: 100%; } .restore-button { margin-left: auto; } }

@@ -66,12 +66,12 @@ const iconComponents: Record<TenantActivityIcon, typeof SettingOutlined> = {
   height: 34px;
   flex: 0 0 auto;
   border-radius: 50%;
-  background: #e6f4ff;
+  background: var(--verse-adaptive-selected, #e6f4ff);
   color: $color-primary;
 
-  &.kind-member { background: #f6ffed; color: $color-success; }
-  &.kind-invite { background: #fffbe6; color: $color-warning; }
-  &.kind-service { background: #f9f0ff; color: #722ed1; }
+  &.kind-member { background: var(--verse-adaptive-success-bg, #f6ffed); color: $color-success; }
+  &.kind-invite { background: var(--verse-adaptive-warning-bg, #fffbe6); color: $color-warning; }
+  &.kind-service { background: var(--verse-adaptive-purple-bg, #f9f0ff); color: var(--verse-adaptive-purple, #722ed1); }
   &.kind-default { background: $color-bg-secondary; color: $color-text-secondary; }
 }
 

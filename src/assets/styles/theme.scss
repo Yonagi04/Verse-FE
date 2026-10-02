@@ -1,0 +1,216 @@
+// The single source of semantic colors for CSS, Ant Design Vue and canvas charts.
+// Do not emit selectors from variables.scss: Vite injects it into every component.
+:root {
+  --verse-canvas: #fafafa;
+  --verse-sidebar: #ffffff;
+  --verse-surface: #ffffff;
+  --verse-elevated: #ffffff;
+  --verse-subtle: #fafafa;
+  --verse-hover: #fafafa;
+  --verse-selected: #eaf3ff;
+  --verse-primary-bg: #f6f9ff;
+  --verse-primary-solid: #1677ff;
+  --verse-primary-hover: #4096ff;
+  --verse-primary-active: #0958d9;
+  --verse-on-primary: #ffffff;
+  --verse-brand-backdrop: #ffffff;
+  --verse-link: #1677ff;
+  --verse-link-hover: #4096ff;
+  --verse-border: #f0f0f0;
+  --verse-border-input: #d9d9d9;
+  --verse-text-primary: #1f2328;
+  --verse-text-secondary: #667085;
+  --verse-text-tertiary: #98a2b3;
+  --verse-text-disabled: #bfbfbf;
+  --verse-success: #52c41a;
+  --verse-success-bg: #f6ffed;
+  --verse-warning: #faad14;
+  --verse-warning-bg: #fffbe6;
+  --verse-danger: #ff4d4f;
+  --verse-danger-solid: #ff4d4f;
+  --verse-danger-hover: #ff7875;
+  --verse-danger-active: #d9363e;
+  --verse-danger-bg: #fff1f0;
+  --verse-scrollbar: #d9d9d9;
+  --verse-scrollbar-hover: #bfbfbf;
+  --verse-overlay: rgba(0, 0, 0, 0.45);
+  --verse-focus: rgba(22, 119, 255, 0.35);
+  --verse-shadow-light: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --verse-link-rgb: 22, 119, 255;
+  --verse-primary-solid-rgb: 22, 119, 255;
+  --verse-text-primary-rgb: 31, 35, 40;
+  --verse-text-secondary-rgb: 102, 112, 133;
+  --verse-success-rgb: 82, 196, 26;
+  --verse-warning-rgb: 250, 173, 20;
+  --verse-danger-rgb: 255, 77, 79;
+  // Existing ECharts 6 defaults are retained explicitly so dark -> light restores them.
+  --verse-chart-text: #54555a;
+  --verse-chart-axis: #54555a;
+  --verse-chart-grid: #dbdee4;
+  --verse-chart-tooltip-text: #6d6e73;
+  --verse-chart-tooltip-border: #b7b9be;
+  --verse-chart-line-1: #5070dd;
+  --verse-chart-line-2: #b6d634;
+  --verse-chart-pointer: rgba(129,130,136,0.2);
+}
+
+html[data-theme='dark'] {
+  --verse-canvas: #101318;
+  --verse-sidebar: #151a21;
+  --verse-surface: #191f28;
+  --verse-elevated: #202733;
+  --verse-subtle: #1c232d;
+  --verse-hover: #252e3b;
+  --verse-selected: #1c2c44;
+  --verse-primary-bg: #1c2c44;
+  --verse-primary-solid: #1668dc;
+  --verse-primary-hover: #1b6de0;
+  --verse-primary-active: #1554ad;
+  --verse-link: #69a6ff;
+  --verse-link-hover: #91beff;
+  --verse-border: #2c3543;
+  --verse-border-input: #63738a;
+  --verse-text-primary: #e6eaf0;
+  --verse-text-secondary: #a8b2c1;
+  --verse-text-tertiary: #8995a7;
+  --verse-text-disabled: #667386;
+  --verse-success: #73d13d;
+  --verse-success-bg: #172b22;
+  --verse-warning: #ffc53d;
+  --verse-warning-bg: #332a18;
+  --verse-danger: #ff7875;
+  --verse-danger-solid: #b93e43;
+  --verse-danger-hover: #c54549;
+  --verse-danger-active: #a83238;
+  --verse-danger-bg: #361f26;
+  --verse-scrollbar: #465265;
+  --verse-scrollbar-hover: #63738a;
+  --verse-overlay: rgba(0, 0, 0, 0.55);
+  --verse-focus: #69a6ff;
+  --verse-shadow-light: 0 2px 8px rgba(0, 0, 0, 0.20);
+  --verse-link-rgb: 105, 166, 255;
+  --verse-primary-solid-rgb: 22, 104, 220;
+  --verse-text-primary-rgb: 230, 234, 240;
+  --verse-text-secondary-rgb: 168, 178, 193;
+  --verse-success-rgb: 115, 209, 61;
+  --verse-warning-rgb: 255, 197, 61;
+  --verse-danger-rgb: 255, 120, 117;
+  --verse-chart-text: var(--verse-text-secondary);
+  --verse-chart-axis: var(--verse-text-tertiary);
+  --verse-chart-grid: var(--verse-border);
+  --verse-chart-tooltip-text: var(--verse-text-primary);
+  --verse-chart-tooltip-border: var(--verse-border-input);
+  --verse-chart-line-1: var(--verse-link);
+  --verse-chart-line-2: #9dca69;
+  --verse-chart-pointer: rgba(168,178,193,0.12);
+
+  // Dark-only overrides for existing literal colors. The call-site fallback keeps
+  // each original light shade exact, including small differences between pages.
+  --verse-adaptive-surface: var(--verse-surface);
+  --verse-adaptive-sidebar: var(--verse-sidebar);
+  --verse-adaptive-subtle: var(--verse-subtle);
+  --verse-adaptive-hover: var(--verse-hover);
+  --verse-adaptive-elevated: var(--verse-elevated);
+  --verse-adaptive-selected: var(--verse-selected);
+  --verse-adaptive-border: var(--verse-border);
+  --verse-adaptive-border-input: var(--verse-border-input);
+  --verse-adaptive-border-primary: #3f608b;
+  --verse-adaptive-border-success: #456636;
+  --verse-adaptive-border-danger: #794047;
+  --verse-adaptive-text-primary: var(--verse-text-primary);
+  --verse-adaptive-text-secondary: var(--verse-text-secondary);
+  --verse-adaptive-text-tertiary: var(--verse-text-tertiary);
+  --verse-adaptive-link: var(--verse-link);
+  --verse-adaptive-link-hover: var(--verse-link-hover);
+  --verse-adaptive-focus: var(--verse-focus);
+  --verse-adaptive-success-bg: var(--verse-success-bg);
+  --verse-adaptive-warning-bg: var(--verse-warning-bg);
+  --verse-adaptive-danger-bg: var(--verse-danger-bg);
+  --verse-adaptive-success: var(--verse-success);
+  --verse-adaptive-warning: var(--verse-warning);
+  --verse-adaptive-danger: var(--verse-danger);
+  --verse-adaptive-purple: #c3a6ff;
+  --verse-adaptive-purple-bg: #2b213e;
+  --verse-adaptive-shadow: rgba(0,0,0,0.20);
+  --verse-adaptive-overlay: var(--verse-overlay);
+  --verse-adaptive-connection: #465a73;
+  --verse-adaptive-code-bg: var(--verse-subtle);
+  --verse-adaptive-code-text: var(--verse-text-primary);
+  --verse-adaptive-code-key: #91beff;
+  --verse-adaptive-code-string: #a5d6ff;
+  --verse-adaptive-code-number: #ffbf85;
+  --verse-adaptive-code-boolean: #ff9a98;
+  --verse-adaptive-code-null: var(--verse-text-tertiary);
+}
+
+// Static feedback APIs create separate Vue roots. Keep their existing calls and
+// callbacks; these color-only rules also update feedback which is already open.
+html[data-theme='dark'] {
+  // Outlined radio buttons use the brighter text blue; solid groups keep white-on-blue.
+  .ant-radio-group-outline .ant-radio-button-wrapper-checked:not(.ant-radio-button-wrapper-disabled) {
+    color: var(--verse-link);
+    border-color: var(--verse-link);
+    &::before { background: var(--verse-link); }
+    &:hover { color: var(--verse-link-hover); border-color: var(--verse-link-hover); }
+  }
+  .ant-btn-default.ant-btn-dangerous,
+  .ant-btn-text.ant-btn-dangerous,
+  .ant-btn-link.ant-btn-dangerous { color: var(--verse-danger); }
+  .ant-btn-default.ant-btn-dangerous { border-color: var(--verse-danger); }
+  .ant-btn-default.ant-btn-dangerous:not(:disabled):hover,
+  .ant-btn-text.ant-btn-dangerous:not(:disabled):hover { color: var(--verse-danger); background: var(--verse-danger-bg); border-color: var(--verse-danger); }
+  .ant-table .ant-table-tbody > tr.ant-table-row:hover > td { background: var(--verse-hover); }
+  .ant-message .ant-message-notice-content,
+  .ant-notification .ant-notification-notice,
+  .ant-modal-confirm .ant-modal-content,
+  .ant-modal-confirm .ant-modal-header {
+    background: var(--verse-elevated);
+    color: var(--verse-text-primary);
+    box-shadow: var(--verse-shadow-light);
+  }
+  .ant-notification .ant-notification-notice-message,
+  .ant-modal-confirm .ant-modal-confirm-title { color: var(--verse-text-primary); }
+  .ant-notification .ant-notification-notice-description,
+  .ant-modal-confirm .ant-modal-confirm-content { color: var(--verse-text-secondary); }
+  .ant-notification .ant-notification-notice-close,
+  .ant-modal-confirm .ant-modal-close { color: var(--verse-text-secondary); }
+  .ant-notification .ant-notification-notice-close:hover,
+  .ant-modal-confirm .ant-modal-close:hover { color: var(--verse-text-primary); background: var(--verse-hover); }
+  .ant-message .ant-message-success > .anticon,
+  .ant-notification .ant-notification-notice-icon-success,
+  .ant-modal-confirm-success .ant-modal-confirm-body > .anticon { color: var(--verse-success); }
+  .ant-message .ant-message-warning > .anticon,
+  .ant-notification .ant-notification-notice-icon-warning,
+  .ant-modal-confirm-warning .ant-modal-confirm-body > .anticon,
+  .ant-modal-confirm-confirm .ant-modal-confirm-body > .anticon { color: var(--verse-warning); }
+  .ant-message .ant-message-error > .anticon,
+  .ant-notification .ant-notification-notice-icon-error,
+  .ant-modal-confirm-error .ant-modal-confirm-body > .anticon { color: var(--verse-danger); }
+  .ant-message .ant-message-info > .anticon,
+  .ant-message .ant-message-loading > .anticon,
+  .ant-notification .ant-notification-notice-icon-info,
+  .ant-modal-confirm-info .ant-modal-confirm-body > .anticon { color: var(--verse-link); }
+  .ant-modal-root .ant-modal-mask { background: var(--verse-overlay); }
+  .ant-modal-confirm .ant-btn-default { color: var(--verse-text-primary); background: var(--verse-surface); border-color: var(--verse-border-input); }
+  .ant-modal-confirm .ant-btn-default:not(:disabled):hover { color: var(--verse-link); border-color: var(--verse-link); background: var(--verse-hover); }
+  .ant-modal-confirm .ant-btn-primary { color: var(--verse-on-primary); background: var(--verse-primary-solid); border-color: var(--verse-primary-solid); }
+  .ant-modal-confirm .ant-btn-primary:not(:disabled):hover { background: var(--verse-primary-hover); border-color: var(--verse-primary-hover); }
+  .ant-modal-confirm .ant-btn-primary:not(:disabled):active { background: var(--verse-primary-active); border-color: var(--verse-primary-active); }
+  .ant-modal-confirm .ant-btn-primary.ant-btn-dangerous { background: var(--verse-danger-solid); border-color: var(--verse-danger-solid); }
+  .ant-modal-confirm .ant-btn-primary.ant-btn-dangerous:not(:disabled):hover { background: var(--verse-danger-hover); border-color: var(--verse-danger-hover); }
+  .ant-modal-confirm .ant-btn-primary.ant-btn-dangerous:not(:disabled):active { background: var(--verse-danger-active); border-color: var(--verse-danger-active); }
+  .ant-modal-confirm .ant-btn-default.ant-btn-dangerous { color: var(--verse-danger); border-color: var(--verse-danger); }
+  .ant-modal-confirm .ant-btn:disabled { color: var(--verse-text-disabled); background: var(--verse-subtle); border-color: var(--verse-border); }
+  .ant-modal-confirm .ant-btn:focus-visible { outline: 2px solid var(--verse-focus); outline-offset: 2px; }
+  .ant-modal-confirm textarea { background: var(--verse-surface); color: var(--verse-text-primary); border-color: var(--verse-border-input); }
+
+  // Markdown's lazy-loaded github.css stays intact for light appearance.
+  .markdown .hljs { background: var(--verse-subtle); color: var(--verse-text-primary); }
+  .markdown .hljs-comment, .markdown .hljs-quote { color: var(--verse-text-tertiary); }
+  .markdown .hljs-keyword, .markdown .hljs-selector-tag, .markdown .hljs-literal, .markdown .hljs-deletion { color: #ff9a98; }
+  .markdown .hljs-string, .markdown .hljs-regexp, .markdown .hljs-meta .hljs-string, .markdown .hljs-addition { color: #a5d6ff; }
+  .markdown .hljs-number, .markdown .hljs-attr, .markdown .hljs-variable, .markdown .hljs-symbol, .markdown .hljs-bullet { color: #ffbf85; }
+  .markdown .hljs-title, .markdown .hljs-title.function_, .markdown .hljs-title.class_, .markdown .hljs-section { color: #c3a6ff; }
+  .markdown .hljs-built_in, .markdown .hljs-type, .markdown .hljs-meta, .markdown .hljs-selector-id, .markdown .hljs-selector-class { color: var(--verse-link); }
+  .markdown .hljs-name, .markdown .hljs-tag, .markdown .hljs-tag .hljs-attr, .markdown .hljs-tag .hljs-name { color: #9dca69; }
+}

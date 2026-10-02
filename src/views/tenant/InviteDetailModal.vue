@@ -65,7 +65,7 @@ function handleDeactivate() {
   if (!props.invite) return
   AntModal.confirm({
     title: '停用邀请码',
-    icon: h(ExclamationCircleOutlined, { style: 'color: #faad14' }),
+    icon: h(ExclamationCircleOutlined, { style: 'color: var(--verse-adaptive-warning, #faad14)' }),
     content: `确认停用邀请码 ${props.invite.code}？停用后该邀请码和链接将无法使用。`,
     okText: '确认停用',
     cancelText: '取消',
@@ -251,7 +251,7 @@ async function handleActivate() {
 
 .qr-error {
   font-size: 12px;
-  color: #ff4d4f;
+  color: var(--verse-adaptive-danger, #ff4d4f);
 }
 
 .detail-meta {

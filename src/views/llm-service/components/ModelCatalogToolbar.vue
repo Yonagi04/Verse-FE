@@ -104,9 +104,9 @@ function handleKeywordChange(value: string) {
 }
 
 .compare-active {
-  border-color: #91caff;
+  border-color: var(--verse-adaptive-link-hover, #91caff);
   color: $color-primary;
-  background: rgba($color-primary, 0.06);
+  background: theme-alpha('link', 0.06);
 }
 
 .capability-row {
@@ -121,7 +121,7 @@ function handleKeywordChange(value: string) {
 
 .capability-label {
   padding-top: 5px;
-  color: #98a2b3;
+  color: var(--verse-adaptive-text-tertiary, #98a2b3);
   font-size: 12px;
   white-space: nowrap;
 }

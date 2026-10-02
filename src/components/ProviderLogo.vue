@@ -63,6 +63,12 @@ function onError() {
   }
 }
 
+// Keep brand artwork intact; a light backing also makes black provider marks legible.
+:global(html[data-theme='dark'] .provider-logo img) {
+  background: var(--verse-brand-backdrop);
+  border-radius: 3px;
+}
+
 .provider-mono {
   display: inline-flex;
   align-items: center;

@@ -5,6 +5,7 @@ import { message } from 'ant-design-vue'
 import { useUserStore } from '@/stores/user'
 import { useThemeStore } from '@/stores/theme'
 import UserAvatar from '@/components/UserAvatar.vue'
+import AppearanceControl from './AppearanceControl.vue'
 import {
   DownOutlined,
   LogoutOutlined,
@@ -57,7 +58,7 @@ async function handleLogout() {
 
 <template>
   <div class="sidebar-user-area" :class="{ collapsed: themeStore.sidebarCollapsed }">
-    <div v-show="popoverVisible" class="user-popover" role="menu" @click.stop>
+    <div v-show="popoverVisible" class="user-popover" role="dialog" aria-label="账户菜单" @click.stop @keydown.esc="closePopover">
       <div class="popover-account">
         <UserAvatar :src="userStore.user?.avatar" :name="avatarName" :size="32" />
         <div class="popover-account-copy">
@@ -68,14 +69,16 @@ async function handleLogout() {
 
       <div class="popover-divider"></div>
 
-      <button type="button" class="popover-item" role="menuitem" @click="handleProfile">
+      <button type="button" class="popover-item" @click="handleProfile">
         <UserOutlined class="item-icon" />
         <span>个人信息</span>
       </button>
 
+      <AppearanceControl />
+
       <div class="popover-divider"></div>
 
-      <button type="button" class="popover-item danger" role="menuitem" @click="handleLogout">
+      <button type="button" class="popover-item danger" @click="handleLogout">
         <LogoutOutlined class="item-icon" />
         <span>退出登录</span>
       </button>
@@ -84,7 +87,7 @@ async function handleLogout() {
     <button
       type="button"
       class="user-trigger"
-      aria-haspopup="menu"
+      aria-haspopup="dialog"
       :aria-expanded="popoverVisible"
       :aria-label="themeStore.sidebarCollapsed ? `${displayName}，打开用户菜单` : '打开用户菜单'"
       @click.stop="togglePopover"
@@ -134,7 +137,7 @@ async function handleLogout() {
   }
 
   &:focus-visible {
-    outline: 2px solid rgba($color-primary, 0.35);
+    outline: 2px solid $color-focus;
     outline-offset: 1px;
   }
 }
@@ -160,7 +163,7 @@ async function handleLogout() {
 
 .user-arrow {
   flex: 0 0 auto;
-  color: #98a2b3;
+  color: var(--verse-adaptive-text-tertiary, #98a2b3);
   font-size: 12px;
   transition: transform 0.2s ease;
 
@@ -176,13 +179,15 @@ async function handleLogout() {
 
 .user-popover {
   width: 224px;
+  max-height: calc(100dvh - 100px);
+  overflow-y: auto;
   position: absolute;
   bottom: calc(100% + 8px);
   left: 10px;
   padding: 6px;
   border: 1px solid $color-border;
   border-radius: $radius-card;
-  background: $color-bg;
+  background: $color-bg-elevated;
   box-shadow: $shadow-light;
   animation: popover-in 0.15s ease;
 }
@@ -257,7 +262,7 @@ async function handleLogout() {
   }
 
   &:focus-visible {
-    outline: 2px solid rgba($color-primary, 0.35);
+    outline: 2px solid $color-focus;
     outline-offset: -2px;
   }
 
@@ -265,7 +270,7 @@ async function handleLogout() {
     color: $color-danger;
 
     &:hover {
-      background: rgba($color-danger, 0.06);
+      background: theme-alpha('danger', 0.06);
     }
   }
 }

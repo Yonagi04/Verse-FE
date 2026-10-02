@@ -125,9 +125,9 @@ function handleCopyUrl() {
             :locale="zhCN"
             :disabled-date="(current: number) => current < Date.now() - 86400000"
           />
-          <div style="color: #98a2b3; font-size: 12px; margin-top: 4px;">过期后邀请码将自动失效</div>
+          <div style="color: var(--verse-adaptive-text-tertiary, #98a2b3); font-size: 12px; margin-top: 4px;">过期后邀请码将自动失效</div>
         </a-form-item>
-        <div v-else style="color: #98a2b3; font-size: 12px; margin-bottom: 16px;">邀请码将永不过期</div>
+        <div v-else style="color: var(--verse-adaptive-text-tertiary, #98a2b3); font-size: 12px; margin-bottom: 16px;">邀请码将永不过期</div>
       </a-form>
 
       <div style="display: flex; justify-content: flex-end; gap: 8px;">
@@ -188,8 +188,8 @@ function handleCopyUrl() {
 <style lang="scss" scoped>
 .invite-result {
   padding: 16px;
-  background: #f6ffed;
-  border: 1px solid #b7eb8f;
+  background: var(--verse-adaptive-success-bg, #f6ffed);
+  border: 1px solid var(--verse-adaptive-border-success, #b7eb8f);
   border-radius: 8px;
   margin-top: -8px;
 }
@@ -266,7 +266,7 @@ function handleCopyUrl() {
 
 .qr-error {
   font-size: 12px;
-  color: #ff4d4f;
+  color: var(--verse-adaptive-danger, #ff4d4f);
 }
 
 .invite-expiry {

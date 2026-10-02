@@ -430,7 +430,7 @@ onMounted(loadSettings)
 }
 
 .danger-card {
-  border-color: #ffccc7;
+  border-color: var(--verse-adaptive-border-danger, #ffccc7);
   box-shadow: none;
 
   :deep(.ant-card-head-title) { color: $color-danger; }
@@ -444,7 +444,7 @@ onMounted(loadSettings)
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  border: 1px solid #d6e4ff;
+  border: 1px solid var(--verse-adaptive-border-primary, #d6e4ff);
   border-radius: 8px;
   background: $color-bg;
   box-shadow: $shadow-light;

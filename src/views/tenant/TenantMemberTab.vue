@@ -127,12 +127,12 @@ async function handleRoleChange(member: TenantMemberInfo, newRole: string) {
 function handleRemove(member: TenantMemberInfo) {
   Modal.confirm({
     title: '移除成员',
-    icon: h(ExclamationCircleOutlined, { style: 'color: #faad14' }),
+    icon: h(ExclamationCircleOutlined, { style: 'color: var(--verse-adaptive-warning, #faad14)' }),
     content: h('div', [
       h('div', { style: 'margin-bottom: 12px;' }, [
         '确认将 ', h('strong', member.nickname || member.username), ' 从当前租户中移除？',
       ]),
-      h('ul', { style: 'color: #667085; font-size: 13px; padding-left: 20px; margin: 0;' }, [
+      h('ul', { style: 'color: var(--verse-adaptive-text-secondary, #667085); font-size: 13px; padding-left: 20px; margin: 0;' }, [
         h('li', '移除后该成员将无法访问此租户'),
         h('li', '成员的个人数据不会被删除'),
         h('li', '可随时通过邀请码重新加入'),
@@ -329,12 +329,12 @@ function handleRemove(member: TenantMemberInfo) {
 
 .member-username {
   font-size: 12px;
-  color: #98a2b3;
+  color: var(--verse-adaptive-text-tertiary, #98a2b3);
 }
 
 .action-placeholder {
   font-size: 12px;
-  color: #98a2b3;
+  color: var(--verse-adaptive-text-tertiary, #98a2b3);
 }
 
 .action-group {
@@ -352,7 +352,7 @@ function handleRemove(member: TenantMemberInfo) {
   padding: 0 3px;
   margin-left: 4px;
   border-radius: 7px;
-  background: $color-danger;
+  background: var(--verse-danger-solid);
   color: #fff;
   font-size: 10px;
   font-weight: 600;

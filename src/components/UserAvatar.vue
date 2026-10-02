@@ -53,7 +53,7 @@ const fontSize = computed(() => Math.round(props.size * 0.4))
   display: flex;
   align-items: center;
   justify-content: center;
-  background: $color-primary;
+  background: $color-primary-solid;
   flex-shrink: 0;
   user-select: none;
 }

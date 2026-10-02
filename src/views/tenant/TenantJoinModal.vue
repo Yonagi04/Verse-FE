@@ -72,7 +72,7 @@ function handleClose() {
           />
         </a-form-item>
       </a-form>
-      <div style="color: #98a2b3; font-size: 12px;">
+      <div style="color: var(--verse-adaptive-text-tertiary, #98a2b3); font-size: 12px;">
         输入管理员分享的邀请码即可加入团队空间
       </div>
       <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px;">
@@ -140,12 +140,12 @@ function handleClose() {
 }
 
 .join-result-icon.success {
-  background: #f6ffed;
+  background: var(--verse-adaptive-success-bg, #f6ffed);
   color: $color-success;
 }
 
 .join-result-icon.error {
-  background: #fff2f0;
+  background: var(--verse-adaptive-danger-bg, #fff2f0);
   color: $color-danger;
 }
 

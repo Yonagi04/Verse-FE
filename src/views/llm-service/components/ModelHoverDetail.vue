@@ -169,7 +169,7 @@ onBeforeUnmount(clearTimers)
   padding: 2px 8px;
   border-radius: 999px;
   color: $color-success;
-  background: rgba($color-success, 0.08);
+  background: theme-alpha('success', 0.08);
   font-size: 11px;
 
   &.stopped {

@@ -492,7 +492,7 @@ onMounted(fetchTags)
 
 .catalog-shell {
   overflow: visible;
-  border: 1px solid #eaecf0;
+  border: 1px solid var(--verse-adaptive-border, #eaecf0);
   border-radius: 16px;
   background: $color-bg;
   box-shadow: $shadow-light;
@@ -519,7 +519,7 @@ onMounted(fetchTags)
 .skeleton-card {
   min-height: 238px;
   padding: 20px 16px;
-  border: 1px solid #eaecf0;
+  border: 1px solid var(--verse-adaptive-border, #eaecf0);
   border-radius: $radius-card;
   background: $color-bg;
 }

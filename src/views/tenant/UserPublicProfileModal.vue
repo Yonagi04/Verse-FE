@@ -124,7 +124,7 @@ function handleClose() {
   transition: all 0.15s;
 
   &:hover {
-    background: #f5f5f5;
+    background: var(--verse-adaptive-subtle, #f5f5f5);
     color: $color-text-primary;
   }
 }
@@ -187,6 +187,6 @@ function handleClose() {
   text-align: center;
   padding: 24px 0;
   font-size: $font-size-body;
-  color: #bfbfbf;
+  color: var(--verse-adaptive-text-tertiary, #bfbfbf);
 }
 </style>

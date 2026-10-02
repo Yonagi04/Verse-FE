@@ -67,7 +67,7 @@ onUnmounted(cleanup)
 @use './user-center';
 .dialog-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; gap: 16px; h3 { margin: 0; font-size: $font-size-h3; font-weight: 600; } }
 .dialog-close { width: 32px; height: 32px; padding: 0; display: grid; place-items: center; background: transparent; color: $color-text-secondary; border: 0; border-radius: $radius-button; font-size: 18px; cursor: pointer; &:focus-visible { outline: 2px solid $color-primary; } }
-.cancel-alert { padding: 14px 16px; background: rgba($color-danger, 0.08); border: 1px solid rgba($color-danger, 0.45); border-radius: $radius-input; font-size: 13px; line-height: 1.8; margin-bottom: 16px; white-space: pre-wrap; }
+.cancel-alert { padding: 14px 16px; background: theme-alpha('danger', 0.08); border: 1px solid theme-alpha('danger', 0.45); border-radius: $radius-input; font-size: 13px; line-height: 1.8; margin-bottom: 16px; white-space: pre-wrap; }
 .warning-tips { padding-left: 20px; color: $color-text-secondary; font-size: 13px; line-height: 1.8; li { margin: 6px 0; } }
 .cancel-form { margin-top: 20px; }
 .phone-hint { margin: 0 0 8px; font-size: $font-size-caption; color: $color-text-secondary; }

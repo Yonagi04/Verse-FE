@@ -46,7 +46,7 @@ watch(currentStep, (next, previous) => {
   &.completed::after { border-color: $color-primary; }
 }
 .step-number { display: grid; place-items: center; width: 24px; height: 24px; border: 1px solid $color-border-input; border-radius: 50%; background: $color-bg; font-size: 12px; }
-.active .step-number { color: $color-bg; background: $color-primary; border-color: $color-primary; }
+.active .step-number { color: $color-on-primary; background: $color-primary-solid; border-color: $color-primary; }
 .completed .step-number { background: $color-primary-bg; border-color: $color-primary; }
 // 预留表单高度避免步骤切换时品牌区和步骤栏跳动，内边距保留输入框焦点轮廓。
 .step-viewport { overflow: hidden; min-height: 420px; margin: -6px; padding: 6px; }

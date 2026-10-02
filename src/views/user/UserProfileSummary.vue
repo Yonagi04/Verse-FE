@@ -75,14 +75,14 @@ h3 { margin: 0; font-size: $font-size-h3; font-weight: 600; }
 }
 .progress {
   height: 5px; border-radius: 4px; background: $color-border; overflow: hidden;
-  span { display: block; height: 100%; background: $color-primary; border-radius: 4px; }
+  span { display: block; height: 100%; background: $color-primary-solid; border-radius: 4px; }
 }
 .completion-desc { margin: 10px 0 0; font-size: $font-size-caption; color: $color-text-secondary; line-height: 1.7; }
 .checklist {
   padding: 0; margin: 16px 0 0; list-style: none; display: flex; flex-direction: column; gap: 12px;
   li { display: flex; align-items: center; gap: 8px; font-size: $font-size-caption; color: $color-text-secondary; }
   .check-icon { width: 16px; height: 16px; border: 1px solid $color-border-input; border-radius: 50%; display: grid; place-items: center; }
-  .done .check-icon { border-color: $color-primary; background: $color-primary; color: $color-bg; }
+  .done .check-icon { border-color: $color-primary; background: $color-primary-solid; color: $color-on-primary; }
   .anticon { font-size: 10px; }
   .hint { margin-left: auto; font-size: 11px; }
   :deep(.ant-btn.hint) { font-size: 11px; min-height: 18px; padding: 0; }

@@ -90,11 +90,11 @@ function handleKick(device: DeviceInfo) {
 .device-list { display: flex; flex-direction: column; gap: 12px; }
 .device {
   display: flex; align-items: center; gap: 16px; padding: 20px; border: 1px solid $color-border; border-radius: $radius-input;
-  &.current { background: $color-primary-bg; border-color: rgba($color-primary, 0.45); }
+  &.current { background: $color-primary-bg; border-color: theme-alpha('link', 0.45); }
 }
 .device-mark {
   width: 44px; height: 44px; border-radius: $radius-button; background: $color-bg-secondary; display: grid; place-items: center; color: $color-text-secondary; flex-shrink: 0; font-size: 22px;
-  .current & { background: rgba($color-primary, 0.08); color: $color-primary; }
+  .current & { background: theme-alpha('link', 0.08); color: $color-primary; }
 }
 .device-copy { flex: 1; min-width: 0; }
 .device-title {

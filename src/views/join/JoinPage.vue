@@ -304,22 +304,22 @@ function goDashboard() {
   flex-shrink: 0;
 
   &.invite {
-    background: #e6f4ff;
+    background: var(--verse-adaptive-selected, #e6f4ff);
     color: $color-primary;
   }
 
   &.success {
-    background: #f6ffed;
+    background: var(--verse-adaptive-success-bg, #f6ffed);
     color: $color-success;
   }
 
   &.pending {
-    background: #fffbe6;
+    background: var(--verse-adaptive-warning-bg, #fffbe6);
     color: $color-warning;
   }
 
   &.error {
-    background: #fff1f0;
+    background: var(--verse-adaptive-danger-bg, #fff1f0);
     color: $color-danger;
   }
 }

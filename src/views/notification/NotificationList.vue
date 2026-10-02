@@ -378,7 +378,7 @@ watch(newNotification, (notif) => {
   transition: background 0.15s;
 
   &:hover {
-    background: #e6f4ff;
+    background: var(--verse-adaptive-selected, #e6f4ff);
   }
 }
 
@@ -420,17 +420,17 @@ watch(newNotification, (notif) => {
   flex-shrink: 0;
 
   &.severity-INFO {
-    background: #e6f4ff;
+    background: var(--verse-adaptive-selected, #e6f4ff);
     color: $color-primary;
   }
 
   &.severity-WARNING {
-    background: #fff7e6;
-    color: #fa8c16;
+    background: var(--verse-adaptive-warning-bg, #fff7e6);
+    color: var(--verse-adaptive-warning, #fa8c16);
   }
 
   &.severity-CRITICAL {
-    background: #fff1f0;
+    background: var(--verse-adaptive-danger-bg, #fff1f0);
     color: $color-danger;
   }
 }

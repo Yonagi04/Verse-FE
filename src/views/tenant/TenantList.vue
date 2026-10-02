@@ -468,7 +468,7 @@ async function togglePin(record: TenantInfoListRespDTO) {
   white-space: nowrap;
 
   &:hover {
-    color: #4096ff;
+    color: var(--verse-adaptive-link-hover, #4096ff);
   }
 }
 
@@ -495,9 +495,9 @@ async function togglePin(record: TenantInfoListRespDTO) {
   &:last-child { border-right: 0; }
   .summary-label { color: $color-text-secondary; font-size: 12px; }
   strong { margin: 7px 0 4px; color: $color-text-primary; font-size: 26px; line-height: 1.2; }
-  small { color: #98a2b3; font-size: 11px; }
+  small { color: var(--verse-adaptive-text-tertiary, #98a2b3); font-size: 11px; }
 }
-.summary-pending strong { color: #b54708; }
+.summary-pending strong { color: var(--verse-adaptive-warning, #b54708); }
 .summary-window { margin: -12px 0 18px; color: $color-text-secondary; font-size: $font-size-caption; }
 .summary-alert { margin-bottom: 16px; }
 .todo-link { display: inline-block; margin: 5px 14px 0 0; }
@@ -540,8 +540,8 @@ async function togglePin(record: TenantInfoListRespDTO) {
   font-size: 12px;
   cursor: pointer;
 
-  &:hover { background: #f4f7fb; }
-  &.active { background: #e8f3ff; color: #0958d9; font-weight: 650; }
+  &:hover { background: var(--verse-adaptive-hover, #f4f7fb); }
+  &.active { background: var(--verse-adaptive-selected, #e8f3ff); color: var(--verse-adaptive-link, #0958d9); font-weight: 650; }
   span { margin-left: 4px; opacity: .72; }
 }
 .tenant-preferences { display: inline-flex; flex: none; align-items: center; gap: 2px; }
@@ -556,13 +556,13 @@ async function togglePin(record: TenantInfoListRespDTO) {
   border: 0;
   border-radius: 6px;
   background: transparent;
-  color: #98a2b3;
+  color: var(--verse-adaptive-text-tertiary, #98a2b3);
   font-size: 16px;
   line-height: 1;
   cursor: pointer;
 
   &.active { color: $color-primary; }
-  &:hover:not(:disabled) { background: #e8f3ff; color: $color-primary; }
+  &:hover:not(:disabled) { background: var(--verse-adaptive-selected, #e8f3ff); color: $color-primary; }
   &:focus-visible { outline: 2px solid $color-primary; outline-offset: 1px; }
   &:disabled { cursor: wait; }
   :deep(svg) { display: block; width: 16px; height: 16px; }

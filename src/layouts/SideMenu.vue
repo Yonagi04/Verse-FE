@@ -220,7 +220,7 @@ watch(() => tenantStore.currentTenantId, (tenantId) => {
 
 .section-label {
   padding: 0 10px 8px;
-  color: #98a2b3;
+  color: var(--verse-adaptive-text-tertiary, #98a2b3);
   font-size: $font-size-caption;
   font-weight: 500;
   line-height: 20px;
@@ -245,7 +245,7 @@ watch(() => tenantStore.currentTenantId, (tenantId) => {
   }
 
   &:focus-visible {
-    outline: 2px solid rgba($color-primary, 0.35);
+    outline: 2px solid $color-focus;
     outline-offset: 1px;
   }
 }
@@ -261,7 +261,7 @@ watch(() => tenantStore.currentTenantId, (tenantId) => {
 
   &.active {
     color: $color-primary;
-    background: rgba($color-primary, 0.09);
+    background: theme-alpha('link', 0.09);
     font-weight: 500;
   }
 }
@@ -285,7 +285,7 @@ watch(() => tenantStore.currentTenantId, (tenantId) => {
 
 .group-arrow {
   margin-left: auto;
-  color: #98a2b3;
+  color: var(--verse-adaptive-text-tertiary, #98a2b3);
   font-size: 12px;
 
   transition: transform 0.2s ease;
@@ -309,7 +309,7 @@ watch(() => tenantStore.currentTenantId, (tenantId) => {
 
   &.active {
     color: $color-primary;
-    background: rgba($color-primary, 0.09);
+    background: theme-alpha('link', 0.09);
     font-weight: 500;
 
     .submenu-rail {

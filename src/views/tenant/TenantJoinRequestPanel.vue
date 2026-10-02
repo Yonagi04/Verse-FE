@@ -72,7 +72,7 @@ const filteredList = () => {
 function handleApprove(record: TenantJoinReqInfo) {
   Modal.confirm({
     title: '通过加入申请',
-    icon: h(ExclamationCircleOutlined, { style: 'color: #1677ff' }),
+    icon: h(ExclamationCircleOutlined, { style: 'color: var(--verse-adaptive-link, #1677ff)' }),
     content: `确认通过 ${record.username} 的加入申请？`,
     okText: '确认通过',
     cancelText: '取消',
@@ -214,7 +214,7 @@ const processedColumns = [
           </template>
 
           <template v-if="column.key === 'reviewComment'">
-            <span :style="{ color: record.reviewComment ? undefined : '#98a2b3' }">
+            <span :style="{ color: record.reviewComment ? undefined : 'var(--verse-adaptive-text-tertiary, #98a2b3)' }">
               {{ record.reviewComment || '—' }}
             </span>
           </template>
@@ -246,8 +246,8 @@ const processedColumns = [
       cancel-text="取消"
       @ok="handleRejectConfirm"
     >
-      <div style="margin-bottom: 16px; color: #667085; font-size: 13px;">
-        确认拒绝 <strong style="color: #1f2328;">{{ rejectTarget?.username }}</strong> 的加入申请？
+      <div style="margin-bottom: 16px; color: var(--verse-adaptive-text-secondary, #667085); font-size: 13px;">
+        确认拒绝 <strong style="color: var(--verse-adaptive-text-primary, #1f2328);">{{ rejectTarget?.username }}</strong> 的加入申请？
       </div>
       <a-form layout="vertical">
         <a-form-item label="审核意见（选填）">
@@ -314,7 +314,7 @@ const processedColumns = [
   padding: 0 3px;
   margin-left: 4px;
   border-radius: 7px;
-  background: $color-danger;
+  background: var(--verse-danger-solid);
   color: #fff;
   font-size: 10px;
   font-weight: 600;
@@ -324,14 +324,14 @@ const processedColumns = [
 .invite-code-badge {
   display: inline-block;
   padding: 2px 10px;
-  background: #f0f5ff;
-  border: 1px solid #d6e4ff;
+  background: var(--verse-adaptive-selected, #f0f5ff);
+  border: 1px solid var(--verse-adaptive-border-primary, #d6e4ff);
   border-radius: 4px;
   font-family: 'Courier New', monospace;
   font-size: 14px;
   font-weight: 600;
   letter-spacing: 2px;
-  color: #1677ff;
+  color: var(--verse-adaptive-link, #1677ff);
 }
 
 .member-cell {
