@@ -1,6 +1,6 @@
 import type { UserLoginRespDTO } from './user'
-export type ExternalProvider = 'google' | 'github' | 'gitlab'
-export const providerNames: Record<ExternalProvider, string> = { google: 'Google', github: 'GitHub', gitlab: 'GitLab' }
+export type ExternalProvider = 'google' | 'github' | 'gitlab' | 'feishu'
+export const providerNames: Record<ExternalProvider, string> = { google: 'Google', github: 'GitHub', gitlab: 'GitLab', feishu: '飞书' }
 export interface ProviderInfo { provider: ExternalProvider; enabled: boolean; availability: 'AVAILABLE' | 'DISABLED' | 'TEMPORARILY_UNAVAILABLE' }
 export interface ExternalFlowStart { flowId: string; flowToken: string; authorizationUrl: string; expiresAt: string }
 export interface ExternalAccountSummary { displayName: string | null; username: string | null; maskedEmail: string | null }

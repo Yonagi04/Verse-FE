@@ -134,7 +134,7 @@ export interface DeviceInfo {
 // ========== 登录历史 ==========
 
 export interface LoginHistoryItem {
-  loginSource?: 'PASSWORD' | 'GOOGLE' | 'GITHUB' | 'GITLAB'
+  loginSource?: 'PASSWORD' | 'GOOGLE' | 'GITHUB' | 'GITLAB' | 'FEISHU'
   loginTime: string
   deviceName: string
   ip: string

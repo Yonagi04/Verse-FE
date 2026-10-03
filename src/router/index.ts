@@ -2,7 +2,7 @@ import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { useTenantStore } from '@/stores/tenant'
 import { usePlaygroundStore } from '@/stores/playground'
-import { hasStoredFlow } from '@/hooks/useExternalAuthFlow'
+import { hasStoredFlow, cancelAbandonedFlows } from '@/hooks/useExternalAuthFlow'
 import { getFlow } from '@/api/externalAuth'
 import { readFlow } from '@/hooks/useExternalAuthFlow'
 
@@ -212,6 +212,10 @@ router.beforeEach(async (to, _from, next) => {
       next()
     }
   }
+})
+
+router.afterEach((to, _from, failure) => {
+  if (!failure) void cancelAbandonedFlows(to).catch(() => { /* 保留证明，新发起前等待清理重试。 */ })
 })
 
 export default router

@@ -4,7 +4,7 @@ import { message } from 'ant-design-vue'
 import ProviderIcon from '@/components/auth/ProviderIcon.vue'
 import RecentPasswordVerifyModal from '@/components/auth/RecentPasswordVerifyModal.vue'
 import { getExternalAccounts, startExternalBinding, unbindExternal } from '@/api/externalAuth'
-import { leaveForAuthorization, errorMessage } from '@/hooks/useExternalAuthFlow'
+import { leaveForAuthorization, errorMessage, cancelStoredFlows } from '@/hooks/useExternalAuthFlow'
 import { providerNames, type BindingInfo, type ReauthInput } from '@/types/externalAuth'
 import { useUserStore } from '@/stores/user'
 const props = defineProps<{ disabled?: boolean; beforeLeave: () => boolean }>()
@@ -24,8 +24,8 @@ async function verified(token: string) {
   proof.value = token; verifyOpen.value = false
   if (!selected.value || selected.value.binding) return
   working.value = true; emit('busy',true)
-  try { const provider = selected.value.provider; await leaveForAuthorization(await startExternalBinding(provider, token), provider, 'BIND') }
-  catch (e) { error.value = errorMessage(e); working.value = false; emit('busy',false) }
+  try { await cancelStoredFlows(); const provider = selected.value.provider; await leaveForAuthorization(await startExternalBinding(provider, token), provider, 'BIND') }
+  catch (e) { message.error(errorMessage(e)); working.value = false; emit('busy',false) }
 }
 async function unbind() {
   if (!selected.value?.binding || working.value) return

@@ -59,7 +59,7 @@ function handlePageChange(page: number, size: number) {
       <a-table class="history-table" :columns="columns" :data-source="records" :loading="loading" :pagination="false"
         :row-key="(record: LoginHistoryItem) => `${record.loginTime}-${record.deviceName}-${record.ip}-${record.result}`" size="middle" :scroll="{ x: 810 }">
         <template #bodyCell="{ column, record }">
-          <span v-if="column.key === 'loginSource'">{{ ({ PASSWORD:'密码', GOOGLE:'Google', GITHUB:'GitHub', GITLAB:'GitLab' } as Record<string,string>)[record.loginSource || 'PASSWORD'] || '密码' }}</span>
+          <span v-if="column.key === 'loginSource'">{{ ({ PASSWORD:'密码', GOOGLE:'Google', GITHUB:'GitHub', GITLAB:'GitLab', FEISHU:'飞书' } as Record<string,string>)[record.loginSource || 'PASSWORD'] || '未知' }}</span>
           <span v-if="column.key === 'loginTime'" class="mono">{{ formatTime(record.loginTime) }}</span>
           <span v-else-if="column.key === 'ip'" class="mono">{{ record.ip }}</span>
           <a-tag v-else-if="column.key === 'result'" :color="record.result === '成功' ? 'success' : 'error'">{{ record.result }}</a-tag>

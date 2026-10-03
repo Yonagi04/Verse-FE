@@ -9,7 +9,7 @@ import ExternalProviderButtons from '@/components/auth/ExternalProviderButtons.v
 import RecentPasswordVerifyModal from '@/components/auth/RecentPasswordVerifyModal.vue'
 import ExternalAccountSummary from '@/components/auth/ExternalAccountSummary.vue'
 import * as external from '@/api/externalAuth'
-import { readFlow, useExternalAuthFlow, leaveForAuthorization, errorMessage } from '@/hooks/useExternalAuthFlow'
+import { readFlow, useExternalAuthFlow, leaveForAuthorization, errorMessage, cancelStoredFlows } from '@/hooks/useExternalAuthFlow'
 import type { ProviderInfo, ExternalProvider } from '@/types/externalAuth'
 
 const router = useRouter(); const route = useRoute(); const user = useUserStore(); const tenant = useTenantStore()
@@ -29,7 +29,7 @@ function sessionChanged() { verifyOpen.value = false; form.password = ''; void c
 async function start(provider: ExternalProvider) {
   if (providerLoading.value || loading.value) return
   providerLoading.value = provider; error.value = ''
-  try { await leaveForAuthorization(await external.startExternalLogin(provider), provider, 'LOGIN') }
+  try { await cancelStoredFlows(); await leaveForAuthorization(await external.startExternalLogin(provider), provider, 'LOGIN') }
   catch (e) { error.value = errorMessage(e); providerLoading.value = null }
 }
 async function submit() {
@@ -39,6 +39,8 @@ async function submit() {
   const password = form.password
   let loginSucceeded = false
   try {
+    // 普通登录放弃外部流程；已有账号绑定只保留正在续接的当前流程。
+    await cancelStoredFlows(pending.value ? context.value?.flowId : undefined)
     await user.login({ ...form }); loginSucceeded = true; form.password = ''
     if (pending.value && context.value) {
       const flow = readFlow(context.value.flowId)
@@ -49,6 +51,7 @@ async function submit() {
     const redirect = route.query.redirect
     await router.replace(typeof redirect === 'string' && redirect.startsWith('/') && !redirect.startsWith('//') && !redirect.includes('\\') ? redirect : '/dashboard')
   } catch (e) {
+    error.value = errorMessage(e)
     // 登录错误由请求拦截器提示；后续绑定请求静默处理，需要在此弹出 toast。
     if (loginSucceeded) message.error(errorMessage(e))
     if ((e as { code?: string }).code === 'B000218') { deactivatedVisible.value = true; deactivatedMessage.value = errorMessage(e) }
