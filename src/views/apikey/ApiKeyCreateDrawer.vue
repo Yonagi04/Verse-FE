@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { reactive, ref, watch } from 'vue'
+import { reactive, ref, watch, onBeforeUnmount } from 'vue'
 import { message } from 'ant-design-vue'
 import type { FormInstance } from 'ant-design-vue'
 import { CopyOutlined } from '@ant-design/icons-vue'
 import zhCN from 'ant-design-vue/es/date-picker/locale/zh_CN'
 import { createApiKey } from '@/api/apikey'
 import { formatDateTime } from '@/utils/date'
+import CostLimitFormSection from './components/CostLimitFormSection.vue'
+import { emptyCostDraft, buildCostLimitPatch } from '@/utils/costBudget'
 import type { ApiKeyCreateReqDTO, ApiKeyRespDTO } from '@/types/apikey'
 
 const props = defineProps<{
@@ -20,6 +22,10 @@ const emit = defineEmits<{
 
 const formRef = ref<FormInstance>()
 const loading = ref(false)
+const costDraft = ref(emptyCostDraft())
+let sequence = 0
+let controller: AbortController | undefined
+onBeforeUnmount(() => { sequence++; controller?.abort() })
 const result = ref<ApiKeyRespDTO | null>(null)
 
 const form = reactive({
@@ -40,8 +46,12 @@ const rules = {
 }
 
 watch(
-  () => props.visible,
-  (v) => {
+  () => [props.visible, props.tenantId] as const,
+  ([v]) => {
+    sequence++
+    controller?.abort()
+    loading.value = false
+    costDraft.value = emptyCostDraft()
     if (v) {
       form.name = ''
       setExpiry.value = false
@@ -78,22 +88,31 @@ async function handleCreate() {
     return
   }
 
+  let costLimit
+  try { costLimit = buildCostLimitPatch(costDraft.value) }
+  catch (error) { message.error((error as Error).message); return }
+  const current = sequence
+  const tenant = props.tenantId
+  controller = new AbortController()
   loading.value = true
   try {
     const payload: ApiKeyCreateReqDTO = {
       name: form.name,
+      costLimit,
       rpm: rpmEnabled.value ? rpm.value : null,
       tpm: tpmEnabled.value ? tpm.value : null,
     }
     if (setExpiry.value && expireAt.value) {
       payload.expiresAt = new Date(expireAt.value).toISOString()
     }
-    result.value = await createApiKey(props.tenantId, payload)
+    const created = await createApiKey(tenant, payload, { signal: controller.signal })
+    if (current !== sequence) return
+    result.value = created
     emit('done')
   } catch {
     // handled by interceptor
   } finally {
-    loading.value = false
+    if (current === sequence) loading.value = false
   }
 }
 
@@ -178,6 +197,7 @@ function handleCopy() {
           style="width: 100%; margin-top: 8px"
         />
       </a-form-item>
+      <CostLimitFormSection v-model="costDraft" :disabled="loading" />
     </a-form>
 
     <!-- Reveal stage -->

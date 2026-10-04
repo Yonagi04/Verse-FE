@@ -1,4 +1,6 @@
 import request from './request'
+import type { AxiosRequestConfig } from 'axios'
+import type { ApiKeyCostStatusRespDTO } from '@/types/costBudget'
 import type { ApiKeyCreateReqDTO, ApiKeyPageRespDTO, ApiKeyRespDTO, ApiKeyRevokeReqDTO, ApiKeyUpdateReqDTO } from '@/types/apikey'
 
 // 获取当前用户在某租户下的 API Key 列表（分页）
@@ -7,8 +9,8 @@ export function listApiKeys(tenantId: string, pageNum: number, pageSize: number)
 }
 
 // 创建 API Key（完整 Key 仅在创建响应中返回一次）
-export function createApiKey(tenantId: string, data: ApiKeyCreateReqDTO): Promise<ApiKeyRespDTO> {
-  return request.post(`/api-keys/${tenantId}/create`, data)
+export function createApiKey(tenantId: string, data: ApiKeyCreateReqDTO, options?: AxiosRequestConfig): Promise<ApiKeyRespDTO> {
+  return request.post(`/api-keys/${tenantId}/create`, data, options)
 }
 
 // 吊销 API Key（软删除）
@@ -17,6 +19,11 @@ export function revokeApiKey(tenantId: string, data: ApiKeyRevokeReqDTO): Promis
 }
 
 // 编辑 API Key（名称 / 过期时间）
-export function updateApiKey(tenantId: string, apiKeyId: string, data: ApiKeyUpdateReqDTO): Promise<boolean> {
-  return request.post(`/api-keys/${tenantId}/update`, data, { params: { apiKeyId } })
+export function updateApiKey(tenantId: string, apiKeyId: string, data: ApiKeyUpdateReqDTO, options?: AxiosRequestConfig): Promise<boolean> {
+  return request.post(`/api-keys/${tenantId}/update`, data, { ...options, params: { apiKeyId } })
+}
+
+/** 按需读取主库预算，支持抽屉取消和局部错误反馈。 */
+export function getApiKeyCostStatus(tenantId: string, keyId: string, options?: AxiosRequestConfig): Promise<ApiKeyCostStatusRespDTO> {
+  return request.get(`/api-keys/${tenantId}/${keyId}/cost-status`, options)
 }

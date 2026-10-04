@@ -1,10 +1,13 @@
 <script setup lang="ts">
-import { reactive, ref, watch } from 'vue'
+import { reactive, ref, watch, onBeforeUnmount } from 'vue'
 import { message } from 'ant-design-vue'
 import type { FormInstance } from 'ant-design-vue'
 import dayjs, { type Dayjs } from 'dayjs'
 import zhCN from 'ant-design-vue/es/date-picker/locale/zh_CN'
-import { updateApiKey } from '@/api/apikey'
+import { updateApiKey, getApiKeyCostStatus } from '@/api/apikey'
+import CostLimitFormSection from './components/CostLimitFormSection.vue'
+import { emptyCostDraft, costConfigToDraft, buildCostLimitPatch } from '@/utils/costBudget'
+import type { CostLimitConfig } from '@/types/costBudget'
 import type { ApiKeyListRespDTO, ApiKeyUpdateReqDTO } from '@/types/apikey'
 
 const props = defineProps<{
@@ -20,6 +23,35 @@ const emit = defineEmits<{
 
 const formRef = ref<FormInstance>()
 const loading = ref(false)
+const costLoading = ref(false)
+const costError = ref('')
+const costDraft = ref(emptyCostDraft())
+const serverConfig = ref<CostLimitConfig | null>(null)
+const costTouched = ref(false)
+let sequence = 0
+let controller: AbortController | undefined
+let saveController: AbortController | undefined
+function cancelRequests() { sequence++; controller?.abort(); saveController?.abort(); costLoading.value = false; loading.value = false }
+onBeforeUnmount(cancelRequests)
+function changeCost(value: typeof costDraft.value) { costDraft.value = value; costTouched.value = true }
+async function loadCost() {
+  controller?.abort()
+  if (!props.visible || !props.record?.costLimit) return
+  const current = ++sequence
+  const tenant = props.tenantId
+  const key = props.record.apiKeyId
+  controller = new AbortController()
+  costLoading.value = true
+  costError.value = ''
+  try {
+    const status = await getApiKeyCostStatus(tenant, key, { signal: controller.signal, silentError: true })
+    if (current !== sequence) return
+    serverConfig.value = status.costLimit
+    costDraft.value = costConfigToDraft(status.costLimit)
+  } catch {
+    if (current === sequence) costError.value = '成本配置加载失败，请关闭后重新打开重试；仅修改其他字段时不提交成本配置。'
+  } finally { if (current === sequence) costLoading.value = false }
+}
 
 const form = reactive({
   name: '',
@@ -39,8 +71,13 @@ const rules = {
 }
 
 watch(
-  () => props.visible,
-  (v) => {
+  () => [props.visible, props.tenantId, props.record?.apiKeyId] as const,
+  ([v]) => {
+    cancelRequests()
+    serverConfig.value = null
+    costDraft.value = emptyCostDraft()
+    costTouched.value = false
+    costError.value = ''
     if (v && props.record) {
       form.name = props.record.name
       setExpiry.value = !!props.record.expiresAt
@@ -49,6 +86,7 @@ watch(
       rpm.value = props.record.rateLimitRpm ?? null
       tpmEnabled.value = props.record.rateLimitTpm != null
       tpm.value = props.record.rateLimitTpm ?? null
+      void loadCost()
     }
   },
 )
@@ -82,24 +120,36 @@ async function handleSave() {
   }
   if (!props.record) return
 
+  let costLimit
+  if (costTouched.value) {
+    if (!serverConfig.value || costLoading.value) { message.error('请先加载并确认当前成本配置'); return }
+    try { costLimit = buildCostLimitPatch(costDraft.value, serverConfig.value) }
+    catch (error) { message.error((error as Error).message); return }
+  }
+  const current = sequence
+  const tenant = props.tenantId
+  const key = props.record.apiKeyId
+  saveController = new AbortController()
   loading.value = true
   try {
     const payload: ApiKeyUpdateReqDTO = {
       name: form.name,
+      costLimit,
       rpm: rpmEnabled.value ? rpm.value : null,
       tpm: tpmEnabled.value ? tpm.value : null,
     }
     payload.expiresAt = setExpiry.value && expireAt.value
       ? expireAt.value.toDate().toISOString()
       : null
-    await updateApiKey(props.tenantId, props.record.apiKeyId, payload)
+    await updateApiKey(tenant, key, payload, { signal: saveController.signal })
+    if (current !== sequence) return
     message.success('已保存')
     emit('done')
     emit('update:visible', false)
   } catch {
     // handled by interceptor
   } finally {
-    loading.value = false
+    if (current === sequence) loading.value = false
   }
 }
 </script>
@@ -173,6 +223,11 @@ async function handleSave() {
           style="width: 100%; margin-top: 8px"
         />
       </a-form-item>
+      <template v-if="record?.costLimit">
+        <a-spin v-if="costLoading" />
+        <a-alert v-if="costError" type="warning" :message="costError" />
+        <CostLimitFormSection :model-value="costDraft" :disabled="costLoading || !serverConfig || loading" @update:model-value="changeCost" />
+      </template>
     </a-form>
 
     <template #footer>

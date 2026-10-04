@@ -13,6 +13,8 @@ export interface FormattedTenantActivity {
 }
 
 const actionByType: Record<string, string> = {
+  API_KEY_COST_CONFIGURED: '调整了 API Key 成本限额',
+  API_KEY_COST_REJECTED: 'API Key 调用被成本规则拒绝',
   ACTIVITY_RECORDING_ENABLED: '开启了租户动态记录',
   ACTIVITY_RECORDING_DISABLED: '关闭了租户动态记录',
   TENANT_SETTINGS_UPDATED: '更新了租户设置',

@@ -1,7 +1,11 @@
+import type { CostLimitConfig, CostLimitPatch } from './costBudget'
+
 // ========== API Key 管理 ==========
 
 // 创建请求
 export interface ApiKeyCreateReqDTO {
+  /** 可选成本补丁。 */
+  costLimit?: CostLimitPatch
   name: string
   expiresAt?: string | null
   rpm?: number | null
@@ -10,6 +14,8 @@ export interface ApiKeyCreateReqDTO {
 
 // 创建响应（仅创建时一次性返回完整 Key）
 export interface ApiKeyRespDTO {
+  /** 正式成本配置；缺失说明后端尚未支持。 */
+  costLimit?: CostLimitConfig
   apiKeyId: string
   name: string
   expiresAt: string | null
@@ -20,6 +26,8 @@ export interface ApiKeyRespDTO {
 
 // 列表项（不含完整 Key）
 export interface ApiKeyListRespDTO {
+  /** 正式成本配置；缺失说明后端尚未支持。 */
+  costLimit?: CostLimitConfig
   apiKeyId: string
   name: string
   keyPrefix: string
@@ -46,6 +54,8 @@ export interface ApiKeyRevokeReqDTO {
 
 // 编辑请求（名称 / 过期时间 / 限流）
 export interface ApiKeyUpdateReqDTO {
+  /** 可选成本补丁。 */
+  costLimit?: CostLimitPatch
   name: string
   expiresAt?: string | null
   rpm?: number | null
