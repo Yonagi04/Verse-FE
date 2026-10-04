@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import {
@@ -24,12 +24,12 @@ const notifications = ref<NotificationItem[]>([])
 const total = ref(0)
 const currentPage = ref(1)
 const pageSize = 10
+let requestSequence = 0
 
 // 筛选
-type FilterValue = 'ALL' | NotificationType | NotificationSeverity | 'UNREAD' | 'READ'
-const typeFilter = ref<FilterValue>('ALL')
-const severityFilter = ref<FilterValue>('ALL')
-const readFilter = ref<FilterValue>('ALL')
+const typeFilter = ref<'ALL' | NotificationType>('ALL')
+const severityFilter = ref<'ALL' | NotificationSeverity>('ALL')
+const readFilter = ref<'ALL' | 'UNREAD' | 'READ'>('ALL')
 
 // 详情 Modal
 const detailVisible = ref(false)
@@ -85,31 +85,34 @@ const columns = [
 
 // 获取数据
 async function fetchData() {
+  const sequence = ++requestSequence
   loading.value = true
   try {
-    const res = await listNotifications(currentPage.value, pageSize)
-    // 前端筛选（API 不支持筛选参数）
-    let records = res.records
-    if (typeFilter.value !== 'ALL') {
-      records = records.filter(n => n.type === typeFilter.value)
+    const res = await listNotifications(currentPage.value, pageSize, {
+      type: typeFilter.value === 'ALL' ? undefined : typeFilter.value,
+      severity: severityFilter.value === 'ALL' ? undefined : severityFilter.value,
+      isRead: readFilter.value === 'ALL' ? undefined : readFilter.value === 'READ' ? 1 : 0,
+    })
+    // 快速翻页或切换筛选时，仅应用最后一次请求的结果。
+    if (sequence !== requestSequence) return
+    const lastPage = Math.max(1, Math.ceil(res.total / pageSize))
+    // 已读操作可能减少筛选后的页数，回退到有效页重新查询。
+    if (currentPage.value > lastPage) {
+      currentPage.value = lastPage
+      await fetchData()
+      return
     }
-    if (severityFilter.value !== 'ALL') {
-      records = records.filter(n => n.severity === severityFilter.value)
-    }
-    if (readFilter.value === 'UNREAD') {
-      records = records.filter(n => !n.isRead)
-    } else if (readFilter.value === 'READ') {
-      records = records.filter(n => n.isRead)
-    }
-    notifications.value = records
+    notifications.value = res.records
     total.value = res.total
     // 获取未读数量
     const uc = await getUnreadCount()
+    if (sequence !== requestSequence) return
     count.value = uc.count
+    unreadCount.value = uc.count
   } catch {
     // handled by interceptor
   } finally {
-    loading.value = false
+    if (sequence === requestSequence) loading.value = false
   }
 }
 
@@ -135,7 +138,7 @@ async function handleMarkAllRead() {
     const count = await markAllRead()
     if (count >= 0) {
       message.success(`已标记 ${count} 条通知为已读`)
-      fetchData()
+      await fetchData()
     }
   } catch {
     // handled by interceptor
@@ -146,13 +149,13 @@ async function handleMarkAllRead() {
 async function handleRowClick(record: NotificationItem) {
   detailLoading.value = true
   detailVisible.value = true
+  detail.value = null
   try {
     const res = await getNotificationDetail(record.notificationId)
     detail.value = res
     record.isRead = true
-    if (count.value > 0) {
-      count.value--
-    }
+    // 已读状态变化后重新查询，补齐未读筛选的当前页并更新总条数。
+    await fetchData()
   } catch {
     detailVisible.value = false
   } finally {
@@ -169,6 +172,10 @@ onMounted(() => {
   fetchData()
 })
 
+onBeforeUnmount(() => {
+  requestSequence++
+})
+
 // 检查新通知是否匹配当前筛选条件
 function matchesFilter(notif: NotificationItem): boolean {
   if (typeFilter.value !== 'ALL' && notif.type !== typeFilter.value) return false
@@ -183,10 +190,10 @@ watch(unreadCount, (val) => {
   count.value = val
 })
 
-// WebSocket 新通知插入列表顶部（筛选感知）
+// 新通知匹配筛选时重新查询，保证页大小、总条数和排序一致。
 watch(newNotification, (notif) => {
   if (notif && matchesFilter(notif)) {
-    notifications.value.unshift(notif)
+    fetchData()
   }
 })
 </script>
@@ -200,7 +207,7 @@ watch(newNotification, (notif) => {
           <ArrowLeftOutlined />
         </a-button>
         <h2 class="page-title">通知</h2>
-        <span v-if="unreadCount > 0" class="page-unread-count">({{ count }}条未读)</span>
+        <span v-if="count > 0" class="page-unread-count">({{ count }}条未读)</span>
       </div>
       <a class="page-read-all" @click="handleMarkAllRead">全部已读</a>
     </div>
@@ -268,7 +275,7 @@ watch(newNotification, (notif) => {
           onChange: handlePageChange,
         }"
         row-key="notificationId"
-        @row-click="handleRowClick"
+        :custom-row="(record: NotificationItem) => ({ onClick: () => handleRowClick(record) })"
       >
         <template #bodyCell="{ column, record }">
           <!-- 级别：蓝点 + 图标 + 文字 -->

@@ -1,9 +1,9 @@
 import request from './request'
-import type { NotificationListResp, NotificationDetail, UnreadCountResp } from '@/types/notification'
+import type { NotificationListFilters, NotificationListResp, NotificationDetail, UnreadCountResp } from '@/types/notification'
 
-// 获取通知列表（分页）
-export function listNotifications(pageNum: number, pageSize = 10): Promise<NotificationListResp> {
-  return request.get('/notifications', { params: { pageNum, pageSize } })
+// 获取通知列表（服务端筛选与分页）
+export function listNotifications(pageNum: number, pageSize = 10, filters: NotificationListFilters = {}): Promise<NotificationListResp> {
+  return request.get('/notifications', { params: { pageNum, pageSize, ...filters } })
 }
 
 // 获取通知详情（自动标记已读）

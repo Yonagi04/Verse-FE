@@ -4,6 +4,13 @@ export type NotificationType = 'SYSTEM' | 'ANNOUNCEMENT'
 /** 通知严重程度 */
 export type NotificationSeverity = 'INFO' | 'WARNING' | 'CRITICAL'
 
+/** 通知列表筛选参数，省略的条件表示全部 */
+export interface NotificationListFilters {
+  type?: NotificationType
+  severity?: NotificationSeverity
+  isRead?: 0 | 1
+}
+
 /** 通知列表项（GET /notifications records[]） */
 export interface NotificationItem {
   notificationId: string
