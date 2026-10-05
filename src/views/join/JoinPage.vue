@@ -27,6 +27,12 @@ const errorMessage = ref('')
 
 const inviteCode = (route.params.code as string)?.toUpperCase() ?? ''
 
+function getErrorDetails(error: unknown): { code?: string; message: string } {
+  if (!(error instanceof Error)) return { message: '' }
+  const code = 'code' in error && typeof error.code === 'string' ? error.code : undefined
+  return { code, message: error.message }
+}
+
 onMounted(async () => {
   // 1. 获取邀请码公开信息（无需登录，后端公开接口）
   try {
@@ -37,8 +43,7 @@ onMounted(async () => {
       pageState.value = 'unauthenticated'
       return
     }
-    const code = (e as any)?.code
-    const msg = (e as any)?.message || ''
+    const { code, message: msg } = getErrorDetails(e)
     if (code === 'B000304' || code === 'B000325') {
       errorMessage.value = '该邀请码已过期或已被停用'
     } else if (code === 'B000324') {
@@ -83,7 +88,7 @@ async function handleJoin() {
       }, 3000)
     }
   } catch (e: unknown) {
-    const code = (e as any)?.code
+    const { code } = getErrorDetails(e)
     if (code === 'B000305') {
       pageState.value = 'already_joined'
     } else {

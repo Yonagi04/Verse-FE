@@ -20,7 +20,9 @@ export function revokeApiKey(tenantId: string, data: ApiKeyRevokeReqDTO): Promis
 
 // 编辑 API Key（名称 / 过期时间）
 export function updateApiKey(tenantId: string, apiKeyId: string, data: ApiKeyUpdateReqDTO, options?: AxiosRequestConfig): Promise<boolean> {
-  return request.post(`/api-keys/${tenantId}/update`, data, { ...options, params: { apiKeyId } })
+  const config: AxiosRequestConfig = { ...options }
+  config.params = { apiKeyId }
+  return request.post(`/api-keys/${tenantId}/update`, data, config)
 }
 
 /** 按需读取主库预算，支持抽屉取消和局部错误反馈。 */

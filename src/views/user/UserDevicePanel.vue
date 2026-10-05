@@ -54,9 +54,6 @@ function handleKick(device: DeviceInfo) {
         await kickDevice(device.deviceId)
         message.success('设备已踢下线')
         await fetchDevices()
-      } catch (error) {
-        // handled by interceptor
-        throw error
       } finally {
         kicking.value = null
       }

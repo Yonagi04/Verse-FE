@@ -166,11 +166,13 @@ function handleClose() {
             </div>
           </div>
           <div v-if="detail.prompt != null" class="code-block">
+            <!-- eslint-disable vue/no-v-html -- highlightJson escapes source text before adding fixed span markup. -->
             <pre
               class="code-pre"
               :class="promptExpanded ? 'expanded' : 'collapsed'"
               v-html="promptHtml"
             ></pre>
+            <!-- eslint-enable vue/no-v-html -->
             <div v-if="!promptExpanded" class="code-fade"></div>
           </div>
           <div v-else class="code-empty">内容不可用（objectKey 缺失）</div>
@@ -200,11 +202,13 @@ function handleClose() {
             </div>
           </div>
           <div v-if="detail.response != null" class="code-block">
+            <!-- eslint-disable vue/no-v-html -- highlightJson escapes source text before adding fixed span markup. -->
             <pre
               class="code-pre"
               :class="responseExpanded ? 'expanded' : 'collapsed'"
               v-html="responseHtml"
             ></pre>
+            <!-- eslint-enable vue/no-v-html -->
             <div v-if="!responseExpanded" class="code-fade"></div>
           </div>
           <div v-else-if="detail.status === 'FAIL'" class="code-empty">

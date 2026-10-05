@@ -111,7 +111,7 @@ onBeforeUnmount(() => {
 <template>
   <section v-if="visible" class="announcement-banner" aria-label="租户公告">
     <BellOutlined class="banner-bell" aria-hidden="true" />
-    <div ref="viewportElement" class="announcement-viewport" :title="visibleItems.map(item => `${item.title}：${item.content}`).join('　')">
+    <div ref="viewportElement" class="announcement-viewport" :title="visibleItems.map(item => `${item.title}：${item.content}`).join('；')">
       <div
         class="announcement-track"
         :style="marqueeStyle"

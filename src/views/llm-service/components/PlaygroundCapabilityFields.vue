@@ -3,8 +3,10 @@ import { reactive, watch } from 'vue'
 const props = defineProps<{ value?: string }>()
 const emit = defineEmits<{ 'update:value': [value: string] }>()
 const form = reactive({ system: true, temperature: false, tempMin: 0, tempMax: 2, topP: false, topMin: 0, topMax: 1, output: false, maxTokens: 8192 })
+interface NumericRange { min?: number; max?: number }
+interface PlaygroundCapabilitiesConfig { system?: boolean; temperature?: NumericRange; topP?: NumericRange; maxTokens?: number }
 watch(() => props.value, value => {
-  let p: Record<string, any> = {}; try { p = JSON.parse(value || '{}') } catch { /* 未配置时保持禁用。 */ }
+  let p: PlaygroundCapabilitiesConfig = {}; try { const parsed: unknown = JSON.parse(value || '{}'); if (parsed && typeof parsed === 'object') p = parsed as PlaygroundCapabilitiesConfig } catch { /* 未配置时保持禁用。 */ }
   Object.assign(form, { system: p.system !== false, temperature: !!p.temperature, tempMin: p.temperature?.min ?? 0, tempMax: p.temperature?.max ?? 2, topP: !!p.topP, topMin: p.topP?.min ?? 0, topMax: p.topP?.max ?? 1, output: !!p.maxTokens, maxTokens: p.maxTokens || 8192 })
 }, { immediate: true })
 function changed() {

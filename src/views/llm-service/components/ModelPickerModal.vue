@@ -8,7 +8,7 @@ const props = defineProps<{ open: boolean; tenantId: string; excludeServiceId: s
 const emit = defineEmits<{ (e: 'update:open', value: boolean): void; (e: 'select', record: LlmServiceInfo): void }>()
 const keyword = ref(''); const records = ref<LlmServiceInfo[]>([]); const loading = ref(false); const selectedId = ref<string>()
 const selected = computed(() => records.value.find((record) => record.serviceId === selectedId.value))
-async function fetch() { loading.value = true; try { records.value = (await listLlmServices(props.tenantId, 1, 100, keyword.value || undefined)).serviceInfoList.filter((record) => record.serviceId !== props.excludeServiceId) } catch {} finally { loading.value = false } }
+async function fetch() { loading.value = true; try { records.value = (await listLlmServices(props.tenantId, 1, 100, keyword.value || undefined)).serviceInfoList.filter((record) => record.serviceId !== props.excludeServiceId) } catch { /* handled by interceptor */ } finally { loading.value = false } }
 watch(() => props.open, (open) => { if (open) { keyword.value = ''; selectedId.value = undefined; fetch() } }, { immediate: true })
 function confirm() { if (selected.value) { emit('select', selected.value); emit('update:open', false) } }
 function providerDisplayName(slug: string): string { return getProviderBySlug(slug)?.displayName ?? slug }

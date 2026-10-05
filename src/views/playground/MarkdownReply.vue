@@ -34,7 +34,10 @@ function clicked(event: MouseEvent) {
   if (target.closest('.copy-code')) void copyWorkbenchText(target.closest('pre')?.querySelector('code')?.textContent || '')
 }
 </script>
-<template><div class="markdown" @click="clicked" v-html="html" /></template>
+<template>
+  <!-- eslint-disable-next-line vue/no-v-html -- html is sanitized with the explicit DOMPurify allowlist above. -->
+  <div class="markdown" @click="clicked" v-html="html" />
+</template>
 <style lang="scss" scoped>
 .markdown { line-height: 1.8; overflow-wrap: anywhere; :deep(p) { margin: 0 0 12px; } :deep(h1), :deep(h2), :deep(h3) { font-size: $font-size-h3; margin: 18px 0 10px; }
   :deep(pre) { position: relative; padding: 36px 14px 14px; border: 1px solid $color-border; border-radius: $radius-input; background: $color-bg-secondary; overflow-x: auto; }

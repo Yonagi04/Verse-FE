@@ -11,11 +11,20 @@ npm install
 # Dev server (hot reload on port 3000)
 npm run dev
 
+# Lint
+npm run lint
+
 # Type-check
-npx vue-tsc --noEmit
+npm run typecheck
+
+# Unit tests
+npm test
 
 # Production build
 npm run build
+
+# Full local/CI quality gate (lint, production dependency audit, tests, build)
+npm run check
 ```
 
 ## Project Overview
@@ -32,7 +41,7 @@ The backend is a Spring Boot app at `D:\Code\Verse` running on port 8080. In dev
 - **HTTP:** axios 1.7 with centralized interceptors
 - **UI:** ant-design-vue 4 (global install), `@ant-design/icons-vue` for icons
 - **Styles:** SCSS with auto-injected design tokens from `variables.scss`
-- **No:** tests, linters, or formatters are currently configured
+- **Quality gate:** ESLint + Vitest + Vue TypeScript build via `npm run check`
 
 ## Package Architecture
 
