@@ -222,7 +222,15 @@ describe('已登录用户的外部账户绑定失败返回', () => {
   })
   it('认证处理超过查询期限后返回个人信息，清理轮询定时器', async () => {
     await store(); mocks.getFlow.mockResolvedValue(context({ stage: 'AUTHENTICATING', errorReason: null }))
-    vi.useFakeTimers(); await mount(); await vi.advanceTimersByTimeAsync(16000); await settle()
+    vi.useFakeTimers()
+    const startedAt = Date.now()
+    vi.setSystemTime(startedAt)
+    await mount()
+    // 直接越过查询期限，再触发下一轮轮询。避免一次推进 16 秒时依赖
+    // 多轮 setTimeout -> Promise -> setTimeout 在不同 CI 运行时中的排空顺序。
+    vi.setSystemTime(startedAt + 15001)
+    await vi.advanceTimersToNextTimerAsync()
+    await settle()
     expect(mocks.replace).toHaveBeenCalledExactlyOnceWith(profile)
     expect(mocks.message.error).toHaveBeenCalledWith(expect.stringContaining('认证仍在处理中'))
     expect(vi.getTimerCount()).toBe(0)
