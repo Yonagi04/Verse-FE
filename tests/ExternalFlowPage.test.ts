@@ -34,6 +34,15 @@ class MemoryStorage {
   removeItem(key: string) { this.data.delete(key) }
 }
 
+async function deterministicDigest(_algorithm: AlgorithmIdentifier, data: BufferSource): Promise<ArrayBuffer> {
+  const source = data instanceof ArrayBuffer
+    ? new Uint8Array(data)
+    : new Uint8Array(data.buffer as ArrayBuffer, data.byteOffset, data.byteLength)
+  const digest = new Uint8Array(32)
+  source.forEach((value, index) => { digest[index % digest.length] ^= value })
+  return digest.buffer
+}
+
 // 用 Vue 的真实渲染和生命周期验证回调页面，无需浏览器 DOM 或新增测试依赖。
 interface HostNode { type: string; text: string; props: Record<string, any>; children: HostNode[]; parent: HostNode | null }
 const node = (type: string, text = ''): HostNode => ({ type, text, props: {}, children: [], parent: null })
@@ -103,6 +112,9 @@ beforeEach(() => {
   vi.resetAllMocks(); mocks.token = 'session-one'; mocks.user.user.userId = 'verse-user'
   mocks.route = reactive({ path: '/auth/external/callback', fullPath: '/auth/external/callback', query: {}, meta: { layout: 'auth' } })
   vi.stubGlobal('sessionStorage', new MemoryStorage())
+  // 本测试验证页面状态机而非 Web Crypto 性能。使用保留输入差异的确定性摘要，
+  // 避免 GitHub Runner 的 crypto.subtle 线程调度决定页面初始化何时完成。
+  vi.stubGlobal('crypto', { subtle: { digest: vi.fn(deterministicDigest) } })
   vi.stubGlobal('window', { location: { hash: '#flow=' + id, pathname: '/auth/external/callback', search: '', assign: vi.fn() },
     history: { state: {}, replaceState: vi.fn() }, addEventListener: vi.fn(), removeEventListener: vi.fn() })
   mocks.cancelFlow.mockResolvedValue(undefined); mocks.acknowledgeFlow.mockResolvedValue(undefined)
