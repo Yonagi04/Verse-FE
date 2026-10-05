@@ -9,16 +9,30 @@ export function useCancelAccount() {
   const prepareData = ref<CancelPrepareRespDTO | null>(null)
   const code = ref('')
   const countdown = ref(0)
+  const error = ref('')
+  const handoverRequired = ref(false)
   let timer: ReturnType<typeof setInterval> | null = null
+
+  // 保留服务端租户名称；HTTP 错误和业务错误都在注销弹窗内展示。
+  function recordError(failure: unknown, fallback: string) {
+    const details = failure as { code?: string; message?: string; response?: { data?: { code?: string; message?: string } } } | null
+    error.value = details?.response?.data?.message || details?.message || fallback
+    const errorCode = details?.code || details?.response?.data?.code
+    handoverRequired.value = errorCode === 'B000224'
+    return errorCode
+  }
 
   // 获取警告信息
   async function fetchPrepare(): Promise<boolean> {
     loading.value = true
+    error.value = ''
+    handoverRequired.value = false
+    prepareData.value = null
     try {
       prepareData.value = await getCancelPrepare()
       return true
-    } catch {
-      // handled by interceptor
+    } catch (failure) {
+      recordError(failure, '暂时无法检查注销条件，请稍后重试。')
       return false
     } finally {
       loading.value = false
@@ -28,15 +42,15 @@ export function useCancelAccount() {
   // 发送验证码
   async function sendCode(): Promise<boolean> {
     loading.value = true
+    error.value = ''
     try {
       await sendCancelCode()
       message.success('验证码已发送')
       startCountdown()
       return true
-    } catch {
-      // handled by interceptor — 包括 B000211（60秒限流）
-      // 若拦截器已 toast，这里仍然启动倒计时以置灰按钮
-      startCountdown()
+    } catch (failure) {
+      // 只有成功或明确限频才进入倒计时，交接拒绝不表示验证码已发送。
+      if (recordError(failure, '验证码发送失败，请稍后重试。') === 'B000211') startCountdown()
       return false
     } finally {
       loading.value = false
@@ -46,11 +60,12 @@ export function useCancelAccount() {
   // 确认注销
   async function confirm(codeValue: string): Promise<boolean> {
     loading.value = true
+    error.value = ''
     try {
       await confirmCancel({ code: codeValue })
       return true
-    } catch {
-      // handled by interceptor（B000212 验证码错误等）
+    } catch (failure) {
+      recordError(failure, '暂时无法注销，请稍后重试。')
       return false
     } finally {
       loading.value = false
@@ -82,6 +97,8 @@ export function useCancelAccount() {
     code.value = ''
     countdown.value = 0
     prepareData.value = null
+    error.value = ''
+    handoverRequired.value = false
     stopTimer()
   }
 
@@ -96,6 +113,8 @@ export function useCancelAccount() {
     prepareData,
     code,
     countdown,
+    error,
+    handoverRequired,
     fetchPrepare,
     sendCode,
     confirm,

@@ -31,7 +31,7 @@ export function register(data: UserRegisterReqDTO): Promise<UserRegisterRespDTO>
 
 // 登录
 export function login(data: UserLoginReqDTO): Promise<UserLoginRespDTO> {
-  return request.post('/users/login', data)
+  return request.post('/users/login', data, { silentError: true })
 }
 
 // 获取当前用户信息
@@ -76,17 +76,17 @@ export function resetPassword(data: UserResetPasswordReqDTO): Promise<boolean> {
 
 // 获取注销警告信息
 export function getCancelPrepare(): Promise<CancelPrepareRespDTO> {
-  return request.get('/users/account/cancel/prepare')
+  return request.get('/users/account/cancel/prepare', { silentError: true })
 }
 
 // 发送注销验证码
 export function sendCancelCode(): Promise<boolean> {
-  return request.post('/users/account/cancel/sendCode')
+  return request.post('/users/account/cancel/sendCode', undefined, { silentError: true })
 }
 
 // 确认注销
 export function confirmCancel(data: CancelConfirmReqDTO): Promise<boolean> {
-  return request.post('/users/account/cancel/confirm', data)
+  return request.post('/users/account/cancel/confirm', data, { silentError: true })
 }
 
 // 上传头像

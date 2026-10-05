@@ -17,3 +17,16 @@ it('新账号可以独立初始化，旧promise结束不能覆盖新初始化', 
   const old=store.initialize(); store.reset(); await store.initialize(); oldResolve([{tenantId:'old',current:true,role:'SUPER_ADMIN'}]); await old
   expect(store.currentTenantId).toBe('new'); expect(store.initialized).toBe(true); expect(store.currentRole).toBe('MEMBER')
 })
+it('交接立即降级当前租户和权限，旧列表请求不能恢复超管', async () => {
+  const store = useTenantStore()
+  store.tenants = [{tenantId:'20',name:'团队',type:'TEAM',role:'SUPER_ADMIN',current:true} as any]
+  store.setCurrentTenant({tenantId:'20',name:'团队',type:'TEAM',role:'SUPER_ADMIN'})
+  let resolve!: (value: unknown[]) => void
+  mocks.list.mockImplementationOnce(() => new Promise(r => { resolve = r }))
+  const pending = store.fetchTenants()
+  store.updateTenantRole('20','ADMIN')
+  expect(store.currentRole).toBe('ADMIN'); expect(store.tenants[0]?.role).toBe('ADMIN')
+  expect(mocks.role).toHaveBeenLastCalledWith('ADMIN')
+  resolve([{tenantId:'20',name:'团队',type:'TEAM',role:'SUPER_ADMIN',current:true}]); await pending
+  expect(store.currentRole).toBe('ADMIN'); expect(store.tenants[0]?.role).toBe('ADMIN')
+})

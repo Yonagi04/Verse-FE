@@ -537,6 +537,7 @@ async function handleLeaveDone() {
           <TenantMemberTab
             v-if="isCurrentTenant && activeTab === 'members' && tenant.type === 'TEAM'"
             :tenant-id="tenantId"
+            @transferred="tenant.role = 'ADMIN'"
           />
           <TenantInviteTab
             v-if="isCurrentTenant && activeTab === 'invites' && tenant.type === 'TEAM' && canEdit"

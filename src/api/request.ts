@@ -43,8 +43,7 @@ http.interceptors.response.use(
       if (result.code === TENANT_CONTEXT_MISMATCH) {
         void triggerTenantContextRecovery().catch(() => {})
       }
-      // B000218（账号已注销）由登录页弹窗处理，此处不弹 toast
-      if (result.code !== 'B000218' && result.code !== TENANT_CONTEXT_MISMATCH && !response.config.silentError) {
+      if (result.code !== TENANT_CONTEXT_MISMATCH && !response.config.silentError) {
         message.error(result.message || '请求失败')
       }
       const bizError = new Error(result.message || '请求失败') as Error & { code: string }

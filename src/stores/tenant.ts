@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { listTenants, getTenantInfo, switchTenant as switchTenantApi, getTenantMembers, saveTenantPreference } from '@/api/tenant'
 import type { TenantInfoListRespDTO, TenantInfoRespDTO, TenantMembersListRespDTO } from '@/types/tenant'
-import type { TenantInfo } from '@/types/user'
+import type { Role, TenantInfo } from '@/types/user'
 import { usePermissionStore } from '@/stores/permission'
 
 export const useTenantStore = defineStore('tenant', () => {
@@ -39,6 +39,18 @@ export const useTenantStore = defineStore('tenant', () => {
     const permissionStore = usePermissionStore()
     if (tenant) permissionStore.setRole(tenant.role)
     else permissionStore.clearPermissions()
+  }
+
+  /** 同步已成功写入的本人租户角色。 */
+  function updateTenantRole(tenantId: string, role: Role) {
+    // 成功交接后立即收敛权限，并阻止较早的列表请求恢复旧角色。
+    tenantStateRevision++
+    listRequestSequence++
+    isLoading.value = false
+    tenants.value = tenants.value.map((tenant) => tenant.tenantId === tenantId ? { ...tenant, role } : tenant)
+    if (currentTenant.value?.tenantId === tenantId) {
+      setCurrentTenant({ ...currentTenant.value, role })
+    }
   }
 
   /** 刷新租户列表 */
@@ -140,6 +152,7 @@ export const useTenantStore = defineStore('tenant', () => {
     currentRole,
     currentTenantId,
     setCurrentTenant,
+    updateTenantRole,
     fetchTenants,
     initialize,
     fetchTenantInfo,

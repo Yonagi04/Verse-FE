@@ -5,7 +5,7 @@ import { useCancelAccount } from '@/hooks/useCancelAccount'
 
 const props = defineProps<{ visible: boolean; phone: string }>()
 const emit = defineEmits<{ (e: 'close'): void; (e: 'success'): void }>()
-const { loading, prepareData, countdown, fetchPrepare, sendCode, confirm, reset, cleanup } = useCancelAccount()
+const { loading, prepareData, countdown, error, handoverRequired, fetchPrepare, sendCode, confirm, reset, cleanup } = useCancelAccount()
 const prepared = ref(false)
 const prepareFailed = ref(false)
 const form = reactive({ code: '', acknowledged: false })
@@ -25,13 +25,14 @@ watch(() => props.visible, async (visible) => {
   } else cleanup()
 })
 async function handleSendCode() {
-  if (!prepared.value || loading.value || countdown.value > 0) return
-  await sendCode()
-  await nextTick()
-  codeInputRef.value?.focus()
+  if (!prepared.value || handoverRequired.value || loading.value || countdown.value > 0) return
+  if (await sendCode()) {
+    await nextTick()
+    codeInputRef.value?.focus()
+  }
 }
 async function handleConfirm() {
-  if (!prepared.value || loading.value || !form.acknowledged || !/^\d{6}$/.test(form.code)) return
+  if (!prepared.value || handoverRequired.value || loading.value || !form.acknowledged || !/^\d{6}$/.test(form.code)) return
   if (await confirm(form.code)) {
     cleanup()
     emit('success')
@@ -46,10 +47,14 @@ onUnmounted(cleanup)
     <div class="cancel-dialog">
       <div class="dialog-heading"><h3>注销用户</h3><button type="button" class="dialog-close" :disabled="loading" aria-label="关闭" @click="close"><CloseOutlined /></button></div>
       <a-skeleton v-if="loading && !prepared" :paragraph="{ rows: 3 }" aria-label="正在检查账户注销条件" />
-      <div v-else-if="prepareFailed" class="prepare-error"><p>暂时无法继续注销，请处理账户检查提示后重试。</p><a-button @click="prepare"><ReloadOutlined />重新检查</a-button></div>
+      <div v-else-if="prepareFailed || handoverRequired" class="prepare-error">
+        <p class="cancel-alert" role="alert">{{ error || '暂时无法继续注销，请重新检查后重试。' }}</p>
+        <div class="dialog-actions"><a-button @click="close">关闭</a-button><a-button @click="prepare"><ReloadOutlined />重新检查</a-button></div>
+      </div>
       <template v-else-if="prepared">
         <div class="cancel-alert">{{ prepareData?.warningDescription || '注销后将无法登录该账户。请先检查租户归属，并确认已处理相关数据。' }}</div>
         <ul v-if="prepareData?.warningTips?.length" class="warning-tips"><li v-for="(tip, index) in prepareData.warningTips" :key="index">{{ tip }}</li></ul>
+        <p v-if="error" class="cancel-alert" role="alert">{{ error }}</p>
         <a-form class="cancel-form" layout="vertical" :model="form" :disabled="loading" @finish="handleConfirm">
           <a-form-item label="手机验证码" name="code" :rules="[{ required: true, message: '请输入手机验证码' }, { pattern: /^\d{6}$/, message: '请输入 6 位验证码' }]">
             <p class="phone-hint">验证码将发送至 {{ maskedPhone }}</p>
@@ -67,7 +72,7 @@ onUnmounted(cleanup)
 @use './user-center';
 .dialog-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; gap: 16px; h3 { margin: 0; font-size: $font-size-h3; font-weight: 600; } }
 .dialog-close { width: 32px; height: 32px; padding: 0; display: grid; place-items: center; background: transparent; color: $color-text-secondary; border: 0; border-radius: $radius-button; font-size: 18px; cursor: pointer; &:focus-visible { outline: 2px solid $color-primary; } }
-.cancel-alert { padding: 14px 16px; background: theme-alpha('danger', 0.08); border: 1px solid theme-alpha('danger', 0.45); border-radius: $radius-input; font-size: 13px; line-height: 1.8; margin-bottom: 16px; white-space: pre-wrap; }
+.cancel-alert { padding: 14px 16px; background: theme-alpha('danger', 0.08); border: 1px solid theme-alpha('danger', 0.45); border-radius: $radius-input; font-size: 13px; line-height: 1.8; margin-bottom: 16px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .warning-tips { padding-left: 20px; color: $color-text-secondary; font-size: 13px; line-height: 1.8; li { margin: 6px 0; } }
 .cancel-form { margin-top: 20px; }
 .phone-hint { margin: 0 0 8px; font-size: $font-size-caption; color: $color-text-secondary; }

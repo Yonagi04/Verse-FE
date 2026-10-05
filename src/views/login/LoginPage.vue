@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { message } from 'ant-design-vue'
 import { useUserStore } from '@/stores/user'
 import { useTenantStore } from '@/stores/tenant'
 import AuthShell from '@/components/auth/AuthShell.vue'
@@ -16,32 +15,36 @@ const router = useRouter(); const route = useRoute(); const user = useUserStore(
 const form = reactive({ username: '', password: '' }); const loading = ref(false); const error = ref('')
 const providers = ref<ProviderInfo[]>([]); const providerLoading = ref<ExternalProvider | null>(null); const providersFailed = ref(false)
 const { context, load } = useExternalAuthFlow(); const pending = ref(false); const invalidPending = ref(false); const verifyOpen = ref(false)
-const deactivatedVisible = ref(false); const deactivatedMessage = ref('')
+const errorTitle = ref('')
+function showError(failure: unknown) {
+  const detail = failure as { code?: string; response?: { data?: { code?: string } } }
+  errorTitle.value = (detail.response?.data?.code || detail.code) === 'B000218' ? '账号已注销' : ''
+  error.value = errorMessage(failure)
+}
 async function loadProviders() { try { providers.value = await external.getProviders(); providersFailed.value = false } catch { providersFailed.value = true } }
 async function checkPending() {
   if (typeof route.query.flow !== 'string') return
   try { const result = await load(route.query.flow); if (result.stage !== 'EXISTING_ACCOUNT_LOGIN') throw new Error('此绑定流程已无法续接，请重新认证'); pending.value = true; if (user.isLoggedIn) await user.fetchProfile() }
-  catch (e) { error.value = errorMessage(e); invalidPending.value = true }
+  catch (e) { showError(e); invalidPending.value = true }
 }
 onMounted(() => { void loadProviders(); void checkPending(); window.addEventListener('verse-session-changed', sessionChanged) })
 onUnmounted(() => { form.password = ''; window.removeEventListener('verse-session-changed', sessionChanged) })
 function sessionChanged() { verifyOpen.value = false; form.password = ''; void checkPending() }
 async function start(provider: ExternalProvider) {
   if (providerLoading.value || loading.value) return
-  providerLoading.value = provider; error.value = ''
+  providerLoading.value = provider; error.value = ''; errorTitle.value = ''
   try { await cancelStoredFlows(); await leaveForAuthorization(await external.startExternalLogin(provider), provider, 'LOGIN') }
-  catch (e) { error.value = errorMessage(e); providerLoading.value = null }
+  catch (e) { showError(e); providerLoading.value = null }
 }
 async function submit() {
   if (loading.value || invalidPending.value) return
-  loading.value = true; error.value = ''
+  loading.value = true; error.value = ''; errorTitle.value = ''
   // 密码只在当前提交闭包中使用，登录成功后不保存在表单中。
   const password = form.password
-  let loginSucceeded = false
   try {
     // 普通登录放弃外部流程；已有账号绑定只保留正在续接的当前流程。
     await cancelStoredFlows(pending.value ? context.value?.flowId : undefined)
-    await user.login({ ...form }); loginSucceeded = true; form.password = ''
+    await user.login({ ...form }); form.password = ''
     if (pending.value && context.value) {
       const flow = readFlow(context.value.flowId)
       const proof = await external.reauthExternal({ password, action: 'ATTACH', provider: context.value.provider, flowId: flow.flowId })
@@ -51,24 +54,22 @@ async function submit() {
     const redirect = route.query.redirect
     await router.replace(typeof redirect === 'string' && redirect.startsWith('/') && !redirect.startsWith('//') && !redirect.includes('\\') ? redirect : '/dashboard')
   } catch (e) {
-    error.value = errorMessage(e)
-    // 登录错误由请求拦截器提示；后续绑定请求静默处理，需要在此弹出 toast。
-    if (loginSucceeded) message.error(errorMessage(e))
-    if ((e as { code?: string }).code === 'B000218') { deactivatedVisible.value = true; deactivatedMessage.value = errorMessage(e) }
+    // 登录及后续绑定请求均静默处理，错误只在登录业务区呈现。
+    showError(e)
   } finally { loading.value = false }
 }
 async function attach(token: string) {
   if (!context.value) return
   verifyOpen.value = false
   try { const flow = readFlow(context.value.flowId); await external.attachCurrentUser(flow.flowId, flow.flowToken, token); await router.replace(`/profile/external-account/confirm?flow=${flow.flowId}`) }
-  catch (e) { error.value = errorMessage(e) }
+  catch (e) { showError(e) }
 }
 async function useOtherAccount() { await user.signOut(); form.password = '' }
 </script>
 <template>
   <AuthShell>
     <div class="eyebrow">{{ pending ? 'CONNECT YOUR ACCOUNT' : 'WELCOME BACK' }}</div><h2>{{ pending ? '登录后绑定你的账号' : '欢迎回来' }}</h2><p class="intro">{{ pending ? '使用你的 Verse 账号继续，确认后才会建立绑定。' : '用你熟悉的方式，登录 Verse。' }}</p>
-    <a-alert v-if="error" role="alert" type="error" :message="error" show-icon class="error" />
+    <a-alert v-if="error" role="alert" type="error" :message="errorTitle || error" :description="errorTitle ? error : undefined" show-icon class="error" />
     <ExternalAccountSummary v-if="pending && context" :provider="context.provider" :account="context.externalAccount" />
     <template v-if="!pending && !invalidPending">
       <ExternalProviderButtons :providers="providers" :loading="providerLoading" :disabled="loading" @select="start" />
@@ -85,7 +86,6 @@ async function useOtherAccount() { await user.signOut(); form.password = '' }
     <div class="register-link">还没有 Verse 账号？<router-link to="/register" custom v-slot="{href,navigate}"><a-button type="link" :href="href" @click="navigate">创建账号</a-button></router-link></div>
     <p class="login-note">外部账户关联多个账号时，你可以选择本次登录的账号。</p>
     <RecentPasswordVerifyModal v-if="context" :open="verifyOpen" :input="{ action:'ATTACH', provider:context.provider, flowId:context.flowId }" @verified="attach" @close="verifyOpen = false" />
-    <a-modal v-model:open="deactivatedVisible" title="账号已注销" :footer="null"><p>{{ deactivatedMessage }}</p></a-modal>
   </AuthShell>
 </template>
 <style lang="scss" scoped>

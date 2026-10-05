@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { ref, computed, watch, h } from 'vue'
+import { ref, computed, watch, h, onBeforeUnmount } from 'vue'
 import { message, Modal } from 'ant-design-vue'
 import { ExclamationCircleOutlined } from '@ant-design/icons-vue'
 import { useTenantStore } from '@/stores/tenant'
 import { useUserStore } from '@/stores/user'
-import { updateMemberRole, removeMember, getUnreviewedJoinRequestCount } from '@/api/tenant'
+import { updateMemberRole, transferSuperAdmin, removeMember, getUnreviewedJoinRequestCount } from '@/api/tenant'
 import { formatDate } from '@/utils/date'
 import TenantJoinRequestPanel from './TenantJoinRequestPanel.vue'
 import UserPublicProfileModal from './UserPublicProfileModal.vue'
@@ -14,15 +14,20 @@ import type { TenantMemberInfo, TenantMembersListRespDTO } from '@/types/tenant'
 const props = defineProps<{
   tenantId: string
 }>()
+const emit = defineEmits<{ transferred: [] }>()
 
 const tenantStore = useTenantStore()
 const userStore = useUserStore()
 
 const membersData = ref<TenantMembersListRespDTO | null>(null)
 const loading = ref(false)
+let memberRequestSequence = 0
 const pageNum = ref(1)
 const pageSize = ref(10)
 const roleLoading = ref<string | null>(null)
+let transferModal: ReturnType<typeof Modal.confirm> | null = null
+let disposed = false
+onBeforeUnmount(() => { disposed = true; transferModal?.destroy() })
 
 // Sub-tab state: only for ADMIN/SUPER_ADMIN
 const memberSubTab = ref<'members' | 'approval'>('members')
@@ -64,6 +69,10 @@ function getAvailableRoles(targetRole: string): string[] {
   return allRoles
 }
 
+function canTransferTo(member: TenantMemberInfo): boolean {
+  return currentUserRole.value === 'SUPER_ADMIN' && member.role === 'ADMIN' && !isCurrentUser(member)
+}
+
 function isCurrentUser(member: TenantMemberInfo): boolean {
   return String(member.userId) === userStore.user?.userId
 }
@@ -81,13 +90,16 @@ const columns = computed(() => {
 })
 
 async function fetchMembers() {
+  const sequence = ++memberRequestSequence
+  const tenantId = props.tenantId
   loading.value = true
   try {
-    membersData.value = await tenantStore.fetchMembers(props.tenantId, pageNum.value, pageSize.value)
+    const result = await tenantStore.fetchMembers(tenantId, pageNum.value, pageSize.value)
+    if (sequence === memberRequestSequence && props.tenantId === tenantId && !disposed) membersData.value = result
   } catch {
     // handled by interceptor
   } finally {
-    loading.value = false
+    if (sequence === memberRequestSequence) loading.value = false
   }
 }
 
@@ -102,6 +114,9 @@ async function fetchPendingCount() {
 }
 
 watch(() => props.tenantId, () => {
+  transferModal?.destroy()
+  transferModal = null
+  membersData.value = null
   pageNum.value = 1
   pageSize.value = 10
   memberSubTab.value = 'members'
@@ -111,6 +126,10 @@ watch(() => props.tenantId, () => {
 watch([pageNum, pageSize], () => { fetchMembers() })
 
 async function handleRoleChange(member: TenantMemberInfo, newRole: string) {
+  if (newRole === 'TRANSFER_SUPER_ADMIN') {
+    handleTransfer(member)
+    return
+  }
   if (member.role === newRole) return
   roleLoading.value = member.userId
   try {
@@ -122,6 +141,52 @@ async function handleRoleChange(member: TenantMemberInfo, newRole: string) {
   } finally {
     roleLoading.value = null
   }
+}
+
+function handleTransfer(member: TenantMemberInfo) {
+  if (!canTransferTo(member) || transferModal || roleLoading.value) return
+  const tenantId = props.tenantId
+  const memberId = member.userId
+  const operatorId = userStore.user?.userId
+  let submitting = false
+  transferModal = Modal.confirm({
+    title: '交接超级管理员',
+    icon: h(ExclamationCircleOutlined, { style: 'color: var(--verse-adaptive-warning, #faad14)' }),
+    content: h('div', [
+      '即将把租户的超级管理员权限交接给', h('strong', member.nickname || member.username),
+      '，您将转为管理员，确定继续吗？',
+    ]),
+    okText: '确认交接',
+    cancelText: '取消',
+    onCancel: () => { transferModal = null },
+    onOk: async () => {
+      if (submitting || disposed || props.tenantId !== tenantId || !canTransferTo(member)) return
+      submitting = true
+      roleLoading.value = memberId
+      let completed = false
+      transferModal?.update({ cancelButtonProps: { disabled: true }, keyboard: false, closable: false })
+      try {
+        await transferSuperAdmin(tenantId, memberId)
+        completed = true
+        if (userStore.user?.userId !== operatorId) return
+        tenantStore.updateTenantRole(tenantId, 'ADMIN')
+        if (!disposed && props.tenantId === tenantId) {
+          emit('transferred')
+          membersData.value?.tenantMembers.forEach((item) => {
+            if (item.userId === userStore.user?.userId) item.role = 'ADMIN'
+            if (item.userId === memberId) item.role = 'SUPER_ADMIN'
+          })
+          message.success('超级管理员已交接，您已转为管理员')
+          await fetchMembers()
+        }
+      } finally {
+        roleLoading.value = null
+        if (completed) transferModal = null
+        else transferModal?.update({ cancelButtonProps: { disabled: false }, keyboard: true })
+        submitting = false
+      }
+    },
+  })
 }
 
 function handleRemove(member: TenantMemberInfo) {
@@ -228,6 +293,7 @@ function handleRemove(member: TenantMemberInfo) {
                 size="small"
                 style="width: 110px;"
                 :loading="roleLoading === record.userId"
+                :disabled="roleLoading !== null"
                 @change="(val: string) => handleRoleChange(record, val)"
               >
                 <a-select-option
@@ -237,8 +303,11 @@ function handleRemove(member: TenantMemberInfo) {
                 >
                   {{ ROLE_LABELS[r] }}
                 </a-select-option>
+                <a-select-option v-if="canTransferTo(record)" value="TRANSFER_SUPER_ADMIN">
+                  交接超级管理员
+                </a-select-option>
               </a-select>
-              <a-button type="link" danger size="small" @click="handleRemove(record)">
+              <a-button type="link" danger size="small" :disabled="roleLoading !== null" @click="handleRemove(record)">
                 移除
               </a-button>
             </div>

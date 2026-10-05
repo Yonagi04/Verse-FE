@@ -215,6 +215,11 @@ export function updateMemberRole(tenantId: string, memberId: string, data: Tenan
   return request.post(`/tenants/${tenantId}/members/${memberId}/role`, data)
 }
 
+// 将超级管理员交接给本租户管理员
+export function transferSuperAdmin(tenantId: string, memberId: string): Promise<boolean> {
+  return request.post(`/tenants/${tenantId}/members/${memberId}/transfer-super-admin`)
+}
+
 // 移除成员
 export function removeMember(tenantId: string, memberId: string): Promise<boolean> {
   return request.delete(`/tenants/${tenantId}/members/${memberId}/remove`)
