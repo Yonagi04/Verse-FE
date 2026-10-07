@@ -2,7 +2,7 @@
 import { reactive, ref, watch, computed } from 'vue'
 import { message } from 'ant-design-vue'
 import type { FormInstance } from 'ant-design-vue'
-import { getLlmServiceInfo, updateLlmService, listLlmServices, listLlmServiceTags } from '@/api/llmService'
+import { getLlmServiceInfo, updateLlmService, listAllLlmServices, listLlmServiceTags } from '@/api/llmService'
 import { getProviderBySlug } from '@/constants/providers'
 import ProviderLogo from '@/components/ProviderLogo.vue'
 import ModelMetadataFields from './components/ModelMetadataFields.vue'
@@ -85,9 +85,9 @@ watch(
     tagCodes.value = []; contextWindow.value = null; maxOutputTokens.value = null; pricing.value = { enabled: false }; originalSnapshot.value = null
     fetching.value = true
     try {
-      const [info, resp, dictionary] = await Promise.all([
+      const [info, models, dictionary] = await Promise.all([
         getLlmServiceInfo(props.tenantId, props.record.serviceId),
-        listLlmServices(props.tenantId, 1, 200),
+        listAllLlmServices(props.tenantId),
         listLlmServiceTags(),
       ])
       form.name = info.name
@@ -107,7 +107,7 @@ watch(
       pricing.value = info.pricing
       playgroundSettings.value = info.providerSettings?.playground || ''
       originalSnapshot.value = structuredClone(info)
-      fallbackServices.value = (resp.serviceInfoList ?? []).filter(
+      fallbackServices.value = models.filter(
         (s) => s.serviceId !== props.record?.serviceId,
       )
     } catch {

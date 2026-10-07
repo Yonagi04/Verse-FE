@@ -2,7 +2,7 @@
 import { ref, watch, computed } from 'vue'
 import { message } from 'ant-design-vue'
 import { CopyOutlined } from '@ant-design/icons-vue'
-import { getLlmServiceInfo, listLlmServices } from '@/api/llmService'
+import { getLlmServiceInfo, listAllLlmServices } from '@/api/llmService'
 import { getProviderBySlug } from '@/constants/providers'
 import { formatDateTime } from '@/utils/date'
 import ProviderLogo from '@/components/ProviderLogo.vue'
@@ -72,12 +72,12 @@ watch(
     info.value = null
     services.value = []
     try {
-      const [detail, resp] = await Promise.all([
+      const [detail, models] = await Promise.all([
         getLlmServiceInfo(props.tenantId, props.record.serviceId),
-        listLlmServices(props.tenantId, 1, 200),
+        listAllLlmServices(props.tenantId),
       ])
       info.value = detail
-      services.value = resp.serviceInfoList ?? []
+      services.value = models
     } catch {
       // handled by interceptor
     } finally {

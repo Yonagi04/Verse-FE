@@ -1,6 +1,7 @@
 import request from './request'
 import type {
   LlmServiceAddReqDTO,
+  LlmServiceInfo,
   LlmServiceInfoRespDTO,
   LlmServiceListRespDTO,
   LlmServiceRemovePreRespDTO,
@@ -25,6 +26,18 @@ export function listLlmServices(
   return request.get(`/llm-service/${tenantId}/list`, {
     params: { pageNum, pageSize, ...(keyword ? { keyword } : {}), ...(tagCodes?.length ? { tagCodes: tagCodes.join(',') } : {}) },
   })
+}
+
+// 备用模型选择需要完整列表；每次请求遵守后端上限，顺序翻页避免并发请求突增。
+export async function listAllLlmServices(tenantId: string): Promise<LlmServiceInfo[]> {
+  const pageSize = 100
+  const first = await listLlmServices(tenantId, 1, pageSize)
+  const services = [...first.serviceInfoList]
+  for (let page = 2; page <= first.totalPages; page++) {
+    const result = await listLlmServices(tenantId, page, pageSize)
+    services.push(...result.serviceInfoList)
+  }
+  return services
 }
 
 export function listLlmServiceTags(): Promise<TagInfo[]> {
