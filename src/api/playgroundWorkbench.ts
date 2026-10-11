@@ -1,4 +1,5 @@
 import request from './request'
+import { playgroundFailure } from '@/utils/playgroundCostError'
 import { getToken, clearAuth } from '@/utils/auth'
 import { triggerTenantContextRecovery } from '@/utils/tenantContextRecovery'
 import type { Attempt, WorkbenchResource, WorkbenchModel, WorkbenchEvent, WorkbenchConfig } from '@/types/playgroundWorkbench'
@@ -25,7 +26,7 @@ export async function streamWorkbenchAttempt(t: string, id: string, signal: Abor
     const result = await response.json().catch(() => null)
     if (response.status === 401 && ['A000210', 'A000212'].includes(result?.code)) { clearAuth(); window.location.href = '/login' }
     if (result?.code === 'B000338') void triggerTenantContextRecovery().catch(() => {})
-    throw new Error(result?.message || `流式连接失败（${response.status}）`)
+    throw playgroundFailure(result, response.status)
   }
   if (!response.body) throw new Error('流式连接不可用')
   const reader = response.body.getReader(), decoder = new TextDecoder()

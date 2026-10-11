@@ -49,7 +49,7 @@ function setPeriods(periods: PeakPeriod[]) {
 <template>
   <a-form-item label="启用预估计费">
     <a-switch :checked="enabled" @update:checked="setEnabled" />
-    <span class="switch-tip">关闭后模型仍可调用</span>
+    <span class="switch-tip">关闭预估计费前需先关闭成本限额；实际调用仍受其他规则约束</span>
   </a-form-item>
   <template v-if="enabled && pricing">
     <a-form-item label="计费方式"><a-radio-group :value="mode" @update:value="setMode"><a-radio value="TOKEN">按 Token</a-radio><a-radio value="REQUEST">按成功请求</a-radio></a-radio-group></a-form-item>

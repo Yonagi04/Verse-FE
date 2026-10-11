@@ -1,4 +1,9 @@
 <script setup lang="ts">
+import LlmCostBudgetFormSection from './components/LlmCostBudgetFormSection.vue'
+import { emptyCostDraft, buildCostLimitPatch } from '@/utils/costBudget'
+import { emptyWarning, buildWarningPatch, pricingEligible } from '@/utils/llmCostBudget'
+import { useTenantStore } from '@/stores/tenant'
+
 import { computed, reactive, ref, watch } from 'vue'
 import { message } from 'ant-design-vue'
 import type { FormInstance } from 'ant-design-vue'
@@ -46,6 +51,13 @@ const tagCodes = ref<string[]>([])
 const contextWindow = ref<number | null>(null)
 const maxOutputTokens = ref<number | null>(null)
 const pricing = ref<PricingRequest>({ enabled: false })
+const tenantStore = useTenantStore()
+const costDraft = ref(emptyCostDraft()), costWarning = ref(emptyWarning()), costError = ref('')
+function updatePricing(value: PricingRequest) {
+  if (!value.enabled && costDraft.value.enabled) { costError.value = '成本限额已开启，请先关闭成本限额，再关闭模型价格。'; return }
+  costError.value = ''; pricing.value = value
+}
+
 
 const rules = {
   name: [
@@ -59,9 +71,10 @@ const rules = {
 }
 
 watch(
-  () => props.visible,
-  (v) => {
+  () => [props.visible, props.tenantId, tenantStore.currentTenantId, tenantStore.currentRole] as const,
+  ([v]) => {
     if (v) {
+      costDraft.value = emptyCostDraft(); costWarning.value = emptyWarning(); costError.value = ''
       playgroundSettings.value = ''
       form.name = ''
       form.provider = ''
@@ -118,6 +131,13 @@ async function handleCreate() {
     if (!peaks.valid) { message.error(peaks.message!); return }
   }
 
+  let costLimit, warning
+  try {
+    if (costDraft.value.enabled && !pricingEligible(pricing.value)) throw new Error('请先配置模型价格')
+    costLimit = buildCostLimitPatch(costDraft.value)
+    warning = buildWarningPatch(costWarning.value, costDraft.value, pricingEligible(pricing.value))
+  } catch (error) { costError.value = (error as Error).message; return }
+  if (tenantStore.currentTenantId !== props.tenantId) return
   loading.value = true
   try {
     const payload: LlmServiceAddReqDTO = {
@@ -133,7 +153,7 @@ async function handleCreate() {
       ...(contextWindow.value != null ? { contextWindow: contextWindow.value } : {}),
       ...(maxOutputTokens.value != null ? { maxOutputTokens: maxOutputTokens.value } : {}),
       ...(playgroundEnabled.value && playgroundSettings.value ? { providerSettings: { playground: playgroundSettings.value } } : {}),
-      pricing: pricing.value,
+      pricing: pricing.value, costLimit, costWarning: warning,
     }
     await addLlmService(props.tenantId, payload)
     message.success('已添加')
@@ -214,7 +234,7 @@ async function handleCreate() {
           v-model:value="form.description"
           placeholder="简要说明模型的适用场景与特点（可选）"
           :maxlength="100"
-          :auto-size="{ minRows: 3, maxRows: 5 }"
+          :rows="4" style="resize: none"
           show-count
         />
       </a-form-item>
@@ -249,7 +269,9 @@ async function handleCreate() {
         />
       </a-form-item>
 
-      <PricingFormSection v-model="pricing" />
+      <PricingFormSection :model-value="pricing" @update:model-value="updatePricing" />
+        <a-alert v-if="costError" type="warning" :message="costError" />
+        <LlmCostBudgetFormSection v-model="costDraft" v-model:warning="costWarning" :pricing-eligible="pricingEligible(pricing)" :tenant-id="tenantId" />
       <PlaygroundCapabilityFields v-if="playgroundEnabled" v-model:value="playgroundSettings" />
     </a-form>
 

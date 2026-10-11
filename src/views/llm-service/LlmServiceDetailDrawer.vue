@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue'
+import LlmCostBudgetStatus from './components/LlmCostBudgetStatus.vue'
+import { ref, watch, computed, onBeforeUnmount } from 'vue'
+import { useTenantStore } from '@/stores/tenant'
 import { message } from 'ant-design-vue'
 import { CopyOutlined } from '@ant-design/icons-vue'
 import { getLlmServiceInfo, listAllLlmServices } from '@/api/llmService'
@@ -15,16 +17,36 @@ const props = defineProps<{
   tenantId: string
   record: LlmServiceInfo | null
   dictionary?: TagInfo[] | null
+  canAdjustBudget?: boolean
 }>()
 
 const emit = defineEmits<{
   (e: 'update:visible', value: boolean): void
   (e: 'compare', record: LlmServiceInfo): void
+  (e: 'budget', record: LlmServiceInfo): void
 }>()
 
 const loading = ref(false)
 const info = ref<LlmServiceInfoRespDTO | null>(null)
 const services = ref<LlmServiceInfo[]>([])
+const tenantStore = useTenantStore()
+let detailRevision = 0
+let pendingBudget: { tenantId: string; record: LlmServiceInfo } | null = null
+
+function handleAdjustBudget() {
+  if (!props.record || !props.canAdjustBudget) return
+  pendingBudget = { tenantId: props.tenantId, record: props.record }
+  emit('update:visible', false)
+}
+function handleOpenChange(open: boolean) {
+  if (open || !pendingBudget) return
+  const pending = pendingBudget
+  pendingBudget = null
+  if (!props.visible && props.canAdjustBudget && pending.tenantId === props.tenantId
+    && tenantStore.currentTenantId === pending.tenantId && pending.record.serviceId === props.record?.serviceId) {
+    emit('budget', pending.record)
+  }
+}
 
 const rateLimitText = computed(() => {
   const rpm = info.value?.rateLimitRpm
@@ -65,26 +87,31 @@ const peakSummary = computed(() => {
 })
 
 watch(
-  () => props.visible,
-  async (v) => {
-    if (!v || !props.record) return
-    loading.value = true
+  () => [props.visible, props.tenantId, props.record?.serviceId, tenantStore.currentRole, tenantStore.currentTenantId],
+  async () => {
+    const ticket = ++detailRevision
+    loading.value = false
     info.value = null
     services.value = []
+    if (!props.visible || !props.record || tenantStore.currentTenantId !== props.tenantId) return
+    loading.value = true
     try {
       const [detail, models] = await Promise.all([
         getLlmServiceInfo(props.tenantId, props.record.serviceId),
         listAllLlmServices(props.tenantId),
       ])
+      if (ticket !== detailRevision) return
       info.value = detail
       services.value = models
     } catch {
       // handled by interceptor
     } finally {
-      loading.value = false
+      if (ticket === detailRevision) loading.value = false
     }
   },
+  { immediate: true, flush: 'sync' },
 )
+onBeforeUnmount(() => { detailRevision++ })
 
 function providerDisplayName(slug: string): string {
   return getProviderBySlug(slug)?.displayName ?? slug
@@ -111,9 +138,10 @@ function handleCompare() {
   <a-drawer
     :open="visible"
     title="模型服务详情"
-    :width="520"
+    width="min(600px, 100vw)"
     :mask-closable="false"
     @close="handleClose"
+    @after-open-change="handleOpenChange"
   >
     <a-spin :spinning="loading">
       <template v-if="info">
@@ -182,7 +210,7 @@ function handleCompare() {
           <span class="detail-label">计费</span>
           <span class="detail-value">
             <a-tag :color="pricingEnabled ? 'blue' : 'default'">{{ billingLabel }}</a-tag>
-            <div v-if="!pricingEnabled" class="billing-hint">模型仍可调用，但不会进入费用统计</div>
+            <div v-if="!pricingEnabled" class="billing-hint">未配置有效价格的调用不累计预估费用；是否可调用仍以服务端校验为准。</div>
           </span>
         </div>
         <template v-if="pricingEnabled">
@@ -213,6 +241,7 @@ function handleCompare() {
       <a-button style="margin-right: 8px" @click="handleCompare">模型对比</a-button>
       <a-button type="primary" @click="handleClose">关闭</a-button>
     </template>
+    <LlmCostBudgetStatus v-if="visible && record" :tenant-id="tenantId" :service-id="record.serviceId" :visible="visible" :can-adjust="canAdjustBudget" @adjust="handleAdjustBudget" />
   </a-drawer>
 </template>
 

@@ -1,6 +1,9 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { Modal } from 'ant-design-vue'
 import Decimal from 'decimal.js'
+import { costFailureDescription, isCostFailure, type PlaygroundFailure } from '@/utils/playgroundCostError'
+import { listLlmCostStatuses } from '@/api/llmCostBudget'
+import type { LlmCostStatusBase } from '@/types/llmCostBudget'
 import { useTenantStore } from '@/stores/tenant'
 import { useUserStore } from '@/stores/user'
 import { usePlaygroundStore } from '@/stores/playground'
@@ -22,6 +25,17 @@ export function useWorkbench() {
   const active = ref<WorkbenchResource | null>(null), config = ref<WorkbenchConfig>({ lanes: [], synced: true })
   const prompt = ref(''), loading = ref(false), working = ref(false), streamError = ref('')
   const selectedAttempts = ref<Record<string, string>>({})
+  const recoverablePrompt = ref(''), budgetStates = ref<Record<string, LlmCostStatusBase['budgetState']>>({})
+  const canRestorePrompt = computed(() => !!recoverablePrompt.value && !busy.value)
+  function restorePrompt() { if (!prompt.value && canRestorePrompt.value) prompt.value = recoverablePrompt.value }
+  async function refreshBudgets() {
+    const t = tenant.value, ticket = revision
+    if (!t || !models.value.length) return
+    try {
+      const status = await listLlmCostStatuses(t, models.value.slice(0, 100).map(m => m.serviceId))
+      if (ticket === revision && t === tenant.value) budgetStates.value = Object.fromEntries(status.items.map(item => [item.serviceId, item.budgetState]))
+    } catch { if (ticket === revision) budgetStates.value = {} }
+  }
   let revision = 0, view = 0, pollTimer: ReturnType<typeof setTimeout> | undefined
   let listRevision = 0, listKeyword = ''
   const controllers = new Map<string, AbortController>()
@@ -64,7 +78,7 @@ export function useWorkbench() {
     return list.find(a => a.attemptId === selectedAttempts.value[`${round}:${laneId}`]) || list.at(-1)
   }
   function draft(next?: WorkbenchConfig) {
-    view++; active.value = null; selectedAttempts.value = {}; streamError.value = ''; prompt.value = ''; pendingRound = null
+    view++; recoverablePrompt.value = ''; active.value = null; selectedAttempts.value = {}; streamError.value = ''; prompt.value = ''; pendingRound = null
     // 新草稿默认单模型；添加模型后自然进入并排对比。
     config.value = next ? editable(next) : { lanes: [lane()], synced: true }
   }
@@ -86,7 +100,7 @@ export function useWorkbench() {
     try {
       const result = await api.workbenchDetail(t, id)
       if (ticket !== revision || screen !== view) return
-      active.value = result; config.value = editable(result.payload); prompt.value = ''; streamError.value = ''; selectedAttempts.value = {}
+      recoverablePrompt.value = ''; active.value = result; config.value = editable(result.payload); prompt.value = ''; streamError.value = ''; selectedAttempts.value = {}
       schedulePoll()
     } catch { /* 统一拦截器已提示。 */ }
     finally { if (ticket === revision && screen === view) loading.value = false }
@@ -134,10 +148,17 @@ export function useWorkbench() {
         if (!item) return
         if (e.type === 'accepted') item.status = 'STREAMING'
         else if (e.type === 'delta') { item.reply += e.text || ''; item.status = 'STREAMING' }
-        else Object.assign(item, e)
+        else { Object.assign(item, e); if (e.type === 'error' && isCostFailure(e.error?.code)) { recoverablePrompt.value = item.prompt; void refreshBudgets() } }
       })
     } catch (error) {
-      if (ticket === revision && screen === view && !controller.signal.aborted) streamError.value = error instanceof Error ? error.message : '流式连接中断'
+      if (ticket === revision && screen === view && !controller.signal.aborted) {
+        const failure = error as PlaygroundFailure
+        const item = attempts.value.find(x => x.attemptId === a.attemptId)
+        if (item && isCostFailure(failure.code)) {
+          item.status = 'FAILED'; item.error = { code: failure.code!, message: failure.message, data: failure.data, httpStatus: failure.httpStatus }
+          recoverablePrompt.value = item.prompt; void refreshBudgets()
+        } else streamError.value = error instanceof Error ? error.message : '流式连接中断'
+      }
     } finally { if (controllers.get(a.attemptId) === controller) controllers.delete(a.attemptId) }
   }
   async function send(override?: string) {
@@ -161,8 +182,12 @@ export function useWorkbench() {
       pendingRound = null; prompt.value = ''; active.value.generating = result.attempts.some(isActive)
       const existing = new Set(attempts.value.map(a => a.attemptId)); active.value.attempts = [...attempts.value, ...result.attempts.filter(a => !existing.has(a.attemptId))]
       schedulePoll(); await Promise.allSettled(result.attempts.map(a => run(a, t, ticket, screen)))
+      if (ticket === revision && screen === view && result.attempts.length
+        && result.attempts.every(a => isCostFailure(attempts.value.find(x => x.attemptId === a.attemptId)?.error?.code))) {
+        recoverablePrompt.value = question; if (!prompt.value) prompt.value = question
+      }
       if (ticket === revision && screen === view) { active.value.generating = false; await refreshLists(); schedulePoll() }
-    } catch { /* 统一拦截器已提示，保留问题和幂等键。 */ }
+    } catch (error) { const failure = error as PlaygroundFailure; if (ticket === revision && screen === view && isCostFailure(failure.code)) streamError.value = costFailureDescription(failure.code, failure.data) || failure.message }
     finally { if (ticket === revision && screen === view) working.value = false }
   }
   async function retry(a: Attempt) {
@@ -228,7 +253,7 @@ export function useWorkbench() {
   function clear() {
     revision++; view++; for (const controller of controllers.values()) controller.abort(); controllers.clear(); clearTimeout(pollTimer)
     active.value = null; groups.value = []; presets.value = []; legacy.value = []; models.value = []; examples.value = []; listKeyword = ''; listRevision++
-    config.value = { lanes: [], synced: true }; prompt.value = ''; selectedAttempts.value = {}; pendingRound = null; retryKeys.clear(); working.value = false; loading.value = false; streamError.value = ''
+    recoverablePrompt.value = ''; budgetStates.value = {}; config.value = { lanes: [], synced: true }; prompt.value = ''; selectedAttempts.value = {}; pendingRound = null; retryKeys.clear(); working.value = false; loading.value = false; streamError.value = ''
   }
   watch([tenant, () => userStore.user?.userId], async ([t]) => {
     clear(); const ticket = revision
@@ -239,7 +264,7 @@ export function useWorkbench() {
     try {
       const [m, p] = await Promise.all([api.workbenchModels(t), getPlaygroundPrompts(t)])
       if (ticket !== revision) return
-      models.value = m; examples.value = p.items; draft(); await refreshLists()
+      models.value = m; examples.value = p.items; draft(); await Promise.all([refreshLists(), refreshBudgets()])
     } catch { /* 统一拦截器已提示。 */ }
     finally { if (ticket === revision) loading.value = false }
   }, { immediate: true })
@@ -251,6 +276,6 @@ export function useWorkbench() {
   })
   onBeforeUnmount(() => { unregisterSwitchGuard(); clear() })
   return { tenant, models, groups, presets, legacy, examples, active, config, prompt, loading, working, streamError,
-    selectedAttempts, enabled, attempts, busy, roundNumbers, source, validation, canSend, costSummary,
+    selectedAttempts, recoverablePrompt, canRestorePrompt, restorePrompt, budgetStates, refreshBudgets, enabled, attempts, busy, roundNumbers, source, validation, canSend, costSummary,
     modelFor, lane, picked, draft, open, guarded, send, stop, stopAll, retry, fork, topology, patch, synchronize, draftRequest, refreshLists }
 }

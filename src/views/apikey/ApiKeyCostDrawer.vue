@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { computed, ref, watch, onBeforeUnmount } from 'vue'
-import { KeyOutlined, ReloadOutlined, SettingOutlined, InfoCircleOutlined } from '@ant-design/icons-vue'
+import { KeyOutlined, ReloadOutlined, SettingOutlined } from '@ant-design/icons-vue'
 import { getApiKeyCostStatus } from '@/api/apikey'
 import type { ApiKeyListRespDTO } from '@/types/apikey'
 import type { ApiKeyCostStatusRespDTO, BudgetPeriod } from '@/types/costBudget'
 import { BUDGET_PERIOD_LABELS } from '@/utils/costBudget'
 import { formatBudgetDateTime } from '@/utils/date'
-import CostBudgetPeriodCard from './components/CostBudgetPeriodCard.vue'
+import CostBudgetPeriodCard from '@/components/cost-budget/CostBudgetPeriodCard.vue'
+import CostBudgetNotes from '@/components/cost-budget/CostBudgetNotes.vue'
 
 const props = defineProps<{
   visible: boolean
@@ -131,8 +132,8 @@ const hitLabels = computed(() => [...new Set(status.value?.limits.map(hit => `${
         </section>
 
         <a-alert v-if="status.costLimit.enabled && status.availability !== 'READY'" type="warning" show-icon
-          :message="status.availability === 'INITIALIZING' ? '消费数据初始化中' : '消费数据暂不可用'"
-          description="已用费用、剩余额度和调用数量暂无法确认。" />
+          :message="status.availability === 'INITIALIZING' ? '历史费用尚未完成核对' : '消费数据暂不可用'"
+          :description="status.availability === 'INITIALIZING' ? '需由平台完成历史费用回填与核对，当前费用和调用数量暂无法确认。' : '已用费用、剩余额度和调用数量暂无法确认。'" />
 
         <section class="period-section" aria-label="周期费用">
           <div class="section-heading"><h3>周期费用</h3><span>人民币 · 预估费用</span></div>
@@ -146,10 +147,7 @@ const hitLabels = computed(() => [...new Set(status.value?.limits.map(hit => `${
       </template>
       <a-empty v-else description="暂无成本状态" />
 
-      <aside class="cost-notes">
-        <InfoCircleOutlined aria-hidden="true" />
-        <div><h4>费用口径</h4><p>仅累计已配置价格且可计算的预估费用，未计价不代表免费。已开始的调用可能继续产生费用。</p></div>
-      </aside>
+      <CostBudgetNotes />
     </div>
 
     <template #footer>
@@ -192,11 +190,6 @@ const hitLabels = computed(() => [...new Set(status.value?.limits.map(hit => `${
 .section-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; h3 { font-size: $font-size-body; font-weight: 600; margin: 0; } > span { color: $color-text-secondary; font-size: $font-size-caption; } }
 .period-list { display: flex; flex-direction: column; gap: 12px; }
 .period-caption { margin: 10px 0 0; color: $color-text-tertiary; font-size: $font-size-caption; line-height: 1.7; }
-.cost-notes {
-  display: flex; align-items: baseline; gap: 8px; padding-top: 16px; border-top: 1px solid $color-border; color: $color-text-secondary;
-  h4 { margin: 0 0 4px; font-size: $font-size-caption; font-weight: 500; color: $color-text-secondary; }
-  p { margin: 0; font-size: $font-size-caption; line-height: 1.8; }
-}
 .loading-state { display: flex; flex-direction: column; gap: 24px; }
 .drawer-footer { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 4px 0; }
 .snapshot-time { color: $color-text-secondary; font-size: $font-size-caption; line-height: 1.5; time { font-variant-numeric: tabular-nums; white-space: nowrap; } }

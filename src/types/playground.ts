@@ -9,4 +9,4 @@ export type PlaygroundEvent =
   | { type: 'accepted'; sessionId: string; turnId: string; requestId: string; status: 'PENDING' }
   | { type: 'delta'; turnId: string; seq: number; text: string }
   | { type: 'completed' | 'stopped'; turnId: string; status: string; reply: string }
-  | { type: 'error'; turnId: string; status: 'FAILED'; code: string; message: string; retryAfterSeconds?: number | null }
+  | { type: 'error'; turnId: string; status: 'FAILED'; code: string; message: string; retryAfterSeconds?: number | null; data?: unknown }

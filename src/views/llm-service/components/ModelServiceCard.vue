@@ -1,10 +1,14 @@
 <script setup lang="ts">
+import type { LlmCostStatusBase } from '@/types/llmCostBudget'
+import { COST_STATE_DESCRIPTIONS } from '@/utils/llmCostBudget'
+
 import { computed, ref } from 'vue'
 import type { MenuProps } from 'ant-design-vue'
 import {
   MoreOutlined,
   GlobalOutlined,
   DollarOutlined,
+  WalletOutlined,
   EditOutlined,
   PauseCircleOutlined,
   PlayCircleOutlined,
@@ -21,6 +25,8 @@ const props = withDefaults(defineProps<{
   compareMode?: boolean
   selected?: boolean
   selectionDisabled?: boolean
+  costState?: LlmCostStatusBase['budgetState']
+  costLoading?: boolean
   canUpdate?: boolean
   canDelete?: boolean
   detail?: LlmServiceInfoRespDTO | null
@@ -43,6 +49,7 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   (e: 'detail', record: LlmServiceInfo): void
   (e: 'edit', record: LlmServiceInfo): void
+  (e: 'budget', record: LlmServiceInfo): void
   (e: 'toggle-status', record: LlmServiceInfo): void
   (e: 'remove', record: LlmServiceInfo): void
   (e: 'toggle-compare', record: LlmServiceInfo): void
@@ -59,6 +66,11 @@ const allTagNames = computed(() => (props.record.tagCodes ?? []).map((code) =>
 ).join('、'))
 const modelIdentifier = computed(() => props.record.modelName || '未配置')
 const hasActions = computed(() => props.canUpdate || props.canDelete)
+const costText = computed(() => props.costLoading ? '查询中…' : props.costState ? {
+  DISABLED: '未开启', AVAILABLE: '生效中', LIMITED: '已达限额', UNKNOWN: '校验不可用',
+}[props.costState] : '暂不可获取')
+const costHint = computed(() => props.costLoading ? '正在查询最新成本状态'
+  : props.costState ? COST_STATE_DESCRIPTIONS[props.costState] : '成本状态查询失败或未取得，请打开模型详情重新查询。')
 const menuOpen = ref(false)
 
 function tokenText(value: number | null | undefined) {
@@ -82,6 +94,7 @@ function handleCardClick() {
 }
 
 const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
+  if (key === 'budget') emit('budget', props.record)
   if (key === 'edit') emit('edit', props.record)
   if (key === 'toggle') emit('toggle-status', props.record)
   if (key === 'remove') emit('remove', props.record)
@@ -102,7 +115,7 @@ const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
       class="model-card"
       :class="{ selected, disabled: record.status === 0, 'selection-disabled': selectionDisabled }"
       tabindex="0"
-      :aria-label="`${record.name}，${record.status === 0 ? '已停用' : '启用中'}`"
+      :aria-label="`${record.name}，${record.status === 0 ? '已停用' : '启用中'}，成本限额${costText}`"
       @click="handleCardClick"
       @keydown.enter.self.prevent="handleCardClick"
       @keydown.space.self.prevent="handleCardClick"
@@ -147,6 +160,7 @@ const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
           </a-button>
           <template #overlay>
             <a-menu @click="handleMenuClick">
+              <a-menu-item v-if="canUpdate" key="budget"><WalletOutlined /> 成本限额设置</a-menu-item>
               <a-menu-item v-if="canUpdate" key="edit"><EditOutlined /> 编辑模型</a-menu-item>
               <a-menu-item v-if="canUpdate" key="toggle">
                 <PlayCircleOutlined v-if="record.status === 0" />
@@ -178,6 +192,14 @@ const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
         <div class="metric">
           <div class="metric-label"><DollarOutlined /> 计费</div>
           <div class="metric-value" :class="{ muted: billingText() === '未启用计费' }">{{ billingText() }}</div>
+        </div>
+        <div class="cost-metric">
+          <div class="metric-label"><WalletOutlined /> 成本限额</div>
+          <a-tooltip :title="costHint">
+            <span class="cost-value" :class="{ 'is-active': !costLoading && costState === 'AVAILABLE', 'is-limited': !costLoading && costState === 'LIMITED', 'is-unknown': !costLoading && costState === 'UNKNOWN' }">
+              <span class="cost-dot" aria-hidden="true" />{{ costText }}
+            </span>
+          </a-tooltip>
         </div>
       </div>
     </article>
@@ -386,4 +408,27 @@ const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
     font-weight: 400;
   }
 }
+
+.cost-metric {
+  display: flex;
+  grid-column: 1 / -1;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid $color-border;
+}
+.cost-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: $color-text-secondary;
+  font-size: 12px;
+  line-height: 20px;
+  &.is-active { color: $color-primary; }
+  &.is-limited { color: $color-danger; }
+  &.is-unknown { color: $color-warning; }
+}
+.cost-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
 </style>

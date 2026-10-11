@@ -1,3 +1,5 @@
+import type { CostLimitPatch } from './costBudget'
+import type { LlmCostWarningPatch } from './llmCostBudget'
 // ========== LLM 服务管理 ==========
 
 export interface TagInfo {
@@ -70,6 +72,8 @@ export interface LlmServiceAddReqDTO {
   /** 已配置的协议设置；playground 为细分能力 JSON 字符串。 */
   providerSettings?: Record<string, string>
   pricing?: PricingRequest
+  /** 成本限额补丁。 */ costLimit?: CostLimitPatch
+  /** 成本预警补丁。 */ costWarning?: LlmCostWarningPatch
 }
 
 // 更新请求（部分更新：仅提交非空字段；rpm/tpm/fallbackServiceId 中 0=清除，null=不修改）
@@ -88,6 +92,8 @@ export interface LlmServiceUpdateReqDTO {
   /** 已配置的协议设置；playground 为细分能力 JSON 字符串。 */
   providerSettings?: Record<string, string>
   pricing?: PricingRequest
+  /** 成本限额补丁。 */ costLimit?: CostLimitPatch
+  /** 成本预警补丁。 */ costWarning?: LlmCostWarningPatch
 }
 
 // 列表项

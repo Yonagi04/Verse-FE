@@ -21,7 +21,7 @@ export interface Attempt {
   attemptId: string; groupId: string; roundId: string; roundNo: number; laneId: string; attemptNo: number; requestId: string
   serviceId: string; prompt: string; reply: string; status: 'PENDING' | 'STREAMING' | 'STOPPING' | 'COMPLETED' | 'STOPPED' | 'FAILED'
   snapshot: { request?: ChatRequest; config: RunConfig; modelName: string; provider?: string; presetId?: string; presetVersion?: number }
-  error?: { code: string; message: string; reason?: string; retryAfterSeconds?: number }
+  error?: { code: string; message: string; reason?: string; retryAfterSeconds?: number; data?: unknown; httpStatus?: number }
   metrics: { inputTokens?: number; outputTokens?: number; firstContentMs?: number; durationMs?: number; evidence: string; costStatus: string; costFen?: number; currency?: string }
   createdAt: string; finishedAt?: string
 }

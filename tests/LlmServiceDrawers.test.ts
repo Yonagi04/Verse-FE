@@ -14,6 +14,9 @@ const mocks = vi.hoisted(() => ({ message: { error: vi.fn(), success: vi.fn() } 
 vi.mock('ant-design-vue', () => ({ message: mocks.message }))
 vi.mock('@ant-design/icons-vue', () => ({ CopyOutlined: { render: () => null } }))
 vi.mock('@/utils/auth', () => ({ getToken: () => null, clearAuth: vi.fn() }))
+vi.mock('@/stores/tenant', () => ({ useTenantStore: () => ({ currentTenantId: 'tenant', currentRole: 'ADMIN' }) }))
+vi.mock('@/views/llm-service/components/LlmCostBudgetFormSection.vue', () => ({ default: { render: () => null } }))
+vi.mock('@/views/llm-service/components/LlmCostBudgetStatus.vue', () => ({ default: { render: () => null } }))
 vi.mock('@/stores/playground', () => ({ usePlaygroundStore: () => ({ tenantId: 'tenant', status: { enabled: false } }) }))
 vi.mock('@/components/ProviderLogo.vue', () => ({ default: { render: () => null } }))
 vi.mock('@/views/llm-service/components/ModelTagList.vue', () => ({ default: { render: () => null } }))
@@ -41,7 +44,8 @@ const adapter = vi.fn<AxiosAdapter>(async config => {
       serviceInfoList: models.slice((pageNum - 1) * pageSize, pageNum * pageSize),
       total: models.length, totalPages: Math.ceil(models.length / pageSize), page: pageNum, pageSize,
     }
-  } else if (config.url?.includes('/info/')) data = detail
+  } else if (config.url?.endsWith('/cost-status')) data = { serviceId: '1', visibility: 'FULL', costLimit: { enabled: false, dailyLimitFen: null, weeklyLimitFen: null, monthlyLimitFen: null, version: '0' }, costWarning: { enabled: false, effective: false, thresholdPercent: 80, channels: [] }, pricingEligible: false, currency: 'CNY', timezone: 'Asia/Shanghai', consumptionSources: ['API_KEY','PLAYGROUND'], asOf: '2026-10-11T00:00:00+08:00', availability: 'READY', budgetState: 'DISABLED', retryAt: null, periods: [], limits: [] }
+  else if (config.url?.includes('/info/')) data = detail
   else data = []
   return { data: { code, message: code === '0' ? null : '分页读取失败', data }, config, status: 200, statusText: '', headers: {} }
 })
@@ -83,7 +87,7 @@ async function mount(component: typeof DetailDrawer | typeof EditDrawer) {
   root = node('root')
   app = renderer.createApp(defineComponent({ setup: () => () => h(component, props) }))
   app.provide(ssrContextKey, {})
-  for (const tag of ['a-drawer', 'a-spin', 'a-form', 'a-form-item', 'a-input', 'a-textarea', 'a-input-password', 'a-input-number', 'a-switch', 'a-select', 'a-select-option', 'a-button', 'a-tag', 'a-empty']) {
+  for (const tag of ['a-drawer', 'a-alert', 'a-spin', 'a-form', 'a-form-item', 'a-input', 'a-textarea', 'a-input-password', 'a-input-number', 'a-switch', 'a-select', 'a-select-option', 'a-button', 'a-tag', 'a-empty']) {
     app.component(tag, defineComponent({ inheritAttrs: false, setup(_, { attrs, slots }) { return () => h(tag, attrs, slots.default?.()) } }))
   }
   app.mount(root)

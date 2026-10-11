@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { costFailureDescription, type PlaygroundFailure } from '@/utils/playgroundCostError'
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { message, Modal } from 'ant-design-vue'
 import { BulbOutlined } from '@ant-design/icons-vue'
@@ -187,7 +188,7 @@ function handleEvent(event: PlaygroundEvent) {
   if (event.type === 'accepted') { accepted = true; prompt.value = ''; streamError.value = '' }
   else if (event.type === 'delta') pendingReply.value += event.text
   else if (event.type === 'completed' || event.type === 'stopped') { terminal = true; pendingReply.value = event.reply }
-  else if (event.type === 'error') { terminal = true; streamError.value = event.message; prompt.value = pendingPrompt.value }
+  else if (event.type === 'error') { terminal = true; streamError.value = costFailureDescription(event.code, event.data) || event.message; prompt.value = pendingPrompt.value }
   void scrollBottom()
 }
 
@@ -223,7 +224,7 @@ async function send() {
     if (ticket === generation && (error as Error).name !== 'AbortError') {
       prompt.value = text
       if (sessionId) {
-        streamError.value = (error as Error).message || '发送失败'
+        streamError.value = costFailureDescription((error as PlaygroundFailure).code, (error as PlaygroundFailure).data) || (error as Error).message || '发送失败'
         message.error(streamError.value)
       }
     }

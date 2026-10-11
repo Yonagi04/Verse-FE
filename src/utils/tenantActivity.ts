@@ -1,3 +1,4 @@
+import { formatBudgetDateTime } from './date'
 import type { TenantActivityDetails, TenantActivityItemRespDTO } from '@/types/tenant'
 
 export const TENANT_ACTIVITY_DISABLED_CODE = 'B000339'
@@ -13,8 +14,6 @@ export interface FormattedTenantActivity {
 }
 
 const actionByType: Record<string, string> = {
-  API_KEY_COST_CONFIGURED: '调整了 API Key 成本限额',
-  API_KEY_COST_REJECTED: 'API Key 调用被成本规则拒绝',
   ACTIVITY_RECORDING_ENABLED: '开启了租户动态记录',
   ACTIVITY_RECORDING_DISABLED: '关闭了租户动态记录',
   TENANT_SETTINGS_UPDATED: '更新了租户设置',
@@ -27,6 +26,7 @@ const actionByType: Record<string, string> = {
   JOIN_REQUEST_REJECTED: '拒绝了加入申请',
   INVITE_ENABLED: '启用了邀请码',
   INVITE_DISABLED: '停用了邀请码',
+  LLM_COST_LIMIT_REACHED: '模型调用成本已达到限额',
   LLM_SERVICE_CREATED: '创建了模型服务',
   LLM_SERVICE_UPDATED: '更新了模型服务',
   LLM_SERVICE_ENABLED: '启用了模型服务',
@@ -72,7 +72,7 @@ export function formatTenantActivity(item: TenantActivityItemRespDTO): Formatted
   return {
     action: actionByType[item.activityType] ?? '发生了一项租户变更',
     targetName: item.targetName,
-    actorName: item.actorNickname?.trim() || item.actorUsername?.trim() || '系统',
+    actorName: item.actorType === 'SYSTEM' ? '系统' : item.actorNickname?.trim() || item.actorUsername?.trim() || '系统',
     detailText: formatDetails(item.details),
     icon: categoryIcons[item.category] ?? 'default',
   }
@@ -90,6 +90,8 @@ export function isTenantActivityDisabledError(error: unknown): boolean {
 
 function formatDetails(details: TenantActivityDetails): string | null {
   const parts: string[] = []
+  if (typeof details.period === 'string') parts.push(`周期：${({ DAY: '日', WEEK: '周', MONTH: '月' } as Record<string, string>)[details.period] || details.period}`)
+  if (typeof details.retryAt === 'string') parts.push(`预计恢复：${formatBudgetDateTime(details.retryAt)}`)
   if (Array.isArray(details.changedFields) && details.changedFields.length > 0) {
     parts.push(`变更：${details.changedFields.map((field) => changedFieldLabels[field] ?? field).join('、')}`)
   }

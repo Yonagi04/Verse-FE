@@ -3,6 +3,8 @@ import { computed, ref, watch, onBeforeUnmount } from 'vue'
 import { Modal } from 'ant-design-vue'
 import { PlusOutlined, SettingOutlined, DownloadOutlined, SaveOutlined, CloseOutlined, ExperimentOutlined, SendOutlined, StopOutlined, SearchOutlined, MoreOutlined, DownOutlined, HistoryOutlined, ArrowRightOutlined, CopyOutlined, CodeOutlined, BranchesOutlined, ReloadOutlined } from '@ant-design/icons-vue'
 import { onBeforeRouteLeave } from 'vue-router'
+import { costFailureDescription } from '@/utils/playgroundCostError'
+import { COST_STATE_LABELS } from '@/utils/llmCostBudget'
 import { useWorkbench } from '@/hooks/usePlaygroundWorkbench'
 import { useUserStore } from '@/stores/user'
 import * as api from '@/api/playgroundWorkbench'
@@ -16,7 +18,7 @@ import PresetDialog from './PresetDialog.vue'
 import LegacyPlaygroundPage from './LegacyPlaygroundPage.vue'
 
 const { tenant, models, groups, presets, legacy, examples, active, config, prompt, loading, streamError, selectedAttempts,
-  enabled, attempts, busy, roundNumbers, source, validation, canSend,
+  enabled, attempts, busy, roundNumbers, canRestorePrompt, restorePrompt, budgetStates, refreshBudgets, source, validation, canSend,
   modelFor, lane, picked, draft, open, guarded, send, stop, stopAll, retry, fork, topology, patch, synchronize, draftRequest, refreshLists } = useWorkbench()
 // 宽屏停靠会话列表，窄屏通过同一入口展开，避免挤压模型对比区。
 const libraryTab = ref('sessions'), keyword = ref(''), libraryOpen = ref(false), libraryCollapsed = ref(false)
@@ -171,7 +173,7 @@ onBeforeRouteLeave(async () => {
                     <div v-if="config.lanes.length > 1" class="reply-model"><span class="lane-badge">{{ String.fromCharCode(65 + i) }}</span><strong>{{ a.snapshot.modelName }}</strong></div>
                     <div v-if="a.status !== 'COMPLETED' || attempts.filter(x => x.roundNo === n && x.laneId === l.laneId).length > 1" class="result-status"><a-tag v-if="a.status !== 'COMPLETED'" :color="a.status === 'FAILED' ? 'error' : undefined">{{ statusLabel(a.status) }}</a-tag><a-select v-if="attempts.filter(x => x.roundNo === n && x.laneId === l.laneId).length > 1" :value="a.attemptId" size="small" :options="attempts.filter(x => x.roundNo === n && x.laneId === l.laneId).map(x => ({ value: x.attemptId, label: `尝试 ${x.attemptNo} · ${statusLabel(x.status)}` }))" @update:value="selectedAttempts[`${n}:${l.laneId}`] = $event" /></div>
                     <MarkdownReply v-if="a.reply" :text="a.reply" /><div v-else class="waiting">{{ ['PENDING','STREAMING'].includes(a.status) ? '等待模型内容…' : '没有生成内容' }}</div>
-                    <a-alert v-if="a.error" :message="a.error.message" :description="a.error.retryAfterSeconds ? `可在 ${a.error.retryAfterSeconds} 秒后重试` : undefined" type="error" show-icon />
+                    <a-alert v-if="a.error" :message="a.error.message" :description="costFailureDescription(a.error.code, a.error.data) || (a.error.retryAfterSeconds ? `可在 ${a.error.retryAfterSeconds} 秒后重试` : undefined)" type="error" show-icon />
                     <small v-if="a.status === 'STOPPED'" class="muted">部分输出已保留，不计入后续上下文</small>
                     <div class="result-actions" aria-label="回答操作">
                       <a-tooltip title="复制回答"><a-button type="text" size="small" aria-label="复制回答" :disabled="!a.reply" @click="copyWorkbenchText(a.reply)"><CopyOutlined /></a-button></a-tooltip>
@@ -189,8 +191,9 @@ onBeforeRouteLeave(async () => {
           <div class="composer">
             <a-alert v-if="streamError" :message="streamError" type="error" show-icon closable @close="streamError = ''" />
             <a-alert v-if="validation && models.length" :message="validation" type="warning" show-icon />
+            <a-button v-if="canRestorePrompt" type="link" :disabled="!!prompt" @click="restorePrompt">恢复被拒绝的问题</a-button>
             <div class="composer-box">
-              <a-textarea v-model:value="prompt" aria-label="输入问题" :auto-size="{ minRows: 2, maxRows: 6 }" :maxlength="100000" :disabled="!models.length" :placeholder="config.lanes.length > 1 ? '输入问题，同时发送给所选模型…' : '输入问题，开始探索…'" @keydown="enter" />
+              <a-textarea v-model:value="prompt" aria-label="输入问题" :rows="4" style="resize: none" :maxlength="100000" :disabled="!models.length" :placeholder="config.lanes.length > 1 ? '输入问题，同时发送给所选模型…' : '输入问题，开始探索…'" @keydown="enter" />
               <div class="composer-footer"><span class="keyboard-hint">Enter 发送 · Shift + Enter 换行</span><a-button v-if="busy" danger @click="stopAll"><StopOutlined />停止全部</a-button><a-button v-else type="primary" :disabled="!canSend" @click="send()"><SendOutlined />发送</a-button></div>
             </div>
           </div>
@@ -207,8 +210,8 @@ onBeforeRouteLeave(async () => {
       </template>
     </a-drawer>
     <a-modal v-model:open="modelOpen" :title="modelIndex === config.lanes.length ? '添加模型' : '选择模型'" :width="800" :footer="null">
-      <div class="model-picker-controls"><a-input v-model:value="modelSearch" placeholder="搜索模型、供应商或介绍" allow-clear><template #prefix><SearchOutlined /></template></a-input><a-select v-model:value="provider" allow-clear placeholder="全部供应商" :options="[...new Set(models.map(m => m.provider))].map(p => ({label:providerName(p),value:p}))" /><a-checkbox v-model:checked="capabilityFilter">支持数值参数</a-checkbox></div>
-      <div class="model-list"><button v-for="m in filteredModels" :key="m.serviceId" class="model-card" @click="chooseModel(m.serviceId)"><div class="model-card-heading"><ProviderLogo :slug="m.provider" :size="28" /><strong>{{ m.name }}</strong><span class="model-provider">{{ providerName(m.provider) }}</span><a-tag v-if="config.lanes[modelIndex]?.serviceId === m.serviceId" color="blue">当前模型</a-tag></div><p>{{ m.description || '暂无模型介绍' }}</p><small>上下文 {{ m.contextWindow ? `${m.contextWindow.toLocaleString()} Token` : '未知' }} · {{ price(m.serviceId) }}</small><small>参数：{{ [m.capabilities.system ? 'System' : '', m.capabilities.temperature ? 'Temperature' : '', m.capabilities.topP ? 'Top P' : '', m.capabilities.maxTokens ? 'Max Token' : ''].filter(Boolean).join(' / ') || '暂无已确认能力' }}</small></button><a-empty v-if="!filteredModels.length" description="没有符合条件的模型" /></div></a-modal>
+      <a-button type="link" @click="refreshBudgets">刷新成本状态</a-button><div class="model-picker-controls"><a-input v-model:value="modelSearch" placeholder="搜索模型、供应商或介绍" allow-clear><template #prefix><SearchOutlined /></template></a-input><a-select v-model:value="provider" allow-clear placeholder="全部供应商" :options="[...new Set(models.map(m => m.provider))].map(p => ({label:providerName(p),value:p}))" /><a-checkbox v-model:checked="capabilityFilter">支持数值参数</a-checkbox></div>
+      <div class="model-list"><button v-for="m in filteredModels" :key="m.serviceId" class="model-card" @click="chooseModel(m.serviceId)"><div class="model-card-heading"><ProviderLogo :slug="m.provider" :size="28" /><strong>{{ m.name }}</strong><span class="model-provider">{{ providerName(m.provider) }}</span><a-tag v-if="config.lanes[modelIndex]?.serviceId === m.serviceId" color="blue">当前模型</a-tag></div><p>{{ m.description || '暂无模型介绍' }}</p><small>上下文 {{ m.contextWindow ? `${m.contextWindow.toLocaleString()} Token` : '未知' }} · {{ price(m.serviceId) }}</small><small>{{ budgetStates[m.serviceId] ? COST_STATE_LABELS[budgetStates[m.serviceId]!] : '成本状态暂不可获取' }}</small><small>参数：{{ [m.capabilities.system ? 'System' : '', m.capabilities.temperature ? 'Temperature' : '', m.capabilities.topP ? 'Top P' : '', m.capabilities.maxTokens ? 'Max Token' : ''].filter(Boolean).join(' / ') || '暂无已确认能力' }}</small></button><a-empty v-if="!filteredModels.length" description="没有符合条件的模型" /></div></a-modal>
     <ExportDialog v-model:open="exportOpen" :group="active" :draft-request="draftRequest" :lane-names="laneNames" :initial="exportInitial" />
     <PresetDialog v-if="tenant" v-model:open="presetOpen" :tenant="tenant" :config="config" :resource="presetResource" :presets="presets" :models="models" @changed="refreshLists" @load="newDraft" />
     <a-modal v-model:open="renameOpen" title="会话名称" :width="420" @ok="saveName"><a-input v-model:value="renameValue" :maxlength="60" @press-enter="saveName" /></a-modal>

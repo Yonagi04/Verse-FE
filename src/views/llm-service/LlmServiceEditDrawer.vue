@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import { getLlmCostStatus } from '@/api/llmCostBudget'
+import type { LlmCostStatusFull } from '@/types/llmCostBudget'
+import { useTenantStore } from '@/stores/tenant'
+
 import { reactive, ref, watch, computed } from 'vue'
 import { message } from 'ant-design-vue'
 import type { FormInstance } from 'ant-design-vue'
@@ -43,6 +47,17 @@ const tagCodes = ref<string[]>([])
 const contextWindow = ref<number | null>(null)
 const maxOutputTokens = ref<number | null>(null)
 const pricing = ref<PricingRequest>({ enabled: false })
+const tenantStore = useTenantStore()
+const costError = ref('')
+const costLookupFailed = ref(false)
+function updatePricing(value: PricingRequest) {
+  if (!value.enabled && serverCost.value?.costLimit.enabled) { costError.value = '成本限额已开启，请先到「成本限额设置」关闭限额，再关闭模型价格。'; return }
+  costError.value = ''; pricing.value = value
+}
+const serverCost = ref<LlmCostStatusFull | null>(null)
+let costRevision = 0
+const reloadKey = ref(0)
+
 const originalSnapshot = ref<LlmServiceInfoRespDTO | null>(null)
 
 const form = reactive({
@@ -66,9 +81,11 @@ const fallbackOptions = computed(() =>
 )
 
 watch(
-  () => props.visible,
-  async (v) => {
-    if (!v || !props.record) return
+  () => [props.visible, props.tenantId, props.record?.serviceId, tenantStore.currentRole, tenantStore.currentTenantId, reloadKey.value] as const,
+  async ([v]) => {
+    const ticket = ++costRevision
+    serverCost.value = null; costError.value = ''; costLookupFailed.value = false; fetching.value = false
+    if (!v || !props.record || tenantStore.currentTenantId !== props.tenantId) return
     playgroundSettings.value = ''
     form.name = ''
     form.apiUrl = ''
@@ -85,11 +102,15 @@ watch(
     tagCodes.value = []; contextWindow.value = null; maxOutputTokens.value = null; pricing.value = { enabled: false }; originalSnapshot.value = null
     fetching.value = true
     try {
-      const [info, models, dictionary] = await Promise.all([
+      const [info, models, dictionary, cost] = await Promise.all([
         getLlmServiceInfo(props.tenantId, props.record.serviceId),
         listAllLlmServices(props.tenantId),
-        listLlmServiceTags(),
+        listLlmServiceTags(), getLlmCostStatus(props.tenantId, props.record.serviceId).catch(() => null),
       ])
+      if (ticket !== costRevision) return
+      // 仅为价格联动读取开关及版本；成本配置由独立入口维护。
+      serverCost.value = cost?.visibility === 'FULL' ? cost : null
+      costLookupFailed.value = !serverCost.value
       form.name = info.name
       form.apiUrl = info.apiUrl
       form.modelName = info.modelName
@@ -111,11 +132,12 @@ watch(
         (s) => s.serviceId !== props.record?.serviceId,
       )
     } catch {
-      // handled by interceptor
+      if (ticket === costRevision) costError.value = '正式配置加载失败，请重新加载后再保存'
     } finally {
-      fetching.value = false
+      if (ticket === costRevision) fetching.value = false
     }
   },
+  { flush: 'sync' },
 )
 
 function providerDisplayName(slug: string): string {
@@ -135,7 +157,7 @@ async function handleSave() {
 
   const payload: LlmServiceUpdateReqDTO = {}
   if (playgroundEnabled.value && originalSnapshot.value && playgroundSettings.value !== (originalSnapshot.value.providerSettings?.playground || '')) payload.providerSettings = { ...originalSnapshot.value.providerSettings, playground: playgroundSettings.value }
-  if (!originalSnapshot.value) return
+  if (!originalSnapshot.value || fetching.value || loading.value || !props.visible || tenantStore.currentTenantId !== props.tenantId) return
   if (form.name.trim() && form.name.trim() !== originalSnapshot.value.name) payload.name = form.name.trim()
   if (form.apiUrl.trim() && form.apiUrl.trim() !== originalSnapshot.value.apiUrl) payload.apiUrl = form.apiUrl.trim()
   if (form.apiKey.trim()) payload.apiKey = form.apiKey.trim()
@@ -176,7 +198,13 @@ async function handleSave() {
   if (newFallback !== originalSnapshot.value.fallbackServiceId) payload.fallbackServiceId = newFallback ?? 0
 
   if (!props.record) return
-
+  if (payload.pricing) {
+    if (!serverCost.value) { costError.value = '价格变更前需要取得成本配置版本，请重新加载后保存。其他基本信息可单独修改。'; return }
+    if (!payload.pricing.enabled && serverCost.value.costLimit.enabled) { costError.value = '请先到「成本限额设置」关闭限额，再关闭模型价格。'; return }
+    // 价格保存仍受并发版本保护，不提交限额金额、开关或预警。
+    payload.costLimit = { expectedVersion: serverCost.value.costLimit.version }
+  }
+  if (!Object.keys(payload).length) { message.info('没有修改'); return }
   loading.value = true
   try {
     await updateLlmService(props.tenantId, props.record.serviceId, payload)
@@ -184,7 +212,7 @@ async function handleSave() {
     emit('done')
     emit('update:visible', false)
   } catch {
-    // handled by interceptor
+    costError.value = '保存失败，草稿已保留；配置版本冲突时请重新加载后确认。'
   } finally {
     loading.value = false
   }
@@ -199,6 +227,7 @@ async function handleSave() {
     :mask-closable="false"
     @close="handleCancel"
   >
+    <a-button v-if="costError || costLookupFailed" type="link" :disabled="fetching || loading" @click="reloadKey++">重新加载正式配置</a-button>
     <a-spin :spinning="fetching">
       <a-form
         ref="formRef"
@@ -232,7 +261,7 @@ async function handleSave() {
             v-model:value="form.description"
             placeholder="简要说明模型的适用场景与特点（可选）"
             :maxlength="100"
-            :auto-size="{ minRows: 3, maxRows: 5 }"
+            :rows="4" style="resize: none"
             show-count
           />
         </a-form-item>
@@ -286,14 +315,16 @@ async function handleSave() {
           </a-select>
         </a-form-item>
 
-        <PricingFormSection v-model="pricing" />
+        <PricingFormSection :model-value="pricing" @update:model-value="updatePricing" />
+        <a-alert v-if="costLookupFailed" type="warning" message="价格联动信息暂不可获取" description="仍可修改模型基本信息；修改价格前请重新加载正式配置。" show-icon />
+        <a-alert v-if="costError" type="warning" :message="costError" />
         <PlaygroundCapabilityFields v-if="playgroundEnabled" v-model:value="playgroundSettings" />
       </a-form>
     </a-spin>
 
     <template #footer>
       <a-button style="margin-right: 8px" @click="handleCancel">取消</a-button>
-      <a-button type="primary" :loading="loading" @click="handleSave">保存</a-button>
+      <a-button type="primary" :loading="loading" :disabled="fetching || !originalSnapshot" @click="handleSave">保存</a-button>
     </template>
   </a-drawer>
 </template>

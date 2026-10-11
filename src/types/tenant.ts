@@ -272,7 +272,9 @@ export interface TenantActivityItemRespDTO {
   eventId: string
   category: string
   activityType: string
-  actorUserId: string
+  /** 系统事件不关联真实用户。 */
+  actorType?: 'USER' | 'SYSTEM'
+  actorUserId: string | null
   actorUsername: string
   actorNickname: string | null
   targetType: string | null

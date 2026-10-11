@@ -1,4 +1,5 @@
 import request from './request'
+import { requireCostTenant } from './llmCostBudget'
 import type {
   LlmServiceAddReqDTO,
   LlmServiceInfo,
@@ -12,7 +13,8 @@ import type {
 
 // 添加模型服务
 export function addLlmService(tenantId: string, data: LlmServiceAddReqDTO): Promise<boolean> {
-  return request.post(`/llm-service/${tenantId}/add`, data)
+  requireCostTenant(tenantId)
+  return request.post('/llm-services/create', data)
 }
 
 // 分页获取模型服务列表（keyword 可选，按服务别名或供应商模糊搜索）
@@ -46,7 +48,8 @@ export function listLlmServiceTags(): Promise<TagInfo[]> {
 
 // 更新模型服务（部分更新）
 export function updateLlmService(tenantId: string, serviceId: string, data: LlmServiceUpdateReqDTO): Promise<boolean> {
-  return request.post(`/llm-service/${tenantId}/update/${serviceId}`, data)
+  requireCostTenant(tenantId)
+  return request.post(`/llm-services/${serviceId}/update`, data)
 }
 
 // 获取模型服务详情（apiKey 为脱敏值）

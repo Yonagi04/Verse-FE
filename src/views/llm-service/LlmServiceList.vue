@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import LlmCostBudgetDrawer from './components/LlmCostBudgetDrawer.vue'
+import { listLlmCostStatuses } from '@/api/llmCostBudget'
+import type { LlmCostStatusBase } from '@/types/llmCostBudget'
+
 import { ref, computed, watch, onMounted, h } from 'vue'
 import { Modal, message } from 'ant-design-vue'
 import { PlusOutlined } from '@ant-design/icons-vue'
@@ -48,6 +52,10 @@ const compareSelectedIds = ref<string[]>([])
 const compareVisible = ref(false)
 const pickerVisible = ref(false)
 
+const budgetVisible = ref(false), budgetServiceId = ref(''), budgetServiceName = ref('')
+const costStates = ref<Record<string, LlmCostStatusBase['budgetState']>>({})
+const costStatusLoading = ref(false)
+function openBudget(record: LlmServiceInfo) { budgetServiceId.value = record.serviceId; budgetServiceName.value = record.name; budgetVisible.value = true }
 const createVisible = ref(false)
 const editVisible = ref(false)
 const detailVisible = ref(false)
@@ -61,6 +69,7 @@ const compareRecordCache = ref<Record<string, LlmServiceInfo>>({})
 
 // 权限只来源于当前租户统一状态。
 const selectedRole = computed(() => tenantStore.currentRole)
+watch(() => [tenantId.value, selectedRole.value], () => { costStates.value = {}; costStatusLoading.value = false; budgetVisible.value = false }, { flush: 'sync' })
 
 const authorities = computed<Permission[]>(() => {
   if (!selectedRole.value) return []
@@ -81,6 +90,8 @@ const hasActiveFilters = computed(() => Boolean(keyword.value || selectedTagCode
 async function fetchServices() {
   if (!tenantId.value) return
   const generation = ++requestGeneration.value
+  costStates.value = {}
+  costStatusLoading.value = false
   loading.value = true
   try {
     const result = await listLlmServices(
@@ -92,6 +103,18 @@ async function fetchServices() {
     )
     if (generation !== requestGeneration.value) return
     data.value = result
+    costStates.value = {}
+    costStatusLoading.value = false
+    if (result.serviceInfoList.length) {
+      const requestTenant = tenantId.value, requestRole = selectedRole.value
+      costStatusLoading.value = true
+      listLlmCostStatuses(requestTenant, result.serviceInfoList.map(item => item.serviceId)).then(cost => {
+        if (generation === requestGeneration.value && tenantId.value === requestTenant && selectedRole.value === requestRole)
+          costStates.value = Object.fromEntries(cost.items.map(item => [item.serviceId, item.budgetState]))
+      }).catch(() => { /* 列表保留，未知成本状态不能假装可用。 */ }).finally(() => {
+        if (generation === requestGeneration.value && tenantId.value === requestTenant && selectedRole.value === requestRole) costStatusLoading.value = false
+      })
+    }
     if (result.serviceInfoList.length === 0 && pageNum.value > 1) pageNum.value--
   } catch {
     // handled by interceptor
@@ -355,6 +378,8 @@ onMounted(fetchTags)
             :selected="compareSelectedIds.includes(record.serviceId)"
             :selection-disabled="compareSelectedIds.length >= 2 && !compareSelectedIds.includes(record.serviceId)"
             :can-update="canUpdate"
+            :cost-state="costStates[record.serviceId]"
+            :cost-loading="costStatusLoading"
             :can-delete="canDelete"
             :detail="detailCache[record.serviceId]"
             :detail-loading="detailLoading[record.serviceId]"
@@ -362,6 +387,7 @@ onMounted(fetchTags)
             :fallback-name="fallbackName(detailCache[record.serviceId])"
             @detail="openDetail"
             @edit="openEdit"
+            @budget="openBudget"
             @toggle-status="handleToggle"
             @remove="handleRemove"
             @toggle-compare="toggleCompareRecord"
@@ -403,6 +429,7 @@ onMounted(fetchTags)
       @compare="startCompare"
     />
 
+    <LlmCostBudgetDrawer v-if="tenantId && budgetServiceId" v-model:visible="budgetVisible" :tenant-id="tenantId" :service-id="budgetServiceId" :service-name="budgetServiceName" @done="handleServicesChanged" />
     <LlmServiceCreateDrawer
       v-if="tenantId"
       v-model:visible="createVisible"
@@ -424,7 +451,9 @@ onMounted(fetchTags)
       :tenant-id="tenantId"
       :record="detailRecord"
       :dictionary="tags"
+      :can-adjust-budget="canUpdate"
       @compare="startPickerCompare"
+      @budget="openBudget"
     />
     <ModelCompareDrawer
       v-if="tenantId"
