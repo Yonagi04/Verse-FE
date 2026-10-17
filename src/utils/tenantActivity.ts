@@ -26,6 +26,7 @@ const actionByType: Record<string, string> = {
   JOIN_REQUEST_REJECTED: '拒绝了加入申请',
   INVITE_ENABLED: '启用了邀请码',
   INVITE_DISABLED: '停用了邀请码',
+  TENANT_COST_LIMIT_REACHED: '租户调用成本已达到限额',
   LLM_COST_LIMIT_REACHED: '模型调用成本已达到限额',
   LLM_SERVICE_CREATED: '创建了模型服务',
   LLM_SERVICE_UPDATED: '更新了模型服务',
@@ -35,6 +36,8 @@ const actionByType: Record<string, string> = {
 }
 
 const changedFieldLabels: Record<string, string> = {
+  costLimit: '租户成本限额',
+  costWarning: '租户成本预警',
   name: '名称',
   description: '简介',
   joinApprovalMode: '加入审批',

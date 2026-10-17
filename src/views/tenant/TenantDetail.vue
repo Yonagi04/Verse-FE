@@ -136,6 +136,7 @@ async function fetchAvailableServiceCount(id: string) {
 }
 
 function switchTab(key: string) {
+  if (tenantStore.settingsSaving) return
   if (tenantStore.settingsDirty && key !== 'settings'
       && !window.confirm('租户设置有未保存的更改，确定离开吗？')) return
   activeTab.value = key
@@ -143,9 +144,11 @@ function switchTab(key: string) {
 }
 
 onBeforeRouteLeave(() => {
+  if (tenantStore.settingsSaving) return false
   if (tenantStore.settingsDirty) return window.confirm('租户设置有未保存的更改，确定离开吗？')
 })
 onBeforeRouteUpdate((to) => {
+  if (tenantStore.settingsSaving) return false
   if (tenantStore.settingsDirty && (to.params.tenantId !== route.params.tenantId || to.query.tab !== 'settings')) {
     return window.confirm('租户设置有未保存的更改，确定离开吗？')
   }

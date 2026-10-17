@@ -1,16 +1,6 @@
 import type { CostBudgetHit, CostBudgetPeriodStatus, CostLimitConfig } from './costBudget'
-export type LlmCostWarningChannel = 'IN_APP' | 'SMS' | 'EMAIL'
-export interface LlmCostWarningPatch {
-  /** 预警开关。 */ enabled?: boolean
-  /** 共用整数阈值。 */ thresholdPercent?: number
-  /** 选定渠道。 */ channels?: LlmCostWarningChannel[]
-}
-export interface LlmCostWarningConfig {
-  /** 草稿开关。 */ enabled: boolean
-  /** 当前是否执行预警。 */ effective: boolean
-  /** 共用整数阈值。 */ thresholdPercent: number
-  /** 阈值渠道。 */ channels: LlmCostWarningChannel[]
-}
+export type { CostWarningChannel as LlmCostWarningChannel, CostWarningPatch as LlmCostWarningPatch, CostWarningConfig as LlmCostWarningConfig } from './costBudget'
+import type { CostWarningConfig as LlmCostWarningConfig } from './costBudget'
 export interface LlmCostStatusBase {
   /** 模型服务标识。 */ serviceId: string
   /** 固定时区。 */ timezone: 'Asia/Shanghai'

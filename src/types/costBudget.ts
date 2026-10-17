@@ -90,3 +90,16 @@ export interface CostLimitDraft {
   /** 月限额，元输入。 */
   monthly: string
 }
+
+export type CostWarningChannel = 'IN_APP' | 'SMS' | 'EMAIL'
+export interface CostWarningPatch {
+  /** 预警开关。 */ enabled?: boolean
+  /** 共用整数阈值。 */ thresholdPercent?: number
+  /** 选定渠道。 */ channels?: CostWarningChannel[]
+}
+export interface CostWarningConfig {
+  /** 草稿开关。 */ enabled: boolean
+  /** 当前是否执行预警。 */ effective: boolean
+  /** 共用整数阈值。 */ thresholdPercent: number
+  /** 阈值渠道。 */ channels: CostWarningChannel[]
+}

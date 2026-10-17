@@ -4,6 +4,8 @@ import { createRenderer, defineComponent, h, reactive, ssrContextKey, nextTick, 
 import { parse, compileScript, compileTemplate } from '@vue/compiler-sfc'
 import { readFileSync } from 'node:fs'
 import { transpileModule, ScriptTarget } from 'typescript'
+import CostLimitFields from '../src/components/cost-budget/CostLimitFields.vue'
+import CostWarningFields from '../src/components/cost-budget/CostWarningFields.vue'
 import Form from '../src/views/llm-service/components/LlmCostBudgetFormSection.vue'
 import { emptyCostDraft } from '../src/utils/costBudget'
 import { emptyWarning } from '../src/utils/llmCostBudget'
@@ -19,13 +21,15 @@ const renderer = createRenderer<HostNode, HostNode>({
   insert(target, parent, anchor = null) { if (target.parent) target.parent.children.splice(target.parent.children.indexOf(target), 1); target.parent = parent; const index = anchor ? parent.children.indexOf(anchor) : -1; parent.children.splice(index < 0 ? parent.children.length : index, 0, target) },
   remove(target) { if (target.parent) target.parent.children.splice(target.parent.children.indexOf(target), 1); target.parent = null },
 })
-const filename = new URL('../src/views/llm-service/components/LlmCostBudgetFormSection.vue', import.meta.url)
-const { descriptor } = parse(readFileSync(filename, 'utf8'), { filename: filename.pathname })
-const script = compileScript(descriptor, { id: 'costForm' })
-const template = compileTemplate({ source: descriptor.template!.content, filename: filename.pathname, id: 'costForm', compilerOptions: { bindingMetadata: script.bindings } })
-if (template.errors.length) throw new Error(String(template.errors))
-const code = template.code.replace(/import \{([^}]+)\} from "vue"/g, (_, names: string) => 'const {' + names.replace(/ as /g, ': ') + '} = Vue').replace('export function render', 'return function render')
-Form.render = new Function('Vue', transpileModule(code, { compilerOptions: { target: ScriptTarget.ES2022 } }).outputText)(Vue)
+for (const [component, file] of [[Form, 'views/llm-service/components/LlmCostBudgetFormSection.vue'], [CostLimitFields, 'components/cost-budget/CostLimitFields.vue'], [CostWarningFields, 'components/cost-budget/CostWarningFields.vue']] as const) {
+  const filename = new URL(`../src/${file}`, import.meta.url)
+  const { descriptor } = parse(readFileSync(filename, 'utf8'), { filename: filename.pathname })
+  const script = compileScript(descriptor, { id: file })
+  const template = compileTemplate({ source: descriptor.template!.content, filename: filename.pathname, id: file, compilerOptions: { bindingMetadata: script.bindings } })
+  if (template.errors.length) throw new Error(String(template.errors))
+  const code = template.code.replace(/import \{([^}]+)\} from "vue"/g, (_, names: string) => 'const {' + names.replace(/ as /g, ': ') + '} = Vue').replace('export function render', 'return function render')
+  component.render = new Function('Vue', transpileModule(code, { compilerOptions: { target: ScriptTarget.ES2022 } }).outputText)(Vue)
+}
 const ready = { channels: [], administrators: { total: 2, missingPhoneCount: 0, missingEmailCount: 0 }, asOf: '2026-10-11T12:00:00+08:00' }
 let app: App | undefined, root: HostNode
 const text = (n: HostNode): string => n.text + n.children.map(text).join(' ')

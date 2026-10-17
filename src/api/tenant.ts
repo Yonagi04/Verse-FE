@@ -69,8 +69,8 @@ export function updateTenant(tenantId: string, data: TenantUpdateReqDTO): Promis
 }
 
 // 获取租户设置完整快照
-export function getTenantSettings(tenantId: string): Promise<TenantSettingsRespDTO> {
-  return request.get(`/tenants/${tenantId}/settings`)
+export function getTenantSettings(tenantId: string, config?: AxiosRequestConfig): Promise<TenantSettingsRespDTO> {
+  return request.get(`/tenants/${tenantId}/settings`, config)
 }
 
 // 保存租户设置完整快照
@@ -228,4 +228,14 @@ export function removeMember(tenantId: string, memberId: string): Promise<boolea
 // 发送租户内通知
 export function sendTenantNotification(tenantId: string, data: TenantSendNotificationReq): Promise<boolean> {
   return request.post(`/tenants/${tenantId}/notifications/send`, data)
+}
+
+export function saveTenantSettings(tenantId: string, data: import('@/types/tenantCostBudget').TenantSettingsSaveRequest, config?: AxiosRequestConfig): Promise<import('@/types/tenantCostBudget').TenantSettingsSaveOutcome> {
+  return request.post(`/tenants/${tenantId}/settings/save`, data, config)
+}
+export function getTenantCostStatus(tenantId: string, config?: AxiosRequestConfig): Promise<import('@/types/tenantCostBudget').TenantCostStatus> {
+  return request.get(`/tenants/${tenantId}/cost-status`, { ...config, silentError: true })
+}
+export function getTenantCostReadiness(tenantId: string, config?: AxiosRequestConfig): Promise<import('@/types/llmCostBudget').CostNotificationReadiness> {
+  return request.get(`/tenants/${tenantId}/cost-notification-readiness`, { ...config, silentError: true })
 }

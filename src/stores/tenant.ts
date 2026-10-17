@@ -10,6 +10,7 @@ export const useTenantStore = defineStore('tenant', () => {
   const currentTenant = ref<TenantInfo | null>(null)
   const isLoading = ref(false)
   const isSwitching = ref(false)
+  const settingsSaving = ref(false)
   const settingsDirty = ref(false)
   const preferenceSavingIds = ref<string[]>([])
   const initialized = ref(false)
@@ -19,7 +20,7 @@ export const useTenantStore = defineStore('tenant', () => {
   function reset() {
     tenantStateRevision++; listRequestSequence++; initialized.value = false; initializationPromise = null
     tenants.value = []; currentTenant.value = null; isLoading.value = false; isSwitching.value = false
-    settingsDirty.value = false; preferenceSavingIds.value = []; switchGuards.clear()
+    settingsSaving.value = false; settingsDirty.value = false; preferenceSavingIds.value = []; switchGuards.clear()
     usePermissionStore().clearPermissions()
   }
   const switchGuards = new Set<() => boolean | Promise<boolean>>()
@@ -147,6 +148,7 @@ export const useTenantStore = defineStore('tenant', () => {
     isLoading,
     isSwitching,
     settingsDirty,
+    settingsSaving,
     preferenceSavingIds,
     initialized,
     currentRole,

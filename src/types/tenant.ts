@@ -81,6 +81,7 @@ export interface TenantUpdateReqDTO {
 }
 
 export interface TenantSettingsRespDTO {
+  /** 整份设置并发版本。 */ settingsVersion: string
   tenantId: string
   type: TenantType
   name: string

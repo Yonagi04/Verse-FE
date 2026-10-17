@@ -18,7 +18,7 @@ import PresetDialog from './PresetDialog.vue'
 import LegacyPlaygroundPage from './LegacyPlaygroundPage.vue'
 
 const { tenant, models, groups, presets, legacy, examples, active, config, prompt, loading, streamError, selectedAttempts,
-  enabled, attempts, busy, roundNumbers, canRestorePrompt, restorePrompt, budgetStates, refreshBudgets, source, validation, canSend,
+  enabled, attempts, busy, roundNumbers, canRestorePrompt, restorePrompt, tenantBudgetSummary, budgetStates, refreshBudgets, source, validation, canSend,
   modelFor, lane, picked, draft, open, guarded, send, stop, stopAll, retry, fork, topology, patch, synchronize, draftRequest, refreshLists } = useWorkbench()
 // 宽屏停靠会话列表，窄屏通过同一入口展开，避免挤压模型对比区。
 const libraryTab = ref('sessions'), keyword = ref(''), libraryOpen = ref(false), libraryCollapsed = ref(false)
@@ -189,6 +189,8 @@ onBeforeRouteLeave(async () => {
             </section>
           </div>
           <div class="composer">
+            <a-alert v-if="tenantBudgetSummary?.budgetState === 'LIMITED'" message="租户成本已达限，切换模型不能解除租户限制。请联系管理员或等待周期重置后手动重试。" type="warning" show-icon />
+            <a-alert v-else-if="!tenantBudgetSummary || tenantBudgetSummary.budgetState === 'UNKNOWN'" message="租户成本状态暂不可获取，调用仍由服务端实时校验。" type="info" show-icon />
             <a-alert v-if="streamError" :message="streamError" type="error" show-icon closable @close="streamError = ''" />
             <a-alert v-if="validation && models.length" :message="validation" type="warning" show-icon />
             <a-button v-if="canRestorePrompt" type="link" :disabled="!!prompt" @click="restorePrompt">恢复被拒绝的问题</a-button>

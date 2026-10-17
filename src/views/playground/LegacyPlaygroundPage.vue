@@ -1,5 +1,8 @@
 <script setup lang="ts">
-import { costFailureDescription, type PlaygroundFailure } from '@/utils/playgroundCostError'
+import { getTenantCostStatus } from '@/api/tenant'
+import type { TenantCostSummary } from '@/types/tenantCostBudget'
+import { useUserStore } from '@/stores/user'
+import { costFailureDescription, isCostFailure, type PlaygroundFailure } from '@/utils/playgroundCostError'
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { message, Modal } from 'ant-design-vue'
 import { BulbOutlined } from '@ant-design/icons-vue'
@@ -11,6 +14,14 @@ import type { PlaygroundDetail, PlaygroundEvent, PlaygroundModel, PlaygroundProm
 
 const props = defineProps<{ initialSessionId?: string }>()
 const tenantStore = useTenantStore()
+const userStore = useUserStore()
+const tenantBudgetSummary = ref<TenantCostSummary | null>(null)
+async function refreshTenantBudget() {
+  const t = tenantId.value, ticket = generation
+  if (!t) return
+  try { const status = await getTenantCostStatus(t); if (ticket === generation) tenantBudgetSummary.value = { tenantId: status.tenantId, visibility: 'SUMMARY', budgetState: status.budgetState, retryAt: status.retryAt, timezone: status.timezone, asOf: status.asOf, limits: status.limits, message: status.visibility === 'SUMMARY' ? status.message : null } }
+  catch { if (ticket === generation) tenantBudgetSummary.value = null }
+}
 const playgroundStore = usePlaygroundStore()
 const tenantId = computed(() => tenantStore.currentTenantId)
 const models = ref<PlaygroundModel[]>([])
@@ -51,6 +62,7 @@ function reset() {
   viewRevision++
   requestController?.abort()
   requestController = null
+  tenantBudgetSummary.value = null
   models.value = []
   starterPrompts.value = []
   sessions.value = []
@@ -68,6 +80,7 @@ function reset() {
 }
 
 async function load(tenant: string, ticket: number) {
+  void refreshTenantBudget()
   const [modelResult, listResult, promptResult] = await Promise.allSettled([
     getPlaygroundModels(tenant), listPlaygroundSessions(tenant), getPlaygroundPrompts(tenant),
   ])
@@ -188,7 +201,7 @@ function handleEvent(event: PlaygroundEvent) {
   if (event.type === 'accepted') { accepted = true; prompt.value = ''; streamError.value = '' }
   else if (event.type === 'delta') pendingReply.value += event.text
   else if (event.type === 'completed' || event.type === 'stopped') { terminal = true; pendingReply.value = event.reply }
-  else if (event.type === 'error') { terminal = true; streamError.value = costFailureDescription(event.code, event.data) || event.message; prompt.value = pendingPrompt.value }
+  else if (event.type === 'error') { if (isCostFailure(event.code)) void refreshTenantBudget(); terminal = true; streamError.value = costFailureDescription(event.code, event.data) || event.message; prompt.value = pendingPrompt.value }
   void scrollBottom()
 }
 
@@ -224,6 +237,7 @@ async function send() {
     if (ticket === generation && (error as Error).name !== 'AbortError') {
       prompt.value = text
       if (sessionId) {
+        if (isCostFailure((error as PlaygroundFailure).code)) void refreshTenantBudget()
         streamError.value = costFailureDescription((error as PlaygroundFailure).code, (error as PlaygroundFailure).data) || (error as Error).message || '发送失败'
         message.error(streamError.value)
       }
@@ -261,7 +275,7 @@ async function copy(text: string | null) {
   catch { message.error('复制失败') }
 }
 
-watch(tenantId, next => {
+watch(() => [tenantId.value, userStore.token, userStore.user?.userId], ([next]) => {
   reset()
   if (next) {
     const ticket = generation
@@ -336,6 +350,7 @@ onBeforeUnmount(() => { unregisterSwitchGuard(); promptResizeObserver?.disconnec
           </template>
         </div>
         <div ref="composer" class="composer" :class="{ 'composer-starter': showStarter }">
+          <a-alert v-if="tenantBudgetSummary?.budgetState === 'LIMITED'" message="租户成本已达限，切换模型不能解除租户限制，请联系管理员或等待周期重置后手动重试。" type="warning" show-icon />
           <a-alert v-if="streamError" :message="streamError" type="error" show-icon class="stream-error" />
           <a-alert v-if="active && !active.modelAvailable" message="当前模型已停用，请选择其他模型创建新会话。" type="warning" show-icon class="stream-error" />
           <div v-if="showStarter && starterPrompts.length" class="prompt-collection">

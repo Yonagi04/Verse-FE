@@ -1,10 +1,20 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { message } from 'ant-design-vue'
-import { getTenantSettings, updateTenantSettings } from '@/api/tenant'
+import { getTenantSettings, getTenantCostStatus, getTenantCostReadiness } from '@/api/tenant'
 import { usePlaygroundStore } from '@/stores/playground'
 import { useTenantStore } from '@/stores/tenant'
 import type { TenantSettingsRespDTO, TenantSettingsUpdateReqDTO } from '@/types/tenant'
+
+import { useUserStore } from '@/stores/user'
+import { useTenantSettingsSave } from '@/composables/useTenantSettingsSave'
+import { costConfigToDraft, emptyCostDraft } from '@/utils/costBudget'
+import { tenantLimitTarget, tenantWarningTarget, defaultWarning, limitBusiness, warningBusiness } from '@/utils/tenantCostBudget'
+import type { TenantCostStatus, TenantSettingsSnapshot, TenantSettingsSaveRequest } from '@/types/tenantCostBudget'
+import type { CostNotificationReadiness } from '@/types/llmCostBudget'
+import TenantCostBudgetSection from './components/TenantCostBudgetSection.vue'
+import TenantCostBudgetStatus from './components/TenantCostBudgetStatus.vue'
+import TenantSettingsConfirmationModal from './components/TenantSettingsConfirmationModal.vue'
 
 const props = defineProps<{
   tenantId: string
@@ -32,7 +42,18 @@ interface SettingsForm {
 const tenantStore = useTenantStore()
 const playgroundStore = usePlaygroundStore()
 const loading = ref(true)
-const saving = ref(false)
+const userStore = useUserStore()
+const costStatus = ref<TenantCostStatus | null>(null), costBaseline = ref<TenantSettingsSnapshot | null>(null)
+const costDraft = ref(emptyCostDraft()), warningDraft = ref(defaultWarning())
+const readiness = ref<CostNotificationReadiness | null>(null), costFailed = ref(false)
+const frozenTarget = ref<TenantSettingsSaveRequest | null>(null)
+const save = useTenantSettingsSave(acceptSaved, text => message.error(text))
+const { inFlight: saving, pending, unknown } = save
+let epoch = 0, controller = new AbortController(), refreshInFlight: Promise<void> | null = null
+const memberOnly = ref(false)
+const baseEditable = computed(() => !memberOnly.value && snapshot.value?.editable === true && ['ADMIN','SUPER_ADMIN'].includes(tenantStore.currentRole ?? ''))
+const costEditable = computed(() => baseEditable.value && !!costBaseline.value)
+const locked = computed(() => saving.value || unknown.value || !!pending.value)
 const snapshot = ref<TenantSettingsRespDTO | null>(null)
 const form = reactive<SettingsForm>({
   name: '',
@@ -47,7 +68,7 @@ const form = reactive<SettingsForm>({
   rateLimitTpm: null,
 })
 
-const editable = computed(() => snapshot.value?.editable === true)
+const editable = computed(() => baseEditable.value && !locked.value)
 const isTeam = computed(() => snapshot.value?.type === 'TEAM')
 const canClose = computed(() => isTeam.value && snapshot.value?.role === 'SUPER_ADMIN')
 const canLeave = computed(() => isTeam.value && ['ADMIN', 'MEMBER'].includes(snapshot.value?.role ?? ''))
@@ -65,12 +86,17 @@ const tpmError = computed(() => validateLimit(form.tpmEnabled, form.rateLimitTpm
 const valid = computed(() => !nameError.value && !descriptionError.value && !rpmError.value && !tpmError.value)
 const dirty = computed(() => {
   if (!snapshot.value) return false
-  return JSON.stringify(toPayload()) !== JSON.stringify(snapshotPayload(snapshot.value))
+  if (JSON.stringify(toPayload()) !== JSON.stringify(snapshotPayload(snapshot.value))) return true
+  if (!costBaseline.value) return false
+  try { return JSON.stringify(tenantLimitTarget(costDraft.value)) !== JSON.stringify(limitBusiness(costBaseline.value.costLimit))
+    || JSON.stringify(tenantWarningTarget(warningDraft.value, costDraft.value.enabled)) !== JSON.stringify(warningBusiness(costBaseline.value.costWarning)) }
+  catch { return true }
 })
 
 // 切换租户前由统一 store 检查未保存表单，取消时不发送切换请求。
+watch(saving, value => { tenantStore.settingsSaving = value }, { immediate: true })
 watch(dirty, (value) => { tenantStore.settingsDirty = value }, { immediate: true })
-onUnmounted(() => { tenantStore.settingsDirty = false })
+onUnmounted(() => { tenantStore.settingsDirty = false; tenantStore.settingsSaving = false })
 
 function validateLimit(enabled: boolean, value: number | null, label: string) {
   if (!enabled) return ''
@@ -120,41 +146,99 @@ function applySnapshot(settings: TenantSettingsRespDTO) {
   form.rateLimitTpm = settings.rateLimitTpm
 }
 
-async function loadSettings() {
+function applyCost(saved: TenantSettingsSnapshot) {
+  costBaseline.value = saved; costDraft.value = costConfigToDraft(saved.costLimit); warningDraft.value = { ...saved.costWarning, channels: [...saved.costWarning.channels] }
+}
+async function loadSettings(retry = true) {
+  const ticket = epoch, tenant = props.tenantId
   loading.value = true
-  try {
-    applySnapshot(await getTenantSettings(props.tenantId))
-  } catch {
-    snapshot.value = null
-  } finally {
-    loading.value = false
+  const results = await Promise.allSettled([getTenantSettings(tenant, { signal: controller.signal, silentError: true }), getTenantCostStatus(tenant, { signal: controller.signal })])
+  if (ticket !== epoch) return
+  const settings = results[0].status === 'fulfilled' ? results[0].value : null
+  let status = results[1].status === 'fulfilled' ? results[1].value : null
+  if (memberOnly.value && status?.visibility === 'FULL') status = null
+  if (status?.visibility === 'SUMMARY') {
+    costStatus.value = status; costFailed.value = false
+    memberOnly.value = true; epoch++; controller.abort(); controller = new AbortController(); refreshInFlight = null
+    costBaseline.value = null; costDraft.value = emptyCostDraft(); warningDraft.value = defaultWarning(); readiness.value = null; save.invalidate(); frozenTarget.value = null
   }
+  if (snapshot.value && (dirty.value || locked.value)) { loading.value = false; return }
+  if (settings) applySnapshot(settings)
+  costStatus.value = status; costFailed.value = !status
+  if (settings && status?.visibility === 'FULL' && baseEditable.value && settings.settingsVersion && settings.settingsVersion === status.observedSettingsVersion) {
+    applyCost({ settings, costLimit: status.costLimit, costWarning: status.costWarning })
+  } else if (status?.visibility === 'FULL' && retry) { await loadSettings(false); return }
+  else { costBaseline.value = null; if (status?.visibility === 'FULL') costFailed.value = true }
+  loading.value = false
+  if (baseEditable.value) void getTenantCostReadiness(tenant, { signal: controller.signal }).then(value => { if (ticket === epoch) readiness.value = value }).catch(() => {})
 }
-
+function refreshCost() {
+  if (refreshInFlight) return refreshInFlight
+  const ticket = epoch
+  refreshInFlight = getTenantCostStatus(props.tenantId, { signal: controller.signal }).then(status => {
+    if (ticket !== epoch) return
+    if (status.visibility === 'SUMMARY') { memberOnly.value = true; epoch++; controller.abort(); controller = new AbortController(); refreshInFlight = null; costBaseline.value = null; costDraft.value = emptyCostDraft(); warningDraft.value = defaultWarning(); readiness.value = null; save.invalidate(); frozenTarget.value = null }
+    costStatus.value = status; costFailed.value = false
+    if (memberOnly.value && status.visibility === 'FULL') { costStatus.value = null; costFailed.value = true; return }
+    if (!dirty.value && !locked.value && status.visibility === 'FULL' && status.observedSettingsVersion !== snapshot.value?.settingsVersion) void loadSettings()
+  }).catch(() => { if (ticket === epoch) costFailed.value = true }).finally(() => { if (ticket === epoch) refreshInFlight = null })
+  return refreshInFlight
+}
 function resetForm() {
+  if (saving.value) return
+  save.invalidate(); frozenTarget.value = null
   if (snapshot.value) applySnapshot(snapshot.value)
+  if (costBaseline.value) applyCost(costBaseline.value)
 }
-
+function acceptSaved(saved: TenantSettingsSnapshot) {
+  applySnapshot(saved.settings)
+  if (baseEditable.value) applyCost(saved)
+  frozenTarget.value = null
+  message.success('租户设置已保存'); emit('saved', saved.settings)
+  const ticket = epoch
+  void Promise.allSettled([refreshCost(), tenantStore.fetchTenants(), playgroundStore.refresh(props.tenantId)]).then(results => {
+    if (ticket === epoch && (results.some(r => r.status === 'rejected') || costFailed.value || results[2]?.status === 'fulfilled' && results[2].value === null)) message.warning('设置已保存，部分状态刷新失败')
+  })
+}
 async function saveSettings() {
-  if (!editable.value || !dirty.value || !valid.value) return
-  saving.value = true
+  if (!editable.value || !dirty.value || !valid.value || !snapshot.value?.settingsVersion) return
   try {
-    const saved = await updateTenantSettings(props.tenantId, toPayload())
-    applySnapshot(saved)
-    await Promise.all([
-      tenantStore.fetchTenants(),
-      playgroundStore.refresh(props.tenantId),
-    ])
-    emit('saved', saved)
-    message.success('租户设置已保存')
-  } catch {
-    // 保留当前表单和脏状态，统一请求拦截器负责提示。
-  } finally {
-    saving.value = false
-  }
+    const target: TenantSettingsSaveRequest = { ...toPayload(), settingsVersion: snapshot.value.settingsVersion }
+    const initial: TenantSettingsSaveRequest = { ...target }
+    if (costEditable.value && costBaseline.value) {
+      const limit = tenantLimitTarget(costDraft.value), warning = tenantWarningTarget(warningDraft.value, limit.enabled)
+      // 关闭时保留预警草稿，不显式开启无效预警。
+      const warningChanged = JSON.stringify(warning) !== JSON.stringify(warningBusiness(costBaseline.value.costWarning))
+      const limitChanged = JSON.stringify(limit) !== JSON.stringify(limitBusiness(costBaseline.value.costLimit))
+      target.costLimit = { ...limit, expectedVersion: costBaseline.value.costLimit.version }; target.costWarning = warning
+      if (limitChanged || warningChanged) initial.costLimit = limitChanged ? target.costLimit : { expectedVersion: costBaseline.value.costLimit.version }
+      if (warningChanged) initial.costWarning = warning
+    }
+    frozenTarget.value = JSON.parse(JSON.stringify(target))
+    await save.start(props.tenantId, initial, target)
+  } catch (error) { message.error((error as Error).message) }
 }
+function reload() {
+  if (saving.value) return
+  epoch++; controller.abort(); controller = new AbortController(); refreshInFlight = null
+  save.invalidate(); frozenTarget.value = null; snapshot.value = null; costBaseline.value = null; costStatus.value = null
+  costDraft.value = emptyCostDraft(); warningDraft.value = defaultWarning(); void loadSettings()
+}
+function identityChanged() {
+  epoch++; controller.abort(); controller = new AbortController(); refreshInFlight = null
+  memberOnly.value = false
+  save.invalidate(); frozenTarget.value = null; snapshot.value = null; costStatus.value = null; costBaseline.value = null
+  costDraft.value = emptyCostDraft(); warningDraft.value = defaultWarning(); readiness.value = null
+  if (userStore.token && props.tenantId === tenantStore.currentTenantId) void loadSettings()
+}
+watch(() => [props.tenantId, userStore.token, userStore.user?.userId, tenantStore.currentTenantId, tenantStore.currentRole], identityChanged)
+const unregister = tenantStore.registerSwitchGuard(() => !saving.value && !unknown.value)
+onUnmounted(() => { epoch++; controller.abort(); save.invalidate(); unregister() })
+function visible() { if (document.visibilityState === 'visible' && !saving.value) void refreshCost() }
+onMounted(() => document.addEventListener('visibilitychange', visible))
+onUnmounted(() => document.removeEventListener('visibilitychange', visible))
 
-onMounted(loadSettings)
+onMounted(() => loadSettings())
 </script>
 
 <template>
@@ -281,6 +365,16 @@ onMounted(loadSettings)
         </div>
       </a-card>
 
+      <a-card class="settings-section" title="租户调用成本">
+        <TenantCostBudgetSection v-if="costEditable" v-model="costDraft" v-model:warning="warningDraft" :disabled="locked" :availability="costStatus?.visibility === 'FULL' ? costStatus.availability : undefined" :readiness="readiness" />
+        <a-alert v-else-if="baseEditable" type="warning" message="未取得同版本成本配置，成本区不可编辑；可单独保存基础设置或重新载入。" />
+        <TenantCostBudgetStatus :status="costStatus" :failed="costFailed" @refresh="refreshCost" />
+      </a-card>
+      <a-alert v-if="unknown" type="warning" message="提交结果暂未确认，请核对后继续；原提交可能已经生效。">
+        <template #description><a-button :loading="saving" @click="save.reconcile">核对提交结果</a-button><a-button :disabled="saving" @click="reload">放弃草稿并载入最新配置</a-button></template>
+      </a-alert>
+      <TenantSettingsConfirmationModal :pending="pending" :busy="saving" :target="frozenTarget" @confirm="save.confirm" @cancel="save.cancel" />
+
       <a-card v-if="canClose || canLeave" class="settings-section danger-card" title="危险操作">
         <div class="danger-row">
           <div v-if="canClose">
@@ -291,16 +385,16 @@ onMounted(loadSettings)
             <div class="setting-title">退出租户</div>
             <div class="setting-desc">退出后将无法访问当前租户资源，再次加入需要重新申请或使用邀请码。</div>
           </div>
-          <a-button v-if="canClose" danger @click="emit('close')">解散租户</a-button>
-          <a-button v-else danger @click="emit('leave')">退出租户</a-button>
+          <a-button v-if="canClose" danger :disabled="locked" @click="emit('close')">解散租户</a-button>
+          <a-button v-else danger :disabled="locked" @click="emit('leave')">退出租户</a-button>
         </div>
       </a-card>
 
-      <div v-if="editable" class="save-bar">
+      <div v-if="baseEditable" class="save-bar">
         <span :class="['save-state', { dirty }]">{{ dirty ? '有未保存的更改' : '所有更改已保存' }}</span>
         <a-space>
-          <a-button :disabled="!dirty || saving" @click="resetForm">取消</a-button>
-          <a-button type="primary" :disabled="!dirty || !valid" :loading="saving" @click="saveSettings">
+          <a-button :disabled="!dirty || locked" @click="resetForm">取消</a-button>
+          <a-button type="primary" :disabled="!dirty || !valid || locked || !snapshot.settingsVersion" :loading="saving" @click="saveSettings">
             保存更改
           </a-button>
         </a-space>

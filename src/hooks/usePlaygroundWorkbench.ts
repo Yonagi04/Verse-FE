@@ -1,7 +1,9 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { Modal } from 'ant-design-vue'
 import Decimal from 'decimal.js'
-import { costFailureDescription, isCostFailure, type PlaygroundFailure } from '@/utils/playgroundCostError'
+import { costFailureDescription, isCostFailure, normalizePlaygroundFailure } from '@/utils/playgroundCostError'
+import { getTenantCostStatus } from '@/api/tenant'
+import type { TenantCostSummary } from '@/types/tenantCostBudget'
 import { listLlmCostStatuses } from '@/api/llmCostBudget'
 import type { LlmCostStatusBase } from '@/types/llmCostBudget'
 import { useTenantStore } from '@/stores/tenant'
@@ -26,9 +28,19 @@ export function useWorkbench() {
   const prompt = ref(''), loading = ref(false), working = ref(false), streamError = ref('')
   const selectedAttempts = ref<Record<string, string>>({})
   const recoverablePrompt = ref(''), budgetStates = ref<Record<string, LlmCostStatusBase['budgetState']>>({})
+  const tenantBudgetSummary = ref<TenantCostSummary | null>(null)
+  async function refreshTenantBudget() {
+    const t = tenant.value, ticket = revision
+    if (!t) return
+    try {
+      const status = await getTenantCostStatus(t)
+      if (ticket === revision) tenantBudgetSummary.value = { tenantId: status.tenantId, visibility: 'SUMMARY', budgetState: status.budgetState, retryAt: status.retryAt, timezone: status.timezone, asOf: status.asOf, limits: status.limits, message: status.visibility === 'SUMMARY' ? status.message : null }
+    } catch { if (ticket === revision) tenantBudgetSummary.value = null }
+  }
   const canRestorePrompt = computed(() => !!recoverablePrompt.value && !busy.value)
   function restorePrompt() { if (!prompt.value && canRestorePrompt.value) prompt.value = recoverablePrompt.value }
   async function refreshBudgets() {
+    void refreshTenantBudget()
     const t = tenant.value, ticket = revision
     if (!t || !models.value.length) return
     try {
@@ -152,7 +164,7 @@ export function useWorkbench() {
       })
     } catch (error) {
       if (ticket === revision && screen === view && !controller.signal.aborted) {
-        const failure = error as PlaygroundFailure
+        const failure = normalizePlaygroundFailure(error)
         const item = attempts.value.find(x => x.attemptId === a.attemptId)
         if (item && isCostFailure(failure.code)) {
           item.status = 'FAILED'; item.error = { code: failure.code!, message: failure.message, data: failure.data, httpStatus: failure.httpStatus }
@@ -187,7 +199,7 @@ export function useWorkbench() {
         recoverablePrompt.value = question; if (!prompt.value) prompt.value = question
       }
       if (ticket === revision && screen === view) { active.value.generating = false; await refreshLists(); schedulePoll() }
-    } catch (error) { const failure = error as PlaygroundFailure; if (ticket === revision && screen === view && isCostFailure(failure.code)) streamError.value = costFailureDescription(failure.code, failure.data) || failure.message }
+    } catch (error) { const failure = normalizePlaygroundFailure(error); if (ticket === revision && screen === view && isCostFailure(failure.code)) streamError.value = costFailureDescription(failure.code, failure.data) || failure.message }
     finally { if (ticket === revision && screen === view) working.value = false }
   }
   async function retry(a: Attempt) {
@@ -202,7 +214,10 @@ export function useWorkbench() {
       selectedAttempts.value[`${a.roundNo}:${a.laneId}`] = next.attemptId
       active.value.generating = isActive(next); schedulePoll(); await run(next, t, ticket, screen)
       if (ticket === revision && screen === view) { retryKeys.delete(a.attemptId); active.value.generating = false; schedulePoll() }
-    } catch { /* 统一拦截器已提示。 */ }
+    } catch (error) {
+      const failure = normalizePlaygroundFailure(error)
+      if (ticket === revision && screen === view && isCostFailure(failure.code)) { streamError.value = costFailureDescription(failure.code, failure.data) || failure.message; void refreshBudgets() }
+    }
     finally { if (ticket === revision && screen === view) working.value = false }
   }
   async function fork(a?: Attempt, before = false, next?: WorkbenchConfig, sourceLaneId?: string) {
@@ -253,7 +268,7 @@ export function useWorkbench() {
   function clear() {
     revision++; view++; for (const controller of controllers.values()) controller.abort(); controllers.clear(); clearTimeout(pollTimer)
     active.value = null; groups.value = []; presets.value = []; legacy.value = []; models.value = []; examples.value = []; listKeyword = ''; listRevision++
-    recoverablePrompt.value = ''; budgetStates.value = {}; config.value = { lanes: [], synced: true }; prompt.value = ''; selectedAttempts.value = {}; pendingRound = null; retryKeys.clear(); working.value = false; loading.value = false; streamError.value = ''
+    recoverablePrompt.value = ''; budgetStates.value = {}; tenantBudgetSummary.value = null; config.value = { lanes: [], synced: true }; prompt.value = ''; selectedAttempts.value = {}; pendingRound = null; retryKeys.clear(); working.value = false; loading.value = false; streamError.value = ''
   }
   watch([tenant, () => userStore.user?.userId], async ([t]) => {
     clear(); const ticket = revision
@@ -276,6 +291,6 @@ export function useWorkbench() {
   })
   onBeforeUnmount(() => { unregisterSwitchGuard(); clear() })
   return { tenant, models, groups, presets, legacy, examples, active, config, prompt, loading, working, streamError,
-    selectedAttempts, recoverablePrompt, canRestorePrompt, restorePrompt, budgetStates, refreshBudgets, enabled, attempts, busy, roundNumbers, source, validation, canSend, costSummary,
+    selectedAttempts, recoverablePrompt, canRestorePrompt, restorePrompt, tenantBudgetSummary, budgetStates, refreshBudgets, enabled, attempts, busy, roundNumbers, source, validation, canSend, costSummary,
     modelFor, lane, picked, draft, open, guarded, send, stop, stopAll, retry, fork, topology, patch, synchronize, draftRequest, refreshLists }
 }

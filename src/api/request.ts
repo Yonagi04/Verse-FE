@@ -46,8 +46,9 @@ http.interceptors.response.use(
       if (result.code !== TENANT_CONTEXT_MISMATCH && !response.config.silentError) {
         message.error(result.message || '请求失败')
       }
-      const bizError = new Error(result.message || '请求失败') as Error & { code: string }
+      const bizError = new Error(result.message || '请求失败') as Error & { code: string; data: unknown; requestId: string | null; httpStatus: number }
       bizError.code = result.code
+      bizError.data = result.data; bizError.requestId = result.requestId; bizError.httpStatus = response.status
       throw bizError
     }
     return result.data as T

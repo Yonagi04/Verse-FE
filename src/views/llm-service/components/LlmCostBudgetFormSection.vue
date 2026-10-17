@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import CostLimitFields from '@/components/cost-budget/CostLimitFields.vue'
+import CostWarningFields from '@/components/cost-budget/CostWarningFields.vue'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import type { CostLimitDraft } from '@/types/costBudget'
 import type { LlmCostWarningConfig, CostNotificationReadiness } from '@/types/llmCostBudget'
@@ -18,9 +20,6 @@ const readinessLoading = ref(false)
 let revision = 0
 const dataUnavailable = computed(() => props.availability !== undefined && props.availability !== 'READY')
 const warningEffective = computed(() => props.modelValue.enabled && props.pricingEligible && !dataUnavailable.value)
-const fields = [{ key: 'daily', label: '日限额（元）', hint: '每日 00:00 至次日 00:00' },
-  { key: 'weekly', label: '周限额（元）', hint: '每周一 00:00 至下周一 00:00（周一至周日）' },
-  { key: 'monthly', label: '月限额（元）', hint: '每月 1 日 00:00 至下月 1 日 00:00' }] as const
 watch(() => [props.tenantId, props.modelValue.enabled] as const, async ([tenant, enabled]) => {
   const ticket = ++revision
   readiness.value = null
@@ -61,12 +60,7 @@ function updateWarning(value: Partial<LlmCostWarningConfig>) { emit('update:warn
         ? '平台需完成历史费用回填与核对后，才能开启成本限额。刷新页面不会自动完成核对；已开启的限额仍可关闭。'
         : '当前无法可靠核对费用，暂不能开启成本限额；已开启的限额仍可关闭。'" show-icon />
     <template v-if="modelValue.enabled">
-      <div class="limit-fields">
-        <a-form-item v-for="field in fields" :key="field.key" :label="field.label">
-          <a-input :value="modelValue[field.key]" :disabled="disabled" inputmode="decimal" placeholder="留空表示该周期不限" @update:value="limit(field.key, $event)" />
-          <p class="hint">{{ field.hint }}</p>
-        </a-form-item>
-      </div>
+      <CostLimitFields :model-value="modelValue" :disabled="disabled" @update:model-value="emit('update:modelValue', $event)" />
       <p class="hint">北京时间 GMT+8 · 至少填写一个周期，金额大于 0，最多两位小数。保存后按新限额重新判断，本周期历史费用不清零。</p>
       <p class="hint example">例如：设置该模型日限额 10 元后，API 与 PlayGround 的可计算费用合计达到 10 元，当日所有对此模型的新调用都会被限制。次日 00:00 重置日周期；如周或月限额也已达到，限制将继续。已开始的调用可能继续产生费用。以上时间均为 GMT+8。</p>
     </template>
@@ -79,16 +73,7 @@ function updateWarning(value: Partial<LlmCostWarningConfig>) { emit('update:warn
       </div>
       <p v-if="!warningEffective" class="hint">{{ warning.enabled ? '预警设置已保留，当前不生效；可关闭预警。' : '有效价格与成本限额开启后，可设置预警。' }}</p>
       <template v-if="modelValue.enabled && warning.enabled">
-        <a-form-item class="threshold-field" label="预警阈值">
-          <div class="threshold-heading"><span class="hint">所有已配置周期共用</span><strong>{{ warning.thresholdPercent }}%</strong></div>
-          <a-slider :value="warning.thresholdPercent" :min="50" :max="99" :step="1" :marks="{ 50: '50%', 80: '80%', 99: '99%' }" :disabled="disabled || !warningEffective" @update:value="updateWarning({ thresholdPercent: $event as number })" />
-        </a-form-item>
-        <a-form-item label="阈值预警渠道" :validate-status="warning.channels.length ? undefined : 'error'" :help="warning.channels.length ? undefined : '开启预警时至少选择一个渠道'">
-          <a-checkbox-group :value="warning.channels" :disabled="disabled || !warningEffective" @update:value="updateWarning({ channels: $event as LlmCostWarningConfig['channels'] })">
-            <a-checkbox value="IN_APP">站内系统公告</a-checkbox><a-checkbox value="SMS">短信</a-checkbox><a-checkbox value="EMAIL">邮件</a-checkbox>
-          </a-checkbox-group>
-          <p class="hint">站内公告面向全体成员，短信和邮件仅发送给有效管理员。</p>
-        </a-form-item>
+        <CostWarningFields :model-value="warning" :disabled="disabled || !warningEffective" @update:model-value="emit('update:warning', $event)" />
         <p class="hint example">例如：日限额 10 元、周限额 30 元，预警阈值设置为 80%，则今日消费达到 8 元、本周消费达到 24 元时，分别通过所选渠道发送一次预警。预警不会停止调用；达到任一周期 100% 限额后才限制新的调用，并固定发送三种达限通知。所有周期使用北京时间 GMT+8。</p>
       </template>
     </div>
