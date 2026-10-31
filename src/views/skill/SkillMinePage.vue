@@ -51,7 +51,7 @@ onBeforeUnmount(() => { generation++; request?.abort(); mutation.abort() })
     </div><a-empty v-else-if="!loading && !error" description="还没有发布内容，创建第一个 Skill 吧" class="empty" /><div v-else class="empty" /></a-spin>
     <a-pagination v-if="!error && result?.total" v-model:current="page" :total="result.total" :page-size="12" :show-size-changer="false" @change="load" />
     <a-modal :open="!!selected" title="下架 Skill" :confirm-loading="submitting" :ok-button-props="{ danger: true, disabled: !reason.trim() }" :cancel-button-props="{ disabled: submitting }" :closable="!submitting" :mask-closable="!submitting" ok-text="确认下架" @ok="unpublish" @cancel="selected = undefined">
-      <p>「{{ selected?.name }}」将停止下载。已有包和审批事实保留，本版暂不支持恢复上架。</p><a-textarea v-model:value="reason" :maxlength="300" :rows="4" placeholder="请填写下架原因" :disabled="submitting" /><a-alert v-if="modalError" type="error" :message="modalError" show-icon class="modal-error" />
+      <p>「{{ selected?.name }}」将停止下载。已有包和发布记录保留，本版暂不支持恢复上架。</p><a-textarea v-model:value="reason" :maxlength="300" :rows="4" placeholder="请填写下架原因" :disabled="submitting" /><a-alert v-if="modalError" type="error" :message="modalError" show-icon class="modal-error" />
     </a-modal>
   </section>
 </template>

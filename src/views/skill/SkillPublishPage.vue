@@ -62,7 +62,7 @@ function selectFile(event: Event) {
     <a-alert v-if="error" type="error" show-icon :message="error" class="notice"><template #action><a-button size="small" :disabled="busy" @click="draft ? state.refreshDraft() : state.load()">重试读取状态</a-button></template></a-alert>
     <a-alert v-if="notice" type="success" show-icon :message="notice" class="notice" />
     <a-spin :spinning="loading">
-      <a-result v-if="publication" status="success" title="Skill 已发布" sub-title="已完成本地自动审批（LOCAL_AUTO），这不代表外部人工审核。">
+      <a-result v-if="publication" status="success" title="Skill 已发布">
         <template #extra><router-link :to="`/skills/${publication.skillId}`" custom v-slot="{ href, navigate }"><a-button type="primary" :href="href" @click="navigate">查看公开页面</a-button></router-link><router-link to="/skills/mine" class="after-link">我的发布</router-link></template>
       </a-result>
       <div v-else-if="!loading && !draft" class="panel new-draft-panel">
@@ -114,7 +114,7 @@ function selectFile(event: Event) {
               <a-form-item name="declarationsConfirmed" :rules="declarationRules"><a-checkbox v-model:checked="form.declarationsConfirmed">我已核对兼容环境、依赖、费用与秘密信息，声明真实完整。</a-checkbox></a-form-item>
             </section>
           </div>
-          <aside class="panel publish-aside"><span class="step">发布检查</span><h3>{{ authorName }}</h3><p>{{ draft.slug }}</p><ul><li>检查通过的完整 ZIP</li><li>可读的公开信息</li><li>明确的许可及依赖声明</li></ul><a-button block :disabled="busy || !editable || !!submitIntent" :loading="busy" @click="validateEditor('save')">保存完整草稿</a-button><a-button block type="primary" :disabled="busy || draft.status !== 'READY' || !!submitIntent" :loading="busy" @click="validateEditor('submit')">确认声明并发布</a-button><small>当前采用本地自动审批。发布后的包和声明不可覆盖。</small></aside>
+          <aside class="panel publish-aside"><span class="step">发布检查</span><h3>{{ authorName }}</h3><p>{{ draft.slug }}</p><ul><li>检查通过的完整 ZIP</li><li>可读的公开信息</li><li>明确的许可及依赖声明</li></ul><a-button block :disabled="busy || !editable || !!submitIntent" :loading="busy" @click="validateEditor('save')">保存完整草稿</a-button><a-button block type="primary" :disabled="busy || draft.status !== 'READY' || !!submitIntent" :loading="busy" @click="validateEditor('submit')">确认声明并发布</a-button><small>发布后的包和声明不可覆盖。</small></aside>
         </a-form>
       </template>
     </a-spin>
