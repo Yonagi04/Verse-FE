@@ -8,6 +8,19 @@ const TENANT_CONTEXT_MISMATCH = 'B000338'
 let authRequests = new AbortController()
 export function resetAuthRequests() { authRequests.abort(); authRequests = new AbortController() }
 
+// 原生二进制下载和Axios共用过期处理，旧会话响应不能清理新会话。
+export function handleExpiredSession(requestToken: string | null): void {
+  if (requestToken !== getToken()) return
+  clearAuth()
+  const path = window.location.pathname
+  if (path !== '/login' && !path.startsWith('/join')) {
+    message.error('登录已过期，请重新登录')
+    const isSkill = path === '/skills' || path.startsWith('/skills/')
+    const returnTo = isSkill ? `?redirect=${encodeURIComponent(path + window.location.search + (window.location.hash || ''))}` : ''
+    window.location.href = `/login${returnTo}`
+  }
+}
+
 declare module 'axios' {
   export interface AxiosRequestConfig {
     authMode?: 'verse' | 'anonymous'
@@ -66,12 +79,10 @@ http.interceptors.response.use(
     }
 
     if (status === 401 && error.config?.authMode !== 'anonymous') {
-      clearAuth()
-      const path = window.location.pathname
-      if (path !== '/login' && !path.startsWith('/join')) {
-        message.error('登录已过期，请重新登录')
-        window.location.href = '/login'
-      }
+      const authorization = error.config?.headers?.Authorization
+      const requestToken = typeof authorization === 'string' && authorization.startsWith('Bearer ')
+        ? authorization.slice('Bearer '.length) : null
+      handleExpiredSession(requestToken)
     } else if (error.config?.silentError) {
       // 由发起请求的局部 UI 呈现错误，避免 Hover 等轻量交互弹出全局提示。
     } else if (result?.message) {

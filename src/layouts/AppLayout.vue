@@ -54,7 +54,7 @@ onMounted(() => {
   unregisterRecovery = registerTenantContextRecovery(async () => {
     await tenantStore.initialize(true)
     message.warning('租户上下文已变化，已为你恢复到当前工作空间')
-    await router.replace('/dashboard')
+    if (router.currentRoute.value.name !== 'UserCenter' && router.currentRoute.value.meta.accountScoped !== true) await router.replace('/dashboard')
   })
 })
 onUnmounted(() => {

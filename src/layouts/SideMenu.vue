@@ -14,6 +14,7 @@ import {
   RightOutlined,
   TeamOutlined,
   ExperimentOutlined,
+  AppstoreOutlined,
 } from '@ant-design/icons-vue'
 
 interface NavigationItem {
@@ -62,12 +63,15 @@ const navigationGroups = computed<NavigationGroup[]>(() => [
       { key: '/logs', label: '调用日志', icon: FileTextOutlined },
     ],
   },
-  ...(playgroundStore.status?.enabled ? [{
-    key: 'explore' as const,
+  {
+    key: 'explore',
     label: '探索',
     icon: ExperimentOutlined,
-    children: [{ key: '/playground', label: 'PlayGround', icon: ExperimentOutlined }],
-  }] : []),
+    children: [
+      { key: '/skills', label: 'Skill 广场', icon: AppstoreOutlined },
+      ...(playgroundStore.status?.enabled ? [{ key: '/playground', label: 'PlayGround', icon: ExperimentOutlined }] : []),
+    ],
+  },
 ])
 
 const expandedGroups = ref<Record<NavigationGroup['key'], boolean>>({
@@ -78,6 +82,7 @@ const expandedGroups = ref<Record<NavigationGroup['key'], boolean>>({
 
 const activeKey = computed(() => {
   if (route.path.startsWith('/tenants')) return '/tenants'
+  if (route.path.startsWith('/skills')) return '/skills'
   return route.path
 })
 

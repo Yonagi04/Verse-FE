@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, computed, reactive } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, reactive, nextTick } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { message } from 'ant-design-vue'
 import {
   CameraOutlined, EyeOutlined, EyeInvisibleOutlined, EditOutlined, EnvironmentOutlined,
@@ -14,10 +14,14 @@ import UserAvatar from '@/components/UserAvatar.vue'
 import UserPublicPreview from './UserPublicPreview.vue'
 import UserProfileSummary from './UserProfileSummary.vue'
 import ExternalAccountsSection from './ExternalAccountsSection.vue'
+import UserModelActivityCalendarCard from './components/UserModelActivityCalendarCard.vue'
 import type { UserInfoRespDTO, UserRespDTO } from '@/types/user'
 
 const emit = defineEmits<{ (e: 'navigate', panel: string): void }>()
 const router = useRouter()
+const route = useRoute()
+const contactsRef = ref<HTMLElement | null>(null)
+let contactsNavigationConsumed = false
 const userStore = useUserStore()
 const TIMEZONES = [
   'Asia/Shanghai', 'Asia/Tokyo', 'Asia/Seoul', 'Asia/Singapore', 'Asia/Hong_Kong', 'Asia/Dubai', 'Asia/Kolkata',
@@ -53,6 +57,14 @@ async function loadProfile() {
     // handled by interceptor
   } finally {
     initialLoading.value = false
+  }
+  if (!loadFailed.value && route.query.edit === 'contacts' && !contactsNavigationConsumed) {
+    await enterEditMode()
+    if (isEditing.value) {
+      contactsNavigationConsumed = true
+      await nextTick()
+      contactsRef.value?.scrollIntoView({ block: 'center' })
+    }
   }
 }
 void loadProfile()
@@ -237,6 +249,9 @@ async function handleCancelSuccess() {
         </div>
       </section>
       <input ref="fileInputRef" type="file" accept="image/png,image/jpeg,image/webp" hidden @change="handleAvatarChange" />
+    </template>
+    <UserModelActivityCalendarCard />
+    <template v-if="profile && !initialLoading && !loadFailed">
       <div class="profile-columns">
         <div v-if="!isEditing" class="main-cards">
           <section class="profile-card"><div class="card-body">
@@ -280,7 +295,7 @@ async function handleCancelSuccess() {
             </a-form-item>
             <a-form-item label="时区" name="timezone" class="full"><a-select v-model:value="form.timezone" :options="timezoneOptions" allow-clear show-search option-filter-prop="label" placeholder="请选择时区" /></a-form-item>
           </div></section>
-          <section class="form-section"><h3>联系方式</h3><div class="form-grid">
+          <section ref="contactsRef" class="form-section"><h3>联系方式</h3><div class="form-grid">
             <a-form-item label="邮箱" name="email" :rules="[{ required: true, message: '邮箱不能为空' }, { type: 'email', message: '邮箱格式不正确' }]">
               <a-input v-model:value="form.email" type="email" placeholder="请输入邮箱" />
             </a-form-item>

@@ -70,7 +70,7 @@ async function selectTenant(tenantId: string, tenantName: string) {
     if (!switched) return
     close()
     message.success(`已切换到「${tenantName}」`)
-    await router.push('/dashboard')
+    if (router.currentRoute.value.name !== 'UserCenter' && router.currentRoute.value.meta.accountScoped !== true) await router.push('/dashboard')
   } catch {
     // 请求拦截器提示失败，弹层保持打开以便重试。
   }

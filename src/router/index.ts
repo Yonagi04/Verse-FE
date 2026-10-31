@@ -7,6 +7,10 @@ import { getFlow } from '@/api/externalAuth'
 import { readFlow } from '@/hooks/useExternalAuthFlow'
 
 const routes: RouteRecordRaw[] = [
+  { path: '/skills', name: 'SkillPlaza', component: () => import('@/views/skill/SkillPlazaPage.vue'), meta: { requiresAuth: true, layout: 'app', accountScoped: true } },
+  { path: '/skills/mine', name: 'SkillMine', component: () => import('@/views/skill/SkillMinePage.vue'), meta: { requiresAuth: true, accountScoped: true } },
+  { path: '/skills/publish/:draftId?', name: 'SkillPublish', component: () => import('@/views/skill/SkillPublishPage.vue'), meta: { requiresAuth: true, accountScoped: true } },
+  { path: '/skills/:skillId(\\d+)', name: 'SkillDetail', component: () => import('@/views/skill/SkillDetailPage.vue'), meta: { requiresAuth: true, layout: 'app', accountScoped: true } },
   ...['/auth/external/callback', '/auth/external/error', '/login/select-account', '/register/external'].map(path => ({
     path, component: () => import('@/views/external-auth/ExternalFlowPage.vue'), meta: { requiresAuth: false, layout: 'auth', externalFlow: true },
   })),
@@ -176,6 +180,12 @@ router.beforeEach(async (to, _from, next) => {
     if (!userStore.isLoggedIn) {
       next(`/login?redirect=${encodeURIComponent(to.fullPath)}`)
     } else {
+      // Skill跳过租户初始化，但刷新后仍需恢复真实账号资料供侧栏和发布页面显示。
+      if (to.meta.accountScoped === true) {
+        if (!userStore.user) await userStore.fetchProfile()
+        next()
+        return
+      }
       // 刷新页面后 store 中 user 为 null，需要重新拉取以显示昵称等
       try {
         await Promise.all([
@@ -184,7 +194,7 @@ router.beforeEach(async (to, _from, next) => {
         ])
       } catch {
         // 列表失败仍允许进入列表的重试页；详情由 info 接口独立判断目标访问资格。
-        if (to.name === 'TenantList' || to.name === 'TenantDetail' || to.name === 'Dashboard' || to.meta.externalFlow) {
+        if (to.name === 'TenantList' || to.name === 'TenantDetail' || to.name === 'Dashboard' || to.name === 'UserCenter' || to.meta.externalFlow) {
           next()
           return
         }

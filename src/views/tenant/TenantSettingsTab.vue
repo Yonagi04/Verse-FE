@@ -317,7 +317,7 @@ onMounted(() => loadSettings())
       </a-card>
 
       <a-card class="settings-section" title="模型调用">
-        <template #extra><span class="section-desc">租户限制作用于全部 API Key 和模型调用。</span></template>
+        <template #extra><span class="section-desc">统一管理模型调用审计、速率限制与租户成本。</span></template>
         <div class="setting-row">
           <div>
             <div class="setting-title">模型调用审计</div>
@@ -363,12 +363,11 @@ onMounted(() => loadSettings())
             <div v-if="tpmError" class="limit-error">{{ tpmError }}</div>
           </div>
         </div>
-      </a-card>
-
-      <a-card class="settings-section" title="租户调用成本">
-        <TenantCostBudgetSection v-if="costEditable" v-model="costDraft" v-model:warning="warningDraft" :disabled="locked" :availability="costStatus?.visibility === 'FULL' ? costStatus.availability : undefined" :readiness="readiness" />
-        <a-alert v-else-if="baseEditable" type="warning" message="未取得同版本成本配置，成本区不可编辑；可单独保存基础设置或重新载入。" />
-        <TenantCostBudgetStatus :status="costStatus" :failed="costFailed" @refresh="refreshCost" />
+        <section class="model-call-cost" aria-label="租户调用成本">
+          <TenantCostBudgetSection v-if="costEditable" v-model="costDraft" v-model:warning="warningDraft" :disabled="locked" :availability="costStatus?.visibility === 'FULL' ? costStatus.availability : undefined" :readiness="readiness" />
+          <a-alert v-else-if="baseEditable" type="warning" message="未取得同版本成本配置，成本区不可编辑；可单独保存基础设置或重新载入。" />
+          <TenantCostBudgetStatus :status="costStatus" :failed="costFailed" @refresh="refreshCost" />
+        </section>
       </a-card>
       <a-alert v-if="unknown" type="warning" message="提交结果暂未确认，请核对后继续；原提交可能已经生效。">
         <template #description><a-button :loading="saving" @click="save.reconcile">核对提交结果</a-button><a-button :disabled="saving" @click="reload">放弃草稿并载入最新配置</a-button></template>
@@ -500,6 +499,10 @@ onMounted(() => loadSettings())
   padding: 0;
 }
 
+.model-call-cost {
+  padding-top: 28px;
+}
+
 .limit-control {
   position: relative;
   display: flex;
@@ -556,6 +559,7 @@ onMounted(() => loadSettings())
   .setting-row,
   .danger-row { align-items: flex-start; flex-direction: column; }
   .limit-control { flex-wrap: wrap; width: 100%; }
+  .model-call-cost { padding-top: 24px; }
   .section-desc { display: none; }
 }
 </style>

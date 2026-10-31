@@ -7,9 +7,11 @@ import UserProfilePanel from './UserProfilePanel.vue'
 import UserPrivacyPanel from './UserPrivacyPanel.vue'
 import UserDevicePanel from './UserDevicePanel.vue'
 import UserLoginHistoryPanel from './UserLoginHistoryPanel.vue'
+import UserCostAlertSettingsPanel from './UserCostAlertSettingsPanel.vue'
 
 const panels: { key: string; label: string; description: string; icon: Component; component: Component }[] = [
   { key: 'profile', label: '个人资料', description: '让团队更了解你', icon: UserOutlined, component: UserProfilePanel },
+  { key: 'cost-alert', label: '费用预警', description: '个人跨租户费用提醒', icon: HistoryOutlined, component: UserCostAlertSettingsPanel },
   { key: 'privacy', label: '隐私设置', description: '管理资料可见性', icon: SafetyCertificateOutlined, component: UserPrivacyPanel },
   { key: 'devices', label: '登录设备', description: '管理设备与会话', icon: TabletOutlined, component: UserDevicePanel },
   { key: 'history', label: '登录历史', description: '查看账户登录活动', icon: HistoryOutlined, component: UserLoginHistoryPanel },
@@ -19,13 +21,15 @@ function panel(value: unknown) { return typeof value === 'string' && panels.some
 const activePanel = ref(panel(route.query.panel))
 const currentPanel = computed(() => panels.find(panel => panel.key === activePanel.value) || panels[0]!)
 const profileRef = ref<InstanceType<typeof UserProfilePanel> | null>(null)
+const costAlertRef = ref<InstanceType<typeof UserCostAlertSettingsPanel> | null>(null)
 const centerRef = ref<HTMLDivElement | null>(null)
 
 function canLeave() {
+  if (activePanel.value === 'cost-alert') return !costAlertRef.value || costAlertRef.value.confirmLeave()
   return activePanel.value !== 'profile' || !profileRef.value || profileRef.value.confirmLeave()
 }
 function switchPanel(key: string) {
-  if (key === activePanel.value || !panels.some(panel => panel.key === key) || !canLeave()) return
+  if (key === activePanel.value || !panels.some(panel => panel.key === key)) return
   void router.replace({ path:'/profile', query:{ panel:key } })
   void nextTick(() => centerRef.value?.closest<HTMLElement>('.content')?.scrollTo({ top: 0 }))
 }
@@ -57,6 +61,7 @@ onBeforeRouteUpdate(to => {
       </nav>
       <div id="user-center-content" class="center-content">
         <UserProfilePanel v-if="activePanel === 'profile'" ref="profileRef" @navigate="switchPanel" />
+        <UserCostAlertSettingsPanel v-else-if="activePanel === 'cost-alert'" ref="costAlertRef" />
         <component :is="currentPanel.component" v-else />
       </div>
     </div>
