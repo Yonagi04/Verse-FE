@@ -14,6 +14,7 @@ vi.mock('@/api/request', () => ({ handleExpiredSession: vi.fn() }))
 vi.mock('@/api/skill', () => ({ skillDetail: mocks.detail, skillOptions: mocks.options,
   skillDownload: mocks.grant, readSkillArchive: mocks.read }))
 vi.mock('@/views/skill/SkillMarkdown.vue', () => ({ default: { render: () => null } }))
+vi.mock('@/views/skill/SkillCommentSection.vue', () => ({ default: { render: () => null } }))
 
 interface Host { type: string; text: string; props: Record<string, unknown>; children: Host[]; parent: Host | null }
 const node = (type: string, text = ''): Host => ({ type, text, props: {}, children: [], parent: null })

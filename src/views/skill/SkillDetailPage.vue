@@ -7,6 +7,7 @@ import type { SkillDetail, SkillOptions } from '@/types/skill'
 import { apiErrorDetails } from '@/utils/apiError'
 import { safeSkillDownloadPath, skillBytes } from '@/utils/skill'
 import SkillMarkdown from './SkillMarkdown.vue'
+import SkillCommentSection from './SkillCommentSection.vue'
 import { getToken } from '@/utils/auth'
 import { handleExpiredSession } from '@/api/request'
 import { useUserStore } from '@/stores/user'
@@ -85,6 +86,7 @@ onBeforeUnmount(() => { sequence++; controller?.abort() })
         <div v-if="available" class="declarations"><h3>作者声明</h3><dl><dt>许可证</dt><dd>{{ detail.license }}</dd><dt>兼容环境</dt><dd>{{ detail.compatibility || '无' }}</dd><dt>依赖</dt><dd>{{ detail.dependencies || '无' }}</dd><dt v-if="detail.originalAuthor">原作者</dt><dd v-if="detail.originalAuthor">{{ detail.originalAuthor }}</dd><dt v-if="detail.sourceUrl">来源</dt><dd v-if="detail.sourceUrl">{{ detail.sourceUrl }}</dd></dl><h3>SHA-256</h3><code>{{ detail.sha256 }}</code></div>
       </aside>
     </div><div v-else class="loading-space" /></a-spin>
+    <SkillCommentSection v-if="available && detail" :key="detail.skill.skillId + ':' + user.token" :skill-id="detail.skill.skillId" />
   </section>
 </template>
 <style lang="scss" scoped>
