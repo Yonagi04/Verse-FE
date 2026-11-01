@@ -15,7 +15,7 @@ const brandImage = computed(() => `${import.meta.env.BASE_URL}images/login-page-
         <small>探索 · 构建 · 协作</small>
       </div>
     </aside>
-    <main class="auth-main"><div class="locale">统一 LLM 管理平台</div><div class="auth-content"><slot /></div><footer>© {{ new Date().getFullYear() }} Verse · 让想法保持连接</footer></main>
+    <main class="auth-main" data-popup-container><div class="locale">统一 LLM 管理平台</div><div class="auth-content"><slot /></div><footer>© {{ new Date().getFullYear() }} Verse · 让想法保持连接</footer></main>
   </div>
 </template>
 <style lang="scss" scoped>

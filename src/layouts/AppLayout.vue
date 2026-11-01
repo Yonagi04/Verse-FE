@@ -126,7 +126,7 @@ onUnmounted(() => {
           <NotificationPopover />
         </div>
       </a-layout-header>
-      <a-layout-content class="content" :class="{ 'workbench-content': isPlayground }">
+      <a-layout-content class="content" :class="{ 'workbench-content': isPlayground }" data-popup-container>
         <slot />
       </a-layout-content>
     </a-layout>

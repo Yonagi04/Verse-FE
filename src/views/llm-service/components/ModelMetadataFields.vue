@@ -10,10 +10,6 @@ const emit = defineEmits<{
 }>()
 const tokenError = computed(() => props.contextWindow != null && props.maxOutputTokens != null && props.maxOutputTokens > props.contextWindow
   ? 'API 转发输出上限 不能超过上下文长度' : '')
-
-function getPopupContainer(triggerNode: HTMLElement): HTMLElement {
-  return triggerNode.parentElement ?? triggerNode
-}
 </script>
 
 <template>
@@ -22,7 +18,6 @@ function getPopupContainer(triggerNode: HTMLElement): HTMLElement {
       :value="tagCodes"
       mode="multiple"
       :options="tags.map((tag) => ({ value: tag.code, label: tag.displayName }))"
-      :get-popup-container="getPopupContainer"
       placeholder="选择固定能力标签（可选）"
       @update:value="emit('update:tagCodes', $event)"
     />

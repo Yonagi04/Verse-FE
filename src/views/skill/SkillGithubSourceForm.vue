@@ -4,9 +4,6 @@ import { skillBytes } from '@/utils/skill'
 const props = defineProps<{ modelValue: SkillGithubInput; busy: boolean; disabled: boolean; maxArchiveBytes?: number }>()
 const emit = defineEmits<{ 'update:modelValue': [value: SkillGithubInput]; import: [] }>()
 const update = (value: Partial<SkillGithubInput>) => emit('update:modelValue', { ...props.modelValue, ...value })
-function getPopupContainer(triggerNode: HTMLElement): HTMLElement {
-  return triggerNode.parentElement ?? triggerNode
-}
 </script>
 <template>
   <div class="github-form">
@@ -17,7 +14,6 @@ function getPopupContainer(triggerNode: HTMLElement): HTMLElement {
     <div class="ref-row">
       <div><label for="skill-github-ref-type">引用类型</label>
         <a-select id="skill-github-ref-type" :value="modelValue.refType === 'DEFAULT' ? 'AUTO' : modelValue.refType" :disabled="disabled || busy"
-          :get-popup-container="getPopupContainer"
           :options="[{ value: 'AUTO', label: '自动识别' }, { value: 'BRANCH', label: '分支' }, { value: 'TAG', label: 'Tag' }, { value: 'COMMIT', label: '完整提交 SHA' }]"
           @update:value="(value: unknown) => update({ refType: value as SkillGithubInput['refType'] })" /></div>
       <div><label for="skill-github-ref">引用（可选）</label>

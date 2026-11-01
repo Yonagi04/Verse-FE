@@ -133,7 +133,7 @@ onBeforeRouteLeave(async () => {
           <div class="library-title"><span class="section-label">工作区</span></div>
           <a-segmented v-model:value="libraryTab" :options="[{label:'我的会话',value:'sessions'},{label:'个人预设',value:'presets'}]" block />
           <a-input v-model:value="keyword" placeholder="搜索会话与预设" allow-clear><template #prefix><SearchOutlined /></template></a-input>
-          <div class="library-items">
+          <div class="library-items" data-popup-container>
             <template v-if="libraryTab === 'sessions'">
               <div v-for="g in filteredGroups" :key="g.id" class="library-item" :class="{ active: active?.id === g.id }">
                 <button class="resource-button" @click="loadGroup(g.id)"><strong>{{ g.title }}</strong><small>{{ g.payload.lanes.length === 1 ? '单模型' : `${g.payload.lanes.length} 模型对比` }}{{ g.payload.source ? ' · 分叉' : '' }}</small></button>
@@ -157,7 +157,7 @@ onBeforeRouteLeave(async () => {
             <a-button class="parameter-control" type="text" aria-label="模型参数" @click="configOpen = true"><SettingOutlined /><span>参数</span></a-button>
           </div>
           <div v-if="source" class="source-note">分叉自 {{ source.title }} · {{ source.laneLabel || '配置 A' }}{{ source.roundNo ? ` · 第 ${source.roundNo} 轮` : '' }} <a-button v-if="active?.sourceAvailable !== false" type="link" size="small" @click="loadGroup(source.groupId)">返回源会话</a-button><span v-else> · 来源会话已删除</span></div>
-          <div class="conversation" :class="{ 'is-empty': !roundNumbers.length, 'is-single': config.lanes.length === 1 }" :style="{ '--lane-count': config.lanes.length || 1 }">
+          <div class="conversation" :class="{ 'is-empty': !roundNumbers.length, 'is-single': config.lanes.length === 1 }" :style="{ '--lane-count': config.lanes.length || 1 }" data-popup-container>
             <div v-if="!models.length" class="empty-workspace"><ExperimentOutlined /><h2>没有可用的文本聊天模型</h2><p>请先在当前租户配置并启用文本聊天服务。</p></div>
             <div v-else-if="!roundNumbers.length" class="empty-workspace welcome">
               <div class="welcome-symbol"><ExperimentOutlined /></div>
