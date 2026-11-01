@@ -1,5 +1,9 @@
 node_modules/
 dist/
+reports/
+codeql-results/
+dependency-vulnerabilities.json
+__pycache__/
 .vite/
 *.local
 .env.local

@@ -26,7 +26,7 @@ Verse Console 为团队提供模型服务、API Key、成员权限、调用审�
 
 ### 环境要求
 
-- Node.js 20+
+- Node.js 22+
 - npm 10+
 - 已启动的 [Verse Gateway](https://github.com/Yonagi04/Verse)，默认地址为 `http://localhost:8080`
 
@@ -56,9 +56,16 @@ npx vue-tsc --noEmit
 # 单元测试
 npm test
 
+# 含开发工具链的依赖审计，high/critical 阻断
+npm run audit
+
 # 类型检查与生产构建
 npm run build
 ```
+
+`npm run check` 顺序执行 lint、全量依赖审计、单元测试和构建；`audit:prod` 保留为仅检查
+生产依赖的快捷入口。Vite 最低版本为 6.4.4，Vitest 最低版本为 5.0.5；安装时使用
+`npm ci` 复现锁文件，避免继续使用含旧版 tinypool 的测试工具链。
 
 ### 生产构建
 

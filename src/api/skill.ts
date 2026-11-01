@@ -3,6 +3,7 @@ import { getToken } from '@/utils/auth'
 import type { SkillCard, SkillDetail, SkillDownloadGrant, SkillDraft, SkillImportTask, SkillMetadata,
   SkillMine, SkillOptions, SkillPage, SkillPublication, SkillSearch } from '@/types/skill'
 import type { SkillGithubInput, SkillGithubCandidates, SkillDraftFiles } from '@/types/skill'
+import type { SkillFiles, SkillFileContent } from '@/types/skill'
 import { safeSkillDownloadPath } from '@/utils/skill'
 
 const base = '/skills'
@@ -19,6 +20,10 @@ export function searchSkills(query: SkillSearch, signal?: AbortSignal): Promise<
   return http.get(base, { ...personal(signal), params })
 }
 export const skillDetail = (id: string, signal?: AbortSignal): Promise<SkillDetail> => http.get(`${base}/${id}`, personal(signal))
+export const skillFiles = (id: string, version: string, signal?: AbortSignal): Promise<SkillFiles> =>
+  http.get(`${base}/${id}/versions/${version}/files`, personal(signal))
+export const skillFileContent = (id: string, version: string, path: string, signal?: AbortSignal): Promise<SkillFileContent> =>
+  http.get(`${base}/${id}/versions/${version}/files/content`, { ...personal(signal), params: { path } })
 export const createSkillDraft = (slug: string, key: string, signal?: AbortSignal): Promise<SkillDraft> =>
   http.post(`${base}/drafts`, { slug }, command(key, signal))
 export const getSkillDraft = (id: string, signal?: AbortSignal): Promise<SkillDraft> => http.get(`${base}/drafts/${id}`, personal(signal))

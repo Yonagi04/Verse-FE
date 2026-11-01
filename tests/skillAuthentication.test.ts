@@ -24,7 +24,8 @@ it('广场、词表、详情及下载授权都携带当前账号会话', async (
   const api = await import('../src/api/skill')
   await api.skillOptions(); await api.searchSkills({ page: 1, size: 12 })
   await api.skillDetail('20'); await api.skillDownload('20', '70')
-  expect(headers).toEqual(Array(4).fill('Bearer session-a'))
+  await api.skillFiles('20', '70'); await api.skillFileContent('20', '70', 'SKILL.md')
+  expect(headers).toEqual(Array(6).fill('Bearer session-a'))
 })
 
 it.each(['search', 'detail', 'grant'])('%s会话失效时清理登录态并保留完整Skill路径', async operation => {

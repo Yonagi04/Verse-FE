@@ -67,3 +67,9 @@ export interface SkillDraftFiles {
   page: number; size: number; total: number; artifactId: string; contentSha256: string
   items: { relativePath: string; sizeBytes: number; sha256: string }[]
 }
+export interface SkillFile { relativePath: string; sizeBytes: number; sha256: string }
+export interface SkillFiles { versionId: string; rootName: string; maxPreviewBytes: number; items: SkillFile[] }
+export interface SkillFileContent extends SkillFile {
+  versionId: string; kind: 'TEXT' | 'MARKDOWN' | 'CODE' | 'UNSUPPORTED'; language: string | null
+  status: 'READY' | 'UNSUPPORTED' | 'TOO_LARGE'; content: string | null
+}
