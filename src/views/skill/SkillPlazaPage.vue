@@ -54,11 +54,11 @@ onBeforeUnmount(() => { sequence++; current?.abort() })
       <a-select :value="query.sort || 'relevance'" aria-label="排序" @change="(value: unknown) => filter({ sort: String(value) })" :options="[{ value: 'relevance', label: '相关优先' }, { value: 'updated', label: '最新发布' }]" />
     </div>
     <div class="filters">
-      <a-select :value="query.source" allow-clear placeholder="全部来源" aria-label="来源"
+      <a-select class="source-filter" :value="query.source" allow-clear placeholder="全部来源" aria-label="来源"
         :options="[{ value: 'ZIP', label: 'ZIP 上传' }, { value: 'GITHUB', label: 'GitHub 导入' }]"
         @change="(value: unknown) => filter({ source: value ? String(value) : undefined })" />
-      <a-select :value="query.category" allow-clear placeholder="全部分类" aria-label="分类" :options="options?.categories.map(item => ({ value: item.id, label: item.name }))" @change="(value: unknown) => filter({ category: value ? String(value) : undefined })" />
-      <a-select mode="multiple" :value="query.tags || []" :max-tag-count="3" allow-clear placeholder="筛选标签（任一匹配）" aria-label="标签" :options="options?.tags.map(item => ({ value: item.id, label: item.name }))" @change="(value: unknown) => filter({ tags: (value as string[]).slice(0, 5) })" />
+      <a-select class="category-filter" :value="query.category" allow-clear placeholder="全部分类" aria-label="分类" :options="options?.categories.map(item => ({ value: item.id, label: item.name }))" @change="(value: unknown) => filter({ category: value ? String(value) : undefined })" />
+      <a-select class="tag-filter" mode="multiple" :value="query.tags || []" :max-tag-count="3" allow-clear placeholder="筛选标签（任一匹配）" aria-label="标签" :options="options?.tags.map(item => ({ value: item.id, label: item.name }))" @change="(value: unknown) => filter({ tags: (value as string[]).slice(0, 5) })" />
       <a-tag v-if="query.publisherId" closable @close="filter({ publisherId: undefined })">指定作者</a-tag>
       <span class="count" aria-live="polite">{{ loading ? '正在查找…' : error ? '' : `${page?.total || 0} 个 Skill` }}</span>
     </div>
@@ -87,7 +87,8 @@ h1 { font-size: clamp(24px, 2.7vw, 34px); margin: 12px 0; font-weight: 650; lett
 .toolbar { display: flex; align-items: center; gap: 12px; padding: 18px; background: $color-bg; border: 1px solid $color-border; border-radius: $radius-card; }
 .toolbar > .ant-select { width: 126px; flex: none; }
 .filters { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 20px 0; }
-.filters > .ant-select:first-child { width: 150px; }.filters > .ant-select:nth-child(2) { min-width: 230px; }
+.filters > .ant-select { flex: 0 0 auto; min-width: 0; max-width: 100%; }
+.source-filter { width: 150px; }.category-filter { width: 230px; }.tag-filter { width: 320px; }
 .count { margin-left: auto; font-size: 12px; color: $color-text-tertiary; }
 .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin-bottom: 24px; }
 .skill-card { display: flex; flex-direction: column; min-width: 0; padding: 22px; border: 1px solid $color-border; border-radius: $radius-card; background: $color-bg; color: $color-text-primary; transition: border-color .15s; }
@@ -98,5 +99,5 @@ h2 { font-size: 17px; margin: 18px 0 10px; overflow-wrap: anywhere; }.skill-card
 .tags { margin: auto 0 18px; padding-top: 6px; }footer { display: flex; justify-content: space-between; gap: 10px; padding-top: 16px; border-top: 1px solid $color-border; font-size: 12px; }footer small { display: block; color: $color-text-tertiary; }
 .empty { min-height: 240px; padding: 50px 0; }
 @media(max-width: 1050px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media(max-width: 600px) { .heading { align-items: flex-start; flex-direction: column; }.grid { grid-template-columns: 1fr; }.toolbar { padding: 12px; }.toolbar > .ant-select { width: 108px; }.filters > .ant-select { flex: 1; }.count { width: 100%; margin: 0; } }
+@media(max-width: 600px) { .heading { align-items: flex-start; flex-direction: column; }.grid { grid-template-columns: 1fr; }.toolbar { padding: 12px; }.toolbar > .ant-select { width: 108px; }.filters > .ant-select { flex-basis: 100%; width: 100%; }.count { width: 100%; margin: 0; } }
 </style>
