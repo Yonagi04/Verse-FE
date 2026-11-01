@@ -1,6 +1,0 @@
-**
-!Dockerfile
-!docker/
-!docker/default.conf.template
-!dist/
-!dist/**

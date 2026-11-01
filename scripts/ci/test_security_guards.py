@@ -1,13 +1,14 @@
 """Check security false-green cases without Docker or network credentials."""
 
+import contextlib
+import io
 import json
 from pathlib import Path
 import tempfile
+import textwrap
 import unittest
 from unittest.mock import patch
-import zipfile
 
-import build_image
 import check_sarif
 
 
@@ -46,15 +47,26 @@ class SecurityGateTest(unittest.TestCase):
             "invocations": [{"executionSuccessful": True}]}]}), encoding="utf-8")
         check_sarif.check(path)
 
-    def test_image_build_rejects_personal_configuration_and_geoip(self):
-        target = self.root / "target"
-        target.mkdir()
-        for asset in ("BOOT-INF/classes/application-dev.yml", "BOOT-INF/classes/geoip/local.mmdb"):
-            with self.subTest(asset=asset):
-                with zipfile.ZipFile(target / "app.jar", "w") as jar:
-                    jar.writestr(asset, "local-only")
-                with patch.object(build_image, "ROOT", self.root), self.assertRaisesRegex(ValueError, "Refusing"):
-                    build_image.application_jar()
+    def test_dependency_workflow_blocks_high_critical_and_empty_scans(self):
+        workflow = Path(__file__).resolve().parents[2] / ".github/workflows/security.yml"
+        script = workflow.read_text(encoding="utf-8").split("python3 - <<'PY'\n")[1].split("\n          PY")[0]
+        script = textwrap.dedent(script)
+        for severity in (None, "LOW", "MEDIUM", "UNKNOWN", "HIGH", "CRITICAL", "EMPTY"):
+            with self.subTest(severity=severity):
+                result = {"Packages": [{"Name": "example"}], "Vulnerabilities": []}
+                if severity == "EMPTY":
+                    result["Packages"] = []
+                elif severity:
+                    result["Vulnerabilities"] = [{"Severity": severity}]
+                output = io.StringIO()
+                with patch.object(Path, "read_text", return_value=json.dumps({"Results": [result]})), \
+                        contextlib.redirect_stdout(output):
+                    if severity in ("HIGH", "CRITICAL", "EMPTY"):
+                        with self.assertRaises(SystemExit):
+                            exec(script, {})
+                    else:
+                        exec(script, {})
+                        self.assertEqual(bool(severity), "::warning" in output.getvalue())
 
 
 if __name__ == "__main__":
