@@ -15,9 +15,10 @@ vi.mock('@/api/skill', () => ({ skillDetail: mocks.detail, skillOptions: mocks.o
   skillDownload: mocks.grant, readSkillArchive: mocks.read }))
 vi.mock('@/views/skill/SkillMarkdown.vue', () => ({ default: { render: () => null } }))
 vi.mock('@/views/skill/SkillCommentSection.vue', () => ({ default: { render: () => null } }))
+vi.mock('@/views/skill/SkillFileBrowser.vue', () => ({ default: { render: () => null } }))
 
-interface Host { type: string; text: string; props: Record<string, unknown>; children: Host[]; parent: Host | null }
-const node = (type: string, text = ''): Host => ({ type, text, props: {}, children: [], parent: null })
+interface Host { type: string; text: string; props: Record<string, unknown>; children: Host[]; parent: Host | null; style: Record<string, string> }
+const node = (type: string, text = ''): Host => ({ type, text, props: {}, children: [], parent: null, style: {} })
 const renderer = createRenderer<Host, Host>({
   createElement: type => node(type), createText: text => node('text', text), createComment: () => node('comment'),
   setText: (target, text) => { target.text = text }, setElementText: (target, text) => { target.text = text },

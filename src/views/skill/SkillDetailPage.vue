@@ -9,6 +9,7 @@ import { safeSkillDownloadPath, skillBytes } from '@/utils/skill'
 import SkillMarkdown from './SkillMarkdown.vue'
 import SkillCommentSection from './SkillCommentSection.vue'
 import SkillSourceSummary from './SkillSourceSummary.vue'
+import SkillFileBrowser from './SkillFileBrowser.vue'
 import { getToken } from '@/utils/auth'
 import { handleExpiredSession } from '@/api/request'
 import { useUserStore } from '@/stores/user'
@@ -20,6 +21,27 @@ const loading = ref(false)
 const downloading = ref(false)
 const error = ref('')
 const downloadError = ref('')
+const activeTab = ref<'introduction' | 'files' | 'comments'>('introduction')
+const visitedFiles = ref(false)
+const visitedComments = ref(false)
+const tabs = [{ key: 'introduction', label: '介绍' }, { key: 'files', label: '文件' }, { key: 'comments', label: '评论' }] as const
+function changeTab(tab: typeof activeTab.value) {
+  activeTab.value = tab
+  if (tab === 'files') visitedFiles.value = true
+  if (tab === 'comments') visitedComments.value = true
+}
+function moveTab(event: KeyboardEvent, index: number) {
+  let next: number
+  if (event.key === 'ArrowRight') next = (index + 1) % tabs.length
+  else if (event.key === 'ArrowLeft') next = (index + tabs.length - 1) % tabs.length
+  else if (event.key === 'Home') next = 0
+  else if (event.key === 'End') next = tabs.length - 1
+  else return
+  event.preventDefault()
+  changeTab(tabs[next]!.key)
+  const buttons = (event.currentTarget as HTMLElement).parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]')
+  buttons?.[next]?.focus()
+}
 let controller: AbortController | undefined
 let sequence = 0
 const available = computed(() => detail.value?.availability === 'AVAILABLE')
@@ -27,6 +49,7 @@ async function load() {
   controller?.abort(); controller = new AbortController()
   const turn = ++sequence
   loading.value = true; error.value = ''; detail.value = undefined; downloadError.value = ''; downloading.value = false
+  activeTab.value = 'introduction'; visitedFiles.value = false; visitedComments.value = false
   try {
     const [value, vocabulary] = await Promise.all([skillDetail(String(route.params.skillId), controller.signal), skillOptions(controller.signal)])
     if (turn === sequence) { detail.value = value; options.value = vocabulary }
@@ -76,7 +99,22 @@ onBeforeUnmount(() => { sequence++; controller?.abort() })
           <div class="tags"><a-tag v-for="tag in detail.skill.tags" :key="tag">{{ options?.tags.find(item => item.id === tag)?.name || tag }}</a-tag></div>
         </header>
         <a-alert v-if="!available" type="warning" show-icon message="此 Skill 当前不可用" description="内容已下架或暂停分发，正文与下载暂不可用。" />
-        <template v-else><h2>SKILL.md</h2><p class="reading-note">包内文档仅供阅读，图片和链接不会自动加载。使用前请检查包内脚本和依赖。</p><SkillMarkdown :text="detail.skillMarkdown || ''" /></template>
+        <section v-else class="detail-body" aria-label="Skill 正文">
+          <div class="detail-tabs" role="tablist" aria-label="详情内容">
+            <button v-for="(tab, index) in tabs" :id="'skill-tab-' + tab.key" :key="tab.key" type="button" role="tab"
+              :aria-selected="activeTab === tab.key" :aria-controls="'skill-panel-' + tab.key" :tabindex="activeTab === tab.key ? 0 : -1"
+              @click="changeTab(tab.key)" @keydown="moveTab($event, index)">{{ tab.label }}</button>
+          </div>
+          <div v-show="activeTab === 'introduction'" id="skill-panel-introduction" role="tabpanel" aria-labelledby="skill-tab-introduction">
+            <h2>SKILL.md</h2><p class="reading-note">包内文档仅供阅读，图片和链接不会自动加载。使用前请检查包内脚本和依赖。</p><SkillMarkdown :text="detail.skillMarkdown || ''" />
+          </div>
+          <div v-show="activeTab === 'files'" id="skill-panel-files" role="tabpanel" aria-labelledby="skill-tab-files">
+            <SkillFileBrowser v-if="visitedFiles" :key="detail.skill.skillId + ':' + detail.skill.versionId + ':' + user.token" :skill-id="detail.skill.skillId" :version-id="detail.skill.versionId" />
+          </div>
+          <div v-show="activeTab === 'comments'" id="skill-panel-comments" role="tabpanel" aria-labelledby="skill-tab-comments">
+            <SkillCommentSection v-if="visitedComments" :key="detail.skill.skillId + ':' + user.token" :skill-id="detail.skill.skillId" />
+          </div>
+        </section>
       </div>
       <aside>
         <div class="download-panel"><span class="label">当前版本</span><strong>{{ detail.skill.version }}</strong><div>{{ skillBytes(detail.archiveBytes) }} · ZIP</div>
@@ -91,14 +129,14 @@ onBeforeUnmount(() => { sequence++; controller?.abort() })
         <div v-if="available" class="declarations"><h3>作者声明</h3><dl><dt>许可证</dt><dd>{{ detail.license }}</dd><dt>兼容环境</dt><dd>{{ detail.compatibility || '无' }}</dd><dt>依赖</dt><dd>{{ detail.dependencies || '无' }}</dd><dt v-if="detail.originalAuthor">原作者</dt><dd v-if="detail.originalAuthor">{{ detail.originalAuthor }}</dd><dt v-if="detail.sourceUrl">来源</dt><dd v-if="detail.sourceUrl">{{ detail.sourceUrl }}</dd></dl><h3>SHA-256</h3><code>{{ detail.sha256 }}</code></div>
       </aside>
     </div><div v-else class="loading-space" /></a-spin>
-    <SkillCommentSection v-if="available && detail" :key="detail.skill.skillId + ':' + user.token" :skill-id="detail.skill.skillId" />
   </section>
 </template>
 <style lang="scss" scoped>
 .detail-page { max-width: 1200px; margin: 0 auto; }.back { display: inline-flex; align-items: center; gap: 8px; margin: 4px 0 24px; }
+.detail-tabs { display: flex; gap: 24px; border-bottom: 1px solid $color-border; margin-bottom: 24px; }.detail-tabs button { padding: 0 4px 14px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: $color-text-secondary; font-size: 14px; cursor: pointer; }.detail-tabs button[aria-selected="true"] { color: $color-primary; border-bottom-color: $color-primary; font-weight: 600; }.detail-body :deep(.skill-comments) { margin: 0; padding: 0; border: 0; }
 .detail-layout { display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 24px; }.main-panel, .download-panel, .declarations, .source-panel { border: 1px solid $color-border; border-radius: $radius-card; padding: 28px; background: $color-bg; min-width: 0; }
 .source-panel { margin-top: 18px; padding: 22px; }.source-panel h3 { margin: 0 0 14px; }.source-panel :deep(.source-summary) { margin: 0; padding: 0; background: transparent; border-radius: 0; }
-header { margin-bottom: 32px; padding-bottom: 24px; border-bottom: 1px solid $color-border; }h1 { font-size: 32px; line-height: 1.3; margin: 15px 0; overflow-wrap: anywhere; color: $color-text-primary; }.summary { font-size: 15px; line-height: 1.8; color: $color-text-secondary; }header a span, .reading-note { color: $color-text-tertiary; font-size: 12px; }.tags { margin-top: 18px; }
+header { margin-bottom: 24px; }h1 { font-size: 32px; line-height: 1.3; margin: 15px 0; overflow-wrap: anywhere; color: $color-text-primary; }.summary { font-size: 15px; line-height: 1.8; color: $color-text-secondary; }header a span, .reading-note { color: $color-text-tertiary; font-size: 12px; }.tags { margin-top: 18px; }
 h2 { font-size: 17px; color: $color-text-primary; }.download-panel strong { display: block; font-size: 27px; margin: 10px 0; }.label, .download-panel div, .download-panel p, small { color: $color-text-secondary; font-size: 12px; }.download-panel .ant-btn { margin: 22px 0 12px; }.download-panel small { display: block; line-height: 1.7; }.declarations { padding: 22px; margin-top: 18px; }h3 { font-size: 13px; }dl { line-height: 1.7; }dt { color: $color-text-tertiary; font-size: 12px; }dd { margin: 4px 0 16px; overflow-wrap: anywhere; }.declarations code { font-size: 11px; overflow-wrap: anywhere; color: $color-text-secondary; }.loading-space { min-height: 280px; }
 @media(max-width: 850px) { .detail-layout { grid-template-columns: 1fr; }aside { grid-row: 1; }.main-panel { padding: 20px; } }
 </style>
