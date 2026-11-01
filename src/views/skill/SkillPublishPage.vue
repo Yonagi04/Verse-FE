@@ -19,6 +19,10 @@ const { authorName, options, draft, task, publication, submitIntent, form, slug,
   notice, editable, checking, waiting, ready, sourceType, sourceChanged, githubInput, githubIntent,
   candidates, candidatesLoading, files, filesLoading } = state
 const fileInput = ref<HTMLInputElement>()
+// 弹层留在内容滚动区内，避免页面滚动后与选择框分离。
+function getPopupContainer(triggerNode: HTMLElement): HTMLElement {
+  return triggerNode.parentElement ?? triggerNode
+}
 const showPreview = ref(false)
 const requestedSource = ref<'ZIP' | 'GITHUB'>()
 const leaveMessage = '发布信息尚未保存，离开会丢失这些编辑。已保存的导入任务仍可从「我的发布」继续。确认离开？'
@@ -141,10 +145,10 @@ function selectFile(event: Event) {
               <RequiredFormItem name="name" label="名称"><a-input v-model:value="form.name" :maxlength="80" /></RequiredFormItem>
               <RequiredFormItem name="summary" label="简介"><a-textarea v-model:value="form.summary" :maxlength="300" :rows="4" show-count /></RequiredFormItem>
               <div class="form-row">
-                <RequiredFormItem name="categoryId" label="分类" message="请选择分类"><a-select v-model:value="form.categoryId" :options="options?.categories.map(item => ({ value: item.id, label: item.name }))" /></RequiredFormItem>
+                <RequiredFormItem name="categoryId" label="分类" message="请选择分类"><a-select v-model:value="form.categoryId" :get-popup-container="getPopupContainer" :options="options?.categories.map(item => ({ value: item.id, label: item.name }))" /></RequiredFormItem>
                 <RequiredFormItem name="version" label="版本（SemVer）" message="请填写版本" :rules="versionRules"><a-input v-model:value="form.version" :maxlength="64" placeholder="1.0.0" /></RequiredFormItem>
               </div>
-              <a-form-item name="tags" label="标签（最多5个）"><a-select v-model:value="form.tags" mode="multiple" :options="options?.tags.map(item => ({ value: item.id, label: item.name, disabled: form.tags.length >= 5 && !form.tags.includes(item.id) }))" /></a-form-item>
+              <a-form-item name="tags" label="标签（最多5个）"><a-select v-model:value="form.tags" mode="multiple" :get-popup-container="getPopupContainer" :options="options?.tags.map(item => ({ value: item.id, label: item.name, disabled: form.tags.length >= 5 && !form.tags.includes(item.id) }))" /></a-form-item>
               <RequiredFormItem name="releaseNotes" label="首版说明"><a-textarea v-model:value="form.releaseNotes" :maxlength="2000" :rows="4" /></RequiredFormItem>
             </section>
             <section class="panel"><span class="step">03 / 分发与环境声明</span><h2>请明确许可、来源和依赖</h2>
