@@ -23,7 +23,7 @@ npm test
 # Production build
 npm run build
 
-# Full local/CI quality gate (lint, production dependency audit, tests, build)
+# Full local/CI quality gate (lint, production and development dependency audit, tests, build)
 npm run check
 ```
 
