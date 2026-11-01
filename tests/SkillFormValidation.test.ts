@@ -14,7 +14,8 @@ attachClientRender(RequiredFormItem, new URL('../src/components/form/RequiredFor
 let app: App | undefined
 beforeEach(() => {
   mocks.session = 'current-session'
-  vi.stubGlobal('window', { matchMedia: () => ({ matches: false, addListener() {}, removeListener() {} }) })
+  vi.stubGlobal('window', { addEventListener() {}, removeEventListener() {},
+    matchMedia: () => ({ matches: false, addListener() {}, removeListener() {} }) })
   vi.stubGlobal('document', { getElementById: () => null })
 })
 afterEach(() => { app?.unmount(); vi.unstubAllGlobals() })
@@ -24,6 +25,9 @@ function mount(stage: 'create' | 'READY' = 'READY') {
     authorName: ref('账号昵称'), options: ref({ categories: [{ id: 'general', name: '通用' }], tags: [] }),
     draft: ref(stage === 'READY' ? { draftId: '30', slug: 'test-skill', status: 'READY', revision: 2 } : null),
     task: ref(null), publication: ref(null), submitIntent: ref(null),
+    githubIntent: ref(null), sourceType: ref('ZIP'), sourceChanged: ref(false), waiting: ref(false),
+    ready: ref(stage === 'READY'), githubInput: ref({ repositoryUrl: '', refType: 'AUTO', ref: '', directory: '' }),
+    candidates: ref(null), candidatesLoading: ref(false), files: ref(null), filesLoading: ref(false),
     form: reactive({ name: '有效名称', summary: '简介', categoryId: 'general', tags: [], version: '1.0.0',
       releaseNotes: '首版说明', license: 'MIT', originalAuthor: '原作者', sourceUrl: '', compatibility: '兼容环境',
       dependencies: '无', distributionAuthorized: true, declarationsConfirmed: true }),
@@ -39,7 +43,8 @@ function mount(stage: 'create' | 'READY' = 'READY') {
   app.component('a-select', defineComponent({ inheritAttrs: false, setup: (_, { attrs }) => () =>
     h(Input, { ...attrs, value: Array.isArray(attrs.value) ? attrs.value.join(',') : attrs.value }) }))
   const passthrough = defineComponent({ inheritAttrs: false, setup: (_, { slots }) => () => slots.default?.() })
-  for (const name of ['router-link', 'a-spin', 'a-tag', 'a-checkbox']) app.component(name, passthrough)
+  for (const name of ['router-link', 'a-spin', 'a-tag', 'a-checkbox', 'a-radio-group', 'a-radio-button']) app.component(name, passthrough)
+  app.component('a-modal', defineComponent({ render: () => null }))
   for (const name of ['a-button', 'a-alert', 'a-result']) {
     app.component(name, defineComponent({ setup: (_, { attrs, slots }) => () => h(name, attrs, slots.default?.()) }))
   }

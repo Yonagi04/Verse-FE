@@ -166,3 +166,22 @@ it('新账号可直接创建草稿，不调用独立身份设置', async () => {
   expect(mocks.createDraft.mock.calls[0]?.[0]).toBe('direct-skill')
   expect(mocks.replace).toHaveBeenCalledWith('/skills/publish/30')
 })
+
+it('另一标签页换包后刷新必须清旧授权，不能用新修订提交旧勾选', async () => {
+  const original = { ...draft('30', 2), artifactId: '40', contentSha256: 'old' }
+  const changed = { ...draft('30', 5), artifactId: '41', contentSha256: 'new', jobId: '51',
+    metadata: { ...metadata, distributionAuthorized: false, declarationsConfirmed: false } }
+  mocks.getDraft.mockResolvedValueOnce(original).mockResolvedValue(changed)
+  mocks.status.mockResolvedValue({ jobId: '51', status: 'SUCCEEDED' })
+  mount(); await settle()
+  expect(state.form.distributionAuthorized).toBe(true)
+  state.form.summary = '保留未保存的简介'
+  await state.refreshDraft(); await settle()
+  expect(state.draft.value?.artifactId).toBe('41')
+  expect(state.form.distributionAuthorized).toBe(false)
+  expect(state.form.declarationsConfirmed).toBe(false)
+  expect(state.form.summary).toBe('保留未保存的简介')
+  await state.submit()
+  expect(mocks.submit).not.toHaveBeenCalled()
+  expect(state.error.value).toContain('主动确认')
+})

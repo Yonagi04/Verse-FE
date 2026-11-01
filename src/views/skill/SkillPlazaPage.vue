@@ -54,6 +54,9 @@ onBeforeUnmount(() => { sequence++; current?.abort() })
       <a-select :value="query.sort || 'relevance'" aria-label="排序" @change="(value: unknown) => filter({ sort: String(value) })" :options="[{ value: 'relevance', label: '相关优先' }, { value: 'updated', label: '最新发布' }]" />
     </div>
     <div class="filters">
+      <a-select :value="query.source" allow-clear placeholder="全部来源" aria-label="来源"
+        :options="[{ value: 'ZIP', label: 'ZIP 上传' }, { value: 'GITHUB', label: 'GitHub 导入' }]"
+        @change="(value: unknown) => filter({ source: value ? String(value) : undefined })" />
       <a-select :value="query.category" allow-clear placeholder="全部分类" aria-label="分类" :options="options?.categories.map(item => ({ value: item.id, label: item.name }))" @change="(value: unknown) => filter({ category: value ? String(value) : undefined })" />
       <a-select mode="multiple" :value="query.tags || []" :max-tag-count="3" allow-clear placeholder="筛选标签（任一匹配）" aria-label="标签" :options="options?.tags.map(item => ({ value: item.id, label: item.name }))" @change="(value: unknown) => filter({ tags: (value as string[]).slice(0, 5) })" />
       <a-tag v-if="query.publisherId" closable @close="filter({ publisherId: undefined })">指定作者</a-tag>

@@ -2,6 +2,7 @@ import http, { handleExpiredSession } from './request'
 import { getToken } from '@/utils/auth'
 import type { SkillCard, SkillDetail, SkillDownloadGrant, SkillDraft, SkillImportTask, SkillMetadata,
   SkillMine, SkillOptions, SkillPage, SkillPublication, SkillSearch } from '@/types/skill'
+import type { SkillGithubInput, SkillGithubCandidates, SkillDraftFiles } from '@/types/skill'
 import { safeSkillDownloadPath } from '@/utils/skill'
 
 const base = '/skills'
@@ -32,6 +33,16 @@ export const uploadSkillArchive = (id: string, file: File, signal?: AbortSignal)
 export const skillImportStatus = (id: string, signal?: AbortSignal): Promise<SkillImportTask> =>
   http.get(`${base}/imports/${id}`, personal(signal))
 export const cancelSkillImport = (id: string, signal?: AbortSignal): Promise<void> => http.delete(`${base}/imports/${id}`, personal(signal))
+export const createSkillGithubImport = (id: string, revision: number, input: SkillGithubInput, key: string, signal?: AbortSignal): Promise<SkillImportTask> =>
+  http.post(`${base}/drafts/${id}/github-imports`, { revision, ...input }, command(key, signal))
+export const confirmSkillGithubSource = (id: string, revision: number, sourceOptionId: string, key: string, signal?: AbortSignal): Promise<SkillImportTask> =>
+  http.post(`${base}/imports/${id}/source-confirmations`, { revision, sourceOptionId }, command(key, signal))
+export const skillGithubCandidates = (id: string, page: number, signal?: AbortSignal): Promise<SkillGithubCandidates> =>
+  http.get(`${base}/imports/${id}/candidates`, { ...personal(signal), params: { page, size: 20 } })
+export const selectSkillGithubCandidate = (id: string, revision: number, scanDigest: string, candidateId: string, key: string, signal?: AbortSignal): Promise<SkillImportTask> =>
+  http.post(`${base}/imports/${id}/selections`, { revision, scanDigest, candidateId }, command(key, signal))
+export const skillDraftFiles = (id: string, page: number, signal?: AbortSignal): Promise<SkillDraftFiles> =>
+  http.get(`${base}/drafts/${id}/files`, { ...personal(signal), params: { page, size: 50 } })
 export const submitSkillDraft = (id: string, revision: number, key: string, signal?: AbortSignal): Promise<SkillPublication> =>
   http.post(`${base}/drafts/${id}/submissions`, { revision }, command(key, signal))
 export const skillSubmission = (id: string, signal?: AbortSignal): Promise<SkillPublication> =>

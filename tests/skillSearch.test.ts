@@ -13,6 +13,11 @@ describe('Skill URL查询契约', () => {
     expect(result.keyword?.length).toBe(80); expect(result.tags).toEqual(['1', '2', '3', '4', '5'])
     expect(skillSearchToUrl({ page: 1, size: 12, keyword: '  ' }).keyword).toBeUndefined()
   })
+  it('GitHub来源筛选与分页深链往返，任意来源值不能进入API', () => {
+    const query = skillSearchFromUrl({ source: 'GITHUB', page: '3' })
+    expect(query.source).toBe('GITHUB'); expect(skillSearchToUrl(query).source).toBe('GITHUB')
+    expect(skillSearchFromUrl({ source: 'GITLAB' }).source).toBeUndefined()
+  })
   it('只接受站内固定下载能力路径，拒绝外部和路径绕过', () => {
     expect(safeSkillDownloadPath('/api/v1/skills/downloads/' + 'a'.repeat(64))).toBe(true)
     for (const path of ['https://evil.invalid/file', '//evil.invalid/file', '/api/v1/skills/downloads/../x',

@@ -8,6 +8,7 @@ import { apiErrorDetails } from '@/utils/apiError'
 import { safeSkillDownloadPath, skillBytes } from '@/utils/skill'
 import SkillMarkdown from './SkillMarkdown.vue'
 import SkillCommentSection from './SkillCommentSection.vue'
+import SkillSourceSummary from './SkillSourceSummary.vue'
 import { getToken } from '@/utils/auth'
 import { handleExpiredSession } from '@/api/request'
 import { useUserStore } from '@/stores/user'
@@ -83,6 +84,10 @@ onBeforeUnmount(() => { sequence++; controller?.abort() })
           <a-alert v-if="downloadError" type="error" :message="downloadError" show-icon />
           <small>下载前会重新检查版本可用性。</small>
         </div>
+        <section v-if="available && detail.source" class="source-panel">
+          <h3>Skill 来源</h3>
+          <SkillSourceSummary :source="detail.source" />
+        </section>
         <div v-if="available" class="declarations"><h3>作者声明</h3><dl><dt>许可证</dt><dd>{{ detail.license }}</dd><dt>兼容环境</dt><dd>{{ detail.compatibility || '无' }}</dd><dt>依赖</dt><dd>{{ detail.dependencies || '无' }}</dd><dt v-if="detail.originalAuthor">原作者</dt><dd v-if="detail.originalAuthor">{{ detail.originalAuthor }}</dd><dt v-if="detail.sourceUrl">来源</dt><dd v-if="detail.sourceUrl">{{ detail.sourceUrl }}</dd></dl><h3>SHA-256</h3><code>{{ detail.sha256 }}</code></div>
       </aside>
     </div><div v-else class="loading-space" /></a-spin>
@@ -91,7 +96,8 @@ onBeforeUnmount(() => { sequence++; controller?.abort() })
 </template>
 <style lang="scss" scoped>
 .detail-page { max-width: 1200px; margin: 0 auto; }.back { display: inline-flex; align-items: center; gap: 8px; margin: 4px 0 24px; }
-.detail-layout { display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 24px; }.main-panel, .download-panel, .declarations { border: 1px solid $color-border; border-radius: $radius-card; padding: 28px; background: $color-bg; min-width: 0; }
+.detail-layout { display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 24px; }.main-panel, .download-panel, .declarations, .source-panel { border: 1px solid $color-border; border-radius: $radius-card; padding: 28px; background: $color-bg; min-width: 0; }
+.source-panel { margin-top: 18px; padding: 22px; }.source-panel h3 { margin: 0 0 14px; }.source-panel :deep(.source-summary) { margin: 0; padding: 0; background: transparent; border-radius: 0; }
 header { margin-bottom: 32px; padding-bottom: 24px; border-bottom: 1px solid $color-border; }h1 { font-size: 32px; line-height: 1.3; margin: 15px 0; overflow-wrap: anywhere; color: $color-text-primary; }.summary { font-size: 15px; line-height: 1.8; color: $color-text-secondary; }header a span, .reading-note { color: $color-text-tertiary; font-size: 12px; }.tags { margin-top: 18px; }
 h2 { font-size: 17px; color: $color-text-primary; }.download-panel strong { display: block; font-size: 27px; margin: 10px 0; }.label, .download-panel div, .download-panel p, small { color: $color-text-secondary; font-size: 12px; }.download-panel .ant-btn { margin: 22px 0 12px; }.download-panel small { display: block; line-height: 1.7; }.declarations { padding: 22px; margin-top: 18px; }h3 { font-size: 13px; }dl { line-height: 1.7; }dt { color: $color-text-tertiary; font-size: 12px; }dd { margin: 4px 0 16px; overflow-wrap: anywhere; }.declarations code { font-size: 11px; overflow-wrap: anywhere; color: $color-text-secondary; }.loading-space { min-height: 280px; }
 @media(max-width: 850px) { .detail-layout { grid-template-columns: 1fr; }aside { grid-row: 1; }.main-panel { padding: 20px; } }

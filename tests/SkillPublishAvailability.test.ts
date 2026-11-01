@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { parse, compileScript, compileTemplate } from '@vue/compiler-sfc'
 import * as Vue from 'vue'
 import { createRenderer, defineComponent, h, reactive, ref, type App } from 'vue'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import Publish from '../src/views/skill/SkillPublishPage.vue'
 import RequiredFormItem from '../src/components/form/RequiredFormItem.vue'
 import { attachClientRender } from './helpers/vueHost'
@@ -35,6 +35,7 @@ Publish.render = new Function('Vue', render)(Vue)
 const text = (target: Host): string => target.text + target.children.map(text).join(' ')
 const all = (target: Host): Host[] => [target, ...target.children.flatMap(all)]
 let app: App | undefined
+beforeEach(() => vi.stubGlobal('window', { addEventListener: vi.fn(), removeEventListener: vi.fn() }))
 
 it('HTML表单pattern在浏览器UnicodeSets模式下均合法', () => {
   for (const match of descriptor.template!.content.matchAll(/\bpattern="([^"]+)"/g)) {
@@ -49,6 +50,9 @@ function mount(stage: 'create' | 'READY' | 'SUBMITTED') {
     draft: ref(['READY', 'SUBMITTED'].includes(stage)
       ? { draftId: '30', slug: 'test-skill', status: stage, skillId: '20', revision: 2 } : null),
     task: ref(null), publication: ref(null), submitIntent: ref(null),
+    githubIntent: ref(null), sourceType: ref('ZIP'), sourceChanged: ref(false), waiting: ref(false),
+    ready: ref(stage === 'READY'), hasUnsavedChanges: ref(false), githubInput: ref({ repositoryUrl: '', refType: 'AUTO', ref: '', directory: '' }),
+    candidates: ref(null), candidatesLoading: ref(false), files: ref(null), filesLoading: ref(false),
     form: reactive({ name: '', summary: '', categoryId: '', tags: [], version: '1.0.0', releaseNotes: '',
       license: '', originalAuthor: '', sourceUrl: '', compatibility: '', dependencies: '',
       distributionAuthorized: false, declarationsConfirmed: false }),
@@ -57,14 +61,30 @@ function mount(stage: 'create' | 'READY' | 'SUBMITTED') {
   }
   const root = node('root'); app = renderer.createApp(Publish); app.provide(Vue.ssrContextKey, {})
   const passthrough = defineComponent({ inheritAttrs: false, setup: (_, { slots }) => () => slots.default?.() })
-  for (const name of ['router-link', 'a-spin', 'a-tag', 'a-form', 'a-form-item', 'a-checkbox']) app.component(name, passthrough)
+  for (const name of ['router-link', 'a-spin', 'a-tag', 'a-form', 'a-form-item', 'a-checkbox', 'a-radio-group', 'a-radio-button']) app.component(name, passthrough)
+  app.component('a-modal', defineComponent({ render: () => null }))
   for (const name of ['a-button', 'a-alert', 'a-input', 'a-textarea', 'a-select', 'a-result']) {
     app.component(name, defineComponent({ setup: (_, { attrs, slots }) => () => h(name, attrs, slots.default?.()) }))
   }
   app.mount(root)
   return root
 }
-afterEach(() => app?.unmount())
+afterEach(() => { app?.unmount(); app = undefined; vi.unstubAllGlobals() })
+
+it('仅未保存的发布编辑触发关闭提示，卸载时移除监听', () => {
+  mount('READY')
+  const listener = vi.mocked(window.addEventListener).mock.calls
+    .find(([type]) => type === 'beforeunload')![1] as (event: BeforeUnloadEvent) => void
+  const event = { preventDefault: vi.fn(), returnValue: undefined } as unknown as BeforeUnloadEvent
+  listener(event)
+  expect(event.preventDefault).not.toHaveBeenCalled()
+  ;(mocks.state.hasUnsavedChanges as ReturnType<typeof ref<boolean>>).value = true
+  listener(event)
+  expect(event.preventDefault).toHaveBeenCalledOnce()
+  expect(event.returnValue).toBe('')
+  app?.unmount(); app = undefined
+  expect(window.removeEventListener).toHaveBeenCalledWith('beforeunload', listener)
+})
 
 it.each([['create', '创建草稿'], ['READY', '确认声明并发布']] as const)(
   '%s阶段不依赖环境能力字段开放正常操作', (stage, label) => {
