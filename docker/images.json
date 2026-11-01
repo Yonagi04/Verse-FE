@@ -1,0 +1,3 @@
+{
+  "nginx": "nginxinc/nginx-unprivileged:stable-bookworm@sha256:10bf30f80ce9af183b2db50a91ea59cea5eb5e4106820656bac8cd369ed14904"
+}
