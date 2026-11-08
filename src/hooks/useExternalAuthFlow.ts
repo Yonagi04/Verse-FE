@@ -3,9 +3,10 @@ import type { RouteLocationNormalized } from 'vue-router'
 import * as api from '@/api/externalAuth'
 import type { ExternalFlowStart, ExternalProvider, ExternalFlowContext } from '@/types/externalAuth'
 import { getToken } from '@/utils/auth'
+import { reconciliationContinuationPath } from '@/utils/reconciliationContinuation'
 const prefix = 'verse_external_flow:'
 const currentKey = 'verse_external_current'
-interface StoredFlow { flowId: string; flowToken: string; provider: ExternalProvider; purpose: 'LOGIN' | 'BIND'; expiresAt: string; sessionFingerprint?: string }
+interface StoredFlow { flowId: string; flowToken: string; provider: ExternalProvider; purpose: 'LOGIN' | 'BIND'; expiresAt: string; sessionFingerprint?: string; reconciliationPath?: string }
 const endingFlows = new Map<string, Promise<void>>()
 function readStoredFlow(key: string): StoredFlow {
   if (!/^[a-f0-9]{32}$/.test(key)) throw new Error('请先在当前标签页完成外部账户认证')
@@ -32,21 +33,29 @@ export function storedFlowPurpose(id?: string) {
     return key ? readStoredFlow(key).purpose : undefined
   } catch { return undefined }
 }
+export function storedFlowReconciliationPath(id?: string) {
+  try {
+    const key = id || sessionStorage.getItem(currentKey)
+    const flow = key ? readStoredFlow(key) : undefined
+    return flow?.purpose === 'LOGIN' ? reconciliationContinuationPath(flow.reconciliationPath) : undefined
+  } catch { return undefined }
+}
 export function hasStoredFlow(id: string) { try { readFlow(id); return true } catch { return false } }
 export function clearFlow(id: string) {
   sessionStorage.removeItem(prefix + id)
   if (sessionStorage.getItem(currentKey) === id) sessionStorage.removeItem(currentKey)
 }
-export async function saveFlow(start: ExternalFlowStart, provider: ExternalProvider, purpose: 'LOGIN' | 'BIND') {
+export async function saveFlow(start: ExternalFlowStart, provider: ExternalProvider, purpose: 'LOGIN' | 'BIND', reconciliationPath?: string) {
   const record: StoredFlow = { flowId: start.flowId, flowToken: start.flowToken, expiresAt: start.expiresAt, provider, purpose,
-    sessionFingerprint: purpose === 'BIND' ? await fingerprint() : undefined }
+    sessionFingerprint: purpose === 'BIND' ? await fingerprint() : undefined,
+    reconciliationPath: purpose === 'LOGIN' ? reconciliationContinuationPath(reconciliationPath) : undefined }
   sessionStorage.setItem(prefix + start.flowId, JSON.stringify(record)); sessionStorage.setItem(currentKey, start.flowId)
 }
-export async function leaveForAuthorization(start: ExternalFlowStart, provider: ExternalProvider, purpose: 'LOGIN' | 'BIND') {
+export async function leaveForAuthorization(start: ExternalFlowStart, provider: ExternalProvider, purpose: 'LOGIN' | 'BIND', reconciliationPath?: string) {
   const expected = { google: 'accounts.google.com', github: 'github.com', gitlab: 'gitlab.com', feishu: 'accounts.feishu.cn' }[provider]
   const url = new URL(start.authorizationUrl)
   if (url.protocol !== 'https:' || url.hostname !== expected || url.username || url.password) throw new Error('认证地址无效')
-  try { await saveFlow(start, provider, purpose) }
+  try { await saveFlow(start, provider, purpose, reconciliationPath) }
   catch { await api.cancelFlow(start.flowId, start.flowToken).catch(() => {}); throw new Error('无法保存本标签页认证流程，请允许会话存储后重试') }
   window.location.assign(start.authorizationUrl)
 }

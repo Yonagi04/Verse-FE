@@ -10,6 +10,7 @@ import ExternalAccountSummary from '@/components/auth/ExternalAccountSummary.vue
 import * as external from '@/api/externalAuth'
 import { readFlow, useExternalAuthFlow, leaveForAuthorization, errorMessage, cancelStoredFlows } from '@/hooks/useExternalAuthFlow'
 import type { ProviderInfo, ExternalProvider } from '@/types/externalAuth'
+import { reconciliationContinuationPath } from '@/utils/reconciliationContinuation'
 
 const router = useRouter(); const route = useRoute(); const user = useUserStore(); const tenant = useTenantStore()
 const form = reactive({ username: '', password: '' }); const loading = ref(false); const error = ref('')
@@ -33,7 +34,8 @@ function sessionChanged() { verifyOpen.value = false; form.password = ''; void c
 async function start(provider: ExternalProvider) {
   if (providerLoading.value || loading.value) return
   providerLoading.value = provider; error.value = ''; errorTitle.value = ''
-  try { await cancelStoredFlows(); await leaveForAuthorization(await external.startExternalLogin(provider), provider, 'LOGIN') }
+  const reconciliationPath = reconciliationContinuationPath(route.query.redirect)
+  try { await cancelStoredFlows(); await leaveForAuthorization(await external.startExternalLogin(provider), provider, 'LOGIN', reconciliationPath) }
   catch (e) { showError(e); providerLoading.value = null }
 }
 async function submit() {
@@ -50,8 +52,13 @@ async function submit() {
       const proof = await external.reauthExternal({ password, action: 'ATTACH', provider: context.value.provider, flowId: flow.flowId })
       await attach(proof.reauthToken); return
     }
-    await tenant.initialize().catch(() => {})
     const redirect = route.query.redirect
+    const reconciliationPath = reconciliationContinuationPath(redirect)
+    if (reconciliationPath) {
+      await router.replace(reconciliationPath)
+      return
+    }
+    await tenant.initialize().catch(() => {})
     await router.replace(typeof redirect === 'string' && redirect.startsWith('/') && !redirect.startsWith('//') && !redirect.includes('\\') ? redirect : '/dashboard')
   } catch (e) {
     // 登录及后续绑定请求均静默处理，错误只在登录业务区呈现。

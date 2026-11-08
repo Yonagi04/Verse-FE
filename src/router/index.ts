@@ -2,9 +2,8 @@ import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { useTenantStore } from '@/stores/tenant'
 import { usePlaygroundStore } from '@/stores/playground'
-import { hasStoredFlow, cancelAbandonedFlows } from '@/hooks/useExternalAuthFlow'
+import { hasStoredFlow, cancelAbandonedFlows, readFlow, storedFlowReconciliationPath } from '@/hooks/useExternalAuthFlow'
 import { getFlow } from '@/api/externalAuth'
-import { readFlow } from '@/hooks/useExternalAuthFlow'
 
 const routes: RouteRecordRaw[] = [
   { path: '/skills', name: 'SkillPlaza', component: () => import('@/views/skill/SkillPlazaPage.vue'), meta: { requiresAuth: true, layout: 'app', accountScoped: true } },
@@ -15,6 +14,7 @@ const routes: RouteRecordRaw[] = [
     path, component: () => import('@/views/external-auth/ExternalFlowPage.vue'), meta: { requiresAuth: false, layout: 'auth', externalFlow: true },
   })),
   { path: '/profile/external-account/confirm', component: () => import('@/views/external-auth/ExternalFlowPage.vue'), meta: { requiresAuth: true, layout: 'app', externalFlow: true } },
+  { path: '/reconciliation/continue', component: () => import('@/views/login/ReconciliationContinuePage.vue'), meta: { requiresAuth: false } },
   {
     path: '/login',
     name: 'Login',
@@ -181,7 +181,8 @@ router.beforeEach(async (to, _from, next) => {
       next(`/login?redirect=${encodeURIComponent(to.fullPath)}`)
     } else {
       // Skill跳过租户初始化，但刷新后仍需恢复真实账号资料供侧栏和发布页面显示。
-      if (to.meta.accountScoped === true) {
+      if (to.meta.accountScoped === true || (to.path === '/profile/external-account/confirm'
+        && typeof to.query.flow === 'string' && storedFlowReconciliationPath(to.query.flow))) {
         if (!userStore.user) await userStore.fetchProfile()
         next()
         return

@@ -13,7 +13,7 @@ export default defineConfig({
       configureServer(server) {
         server.middlewares.use((req, _res, next) => {
           if (req.headers.host?.split(':')[0] === 'reconciliation.localhost'
-            && req.method === 'GET' && /^\/[A-Za-z][A-Za-z0-9]{7}(?:\?.*)?$/.test(req.url ?? '')) {
+            && req.method === 'GET' && /^\/[A-Za-z][A-Za-z0-9]{7}\/?(?:\?.*)?$/.test(req.url ?? '')) {
             req.url = '/reconciliation.html'
           }
           next()

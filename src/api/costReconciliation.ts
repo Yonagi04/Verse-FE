@@ -1,4 +1,4 @@
-import request from './request'
+import { reconciliationRequest } from './reconciliationTransport'
 
 export type CaseState = 'PENDING' | 'RESOLVED'
 export type Decision = 'CHARGE' | 'NO_CHARGE'
@@ -58,14 +58,16 @@ export interface ResolveCase {
 
 const base = (code: string) => `/cost-reconciliation-batches/${encodeURIComponent(code)}/cases`
 
-export function listCases(code: string, state: CaseState, after?: string): Promise<ReconciliationBatch> {
-  return request.get(base(code), { params: { state, after }, silentError: true })
+export function listCases(token: string, code: string, state: CaseState, after?: string): Promise<ReconciliationBatch> {
+  const params = new URLSearchParams({ state })
+  if (after) params.set('after', after)
+  return reconciliationRequest(`${base(code)}?${params}`, token)
 }
 
-export function caseDetail(code: string, id: string): Promise<ReconciliationCase> {
-  return request.get(`${base(code)}/${encodeURIComponent(id)}`, { silentError: true })
+export function caseDetail(token: string, code: string, id: string): Promise<ReconciliationCase> {
+  return reconciliationRequest(`${base(code)}/${encodeURIComponent(id)}`, token)
 }
 
-export function resolveCase(code: string, id: string, body: ResolveCase): Promise<ReconciliationCase> {
-  return request.post(`${base(code)}/${encodeURIComponent(id)}/resolve`, body, { silentError: true })
+export function resolveCase(token: string, code: string, id: string, body: ResolveCase): Promise<ReconciliationCase> {
+  return reconciliationRequest(`${base(code)}/${encodeURIComponent(id)}/resolve`, token, body)
 }

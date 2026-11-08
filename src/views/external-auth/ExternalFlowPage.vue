@@ -9,12 +9,13 @@ import { useUserStore } from '@/stores/user'
 import { useTenantStore } from '@/stores/tenant'
 import { providerNames, type ExternalLoginCompletion } from '@/types/externalAuth'
 import * as api from '@/api/externalAuth'
-import { readFlow, endFlow, useExternalAuthFlow, leaveForAuthorization, errorMessage, cancelStoredFlows, storedFlowPurpose } from '@/hooks/useExternalAuthFlow'
+import { readFlow, endFlow, useExternalAuthFlow, leaveForAuthorization, errorMessage, cancelStoredFlows, storedFlowPurpose, storedFlowReconciliationPath } from '@/hooks/useExternalAuthFlow'
 
 const route = useRoute(); const router = useRouter(); const user = useUserStore(); const tenant = useTenantStore()
 const { context, load, loading, error } = useExternalAuthFlow()
 const busy = ref(false); const selected = ref<string>(); const registrationCompleted = ref(false)
 const bindingIntent = ref(false); const returningToProfile = ref(false)
+const reconciliationPath = ref<string>()
 const form = reactive({ username: '', nickname: '', password: '', email: '', phone: '' })
 const brand = computed(() => context.value ? providerNames[context.value.provider] : '')
 const allDisabled = computed(() => !!context.value && !context.value.accounts.some(a => a.status === 'NORMAL'))
@@ -55,6 +56,7 @@ async function initialize() {
   if (returningToProfile.value) return
   const flowId = locator()
   bindingIntent.value = storedFlowPurpose(flowId) === 'BIND'
+  reconciliationPath.value = storedFlowReconciliationPath(flowId)
   if (route.path === '/auth/external/error') {
     if (binding.value) await returnBindingFailure('无法确认这次外部授权，请从个人信息页重新发起绑定。')
     else error.value = '无法确认这次外部授权，请返回登录页重新认证。'
@@ -111,6 +113,7 @@ async function dispatch() {
 }
 async function accept(result: ExternalLoginCompletion) {
   const id = context.value!.flowId
+  const redirect = storedFlowReconciliationPath(id)
   form.password = ''
   if (!result.login) {
     registrationCompleted.value = result.registrationCompleted
@@ -120,6 +123,7 @@ async function accept(result: ExternalLoginCompletion) {
   }
   user.acceptLogin(result.login)
   await endFlow(id, true)
+  if (redirect) { await router.replace(redirect); return }
   await Promise.allSettled([user.fetchProfile(), tenant.initialize()])
   await router.replace('/dashboard')
 }
@@ -150,7 +154,14 @@ async function existingAccount() {
 async function confirm() {
   if (busy.value || !context.value || user.user?.userId !== context.value.targetAccount?.userId) return
   busy.value = true; error.value = ''
-  try { const flow = readFlow(context.value.flowId); await api.confirmExternalBinding(flow.flowId, flow.flowToken); await endFlow(flow.flowId, true).catch(() => {}); message.success('外部账户绑定成功'); await router.replace('/profile?panel=profile') }
+  try {
+    const flow = readFlow(context.value.flowId)
+    const redirect = storedFlowReconciliationPath(flow.flowId)
+    await api.confirmExternalBinding(flow.flowId, flow.flowToken)
+    await endFlow(flow.flowId, true).catch(() => {})
+    message.success('外部账户绑定成功')
+    await router.replace(redirect || '/profile?panel=profile')
+  }
   catch (e) { await returnBindingFailure(errorMessage(e)) }
   finally { busy.value = false }
 }
@@ -161,15 +172,18 @@ async function changeAccount() {
   const keep = context.value.stage === 'REGISTER_REQUIRED' && window.confirm('更换外部账户时保留已填写的用户名、昵称和联系方式吗？密码会被清除。')
   form.password = ''; if (!keep) Object.assign(form, { username:'', nickname:'', email:'', phone:'' })
   busy.value = true
+  const redirect = reconciliationPath.value
   try {
     await cancelStoredFlows()
-    await leaveForAuthorization(await api.startExternalLogin(provider), provider, 'LOGIN')
+    await leaveForAuthorization(await api.startExternalLogin(provider), provider, 'LOGIN', redirect)
   } catch (e) { error.value = errorMessage(e); busy.value = false }
 }
 async function cancel() {
   form.password = ''
+  const redirect = reconciliationPath.value
   try { await cancelStoredFlows() } catch (e) { error.value = errorMessage(e); return }
-  await router.replace(binding.value || context.value?.purpose === 'BIND' ? '/profile?panel=profile' : '/login')
+  await router.replace(binding.value || context.value?.purpose === 'BIND' ? '/profile?panel=profile'
+    : { path: '/login', query: redirect ? { redirect } : {} })
 }
 function sessionChanged() { form.password = ''; void initialize() }
 watch(() => route.fullPath, () => { void initialize() })
