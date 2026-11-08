@@ -3,6 +3,7 @@ import type { TenantCostStatus } from '@/types/tenantCostBudget'
 import CostBudgetPeriodCard from '@/components/cost-budget/CostBudgetPeriodCard.vue'
 import CostBudgetNotes from '@/components/cost-budget/CostBudgetNotes.vue'
 import { formatBudgetDateTime } from '@/utils/date'
+import { formatYuan } from '@/utils/money'
 defineProps<{ status: TenantCostStatus | null; failed?: boolean }>()
 const emit = defineEmits<{ refresh: [] }>()
 const labels = { DISABLED: '租户限额未生效', AVAILABLE: '租户限额生效中', LIMITED: '租户成本受限：全部新的 API 与 PlayGround 模型调用受限', UNKNOWN: '预算校验暂不可用' }
@@ -20,6 +21,9 @@ const labels = { DISABLED: '租户限额未生效', AVAILABLE: '租户限额生�
     <template v-if="status">
       <p v-if="status.retryAt" class="recovery">预计最晚恢复：{{ formatBudgetDateTime(status.retryAt) }}，仍需满足 Key、模型等独立限制。</p>
       <template v-if="status.visibility === 'FULL'">
+        <a-alert v-if="status.reconciliation?.pendingCount" type="info" show-icon
+          :message="`有 ${status.reconciliation.pendingCount} 笔费用待核对`"
+          :description="`按次暂计金额 ${formatYuan(status.reconciliation.estimatedCostFen)}。限额按已确认费用判断。`" />
         <div class="periods"><CostBudgetPeriodCard v-for="period in status.periods" :key="period.period" :period="period" :enabled="status.costLimit.enabled" :data-ready="!failed && status.availability === 'READY'" /></div>
         <CostBudgetNotes />
       </template>

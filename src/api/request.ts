@@ -12,6 +12,10 @@ export function resetAuthRequests() { authRequests.abort(); authRequests = new A
 export function handleExpiredSession(requestToken: string | null): void {
   if (requestToken !== getToken()) return
   clearAuth()
+  if (typeof document !== 'undefined' && document.documentElement.dataset.verseSurface === 'cost-reconciliation') {
+    window.dispatchEvent(new Event('verse-session-changed'))
+    return
+  }
   const path = window.location.pathname
   if (path !== '/login' && !path.startsWith('/join')) {
     message.error('登录已过期，请重新登录')
