@@ -19,6 +19,7 @@ export interface TenantCostFull extends Omit<TenantCostSummary, 'visibility' | '
   /** 统计来源。 */ consumptionSources: string[]
   /** 费用完整性。 */ availability: 'READY' | 'INITIALIZING' | 'UNAVAILABLE'
   /** 三周期状态。 */ periods: CostBudgetPeriodStatus[]
+  /** 待核账摘要独立于限额状态。 */ reconciliation?: { pendingCount: number; estimatedCostFen: string } | null
 }
 export type TenantCostStatus = TenantCostFull | TenantCostSummary
 export interface TenantSettingsSnapshot {
