@@ -30,6 +30,8 @@ const error = ref('')
 const formError = ref('')
 const feedback = ref('')
 const dialog = ref<HTMLDialogElement>()
+const detailPanel = ref<HTMLElement>()
+const detailMinHeight = ref(0)
 const preview = ref<{ id: string; command: ResolveCase; amount: string }>()
 const draft = reactive({ decision: 'CHARGE' as Decision, input: '', cached: '', output: '', evidence: false })
 let batchVersion = 0
@@ -102,6 +104,16 @@ function clearSession() {
   formError.value = ''
   loading.value = false
   detailLoading.value = false
+  detailMinHeight.value = 0
+}
+
+function reserveDetailHeight() {
+  // 切换时保留已展开的详情高度，避免加载占位或较短账单让页面滚动位置回缩。
+  detailMinHeight.value = detailPanel.value?.offsetHeight ?? 0
+}
+
+function resetDetailHeight() {
+  detailMinHeight.value = 0
 }
 
 function reconnectIfExpired(failure: unknown): boolean {
@@ -125,11 +137,13 @@ function pageRestored(event: PageTransitionEvent) {
 onMounted(() => {
   window.addEventListener('pagehide', pageHidden)
   window.addEventListener('pageshow', pageRestored)
+  window.addEventListener('resize', resetDetailHeight)
   void connect()
 })
 onUnmounted(() => {
   window.removeEventListener('pagehide', pageHidden)
   window.removeEventListener('pageshow', pageRestored)
+  window.removeEventListener('resize', resetDetailHeight)
   clearSession()
 })
 
@@ -153,6 +167,7 @@ async function refresh(append = false) {
 
 function switchState(next: CaseState) {
   if (state.value === next || submitting.value) return
+  reserveDetailHeight()
   state.value = next
   detailVersion++
   selected.value = undefined
@@ -164,6 +179,7 @@ function switchState(next: CaseState) {
 
 async function selectCase(id: string) {
   if (!code || !credential || submitting.value) return
+  reserveDetailHeight()
   const version = ++detailVersion
   detailLoading.value = true
   selected.value = undefined
@@ -176,7 +192,7 @@ async function selectCase(id: string) {
     if (version !== detailVersion) return
     selected.value = result
     await nextTick()
-    document.getElementById('reconciliation-detail-heading')?.focus()
+    document.getElementById('reconciliation-detail-heading')?.focus({ preventScroll: true })
   } catch (failure) {
     if (version === detailVersion && !reconnectIfExpired(failure)) formError.value = message(failure, '暂时无法读取账单。')
   } finally {
@@ -247,7 +263,7 @@ async function confirm() {
   <ConfigProvider :theme="appearance">
     <header class="masthead">
       <div class="masthead-inner">
-        <div class="brand" aria-label="Verse 费用管理"><span class="brand-mark" aria-hidden="true">V</span>Verse<span class="brand-section">费用管理</span></div>
+        <div class="brand" aria-label="Verse"><span class="brand-mark" aria-hidden="true">V</span>Verse</div>
         <a-button v-if="mainSite && !submitting" type="text" :href="mainSite" referrerpolicy="no-referrer">
           <template #icon><ArrowLeftOutlined /></template>返回 Verse
         </a-button>
@@ -271,9 +287,11 @@ async function confirm() {
       <section class="intro">
         <div class="intro-title"><span class="page-icon"><AuditOutlined aria-hidden="true" /></span><h1>自助补账</h1></div>
         <p class="muted">核对本次扫描发现的账单。Verse 按请求发生时的定价计算费用。</p>
-        <div v-if="batch" class="batch">
+        <div class="batch">
+          <template v-if="batch">
           <span>扫描批次 <strong class="mono">#{{ batch.scanId }}</strong></span>
           <span>{{ formatTime(batch.scannedAt) }}（北京时间）</span>
+          </template>
         </div>
       </section>
       <a-alert class="page-alert" type="info" message="待补账期间，模型调用继续按已确认费用判断限额。" show-icon />
@@ -307,7 +325,8 @@ async function confirm() {
           <a-button v-if="batch?.nextCursor" :loading="loading" block @click="refresh(true)">加载更多</a-button>
         </section>
 
-        <section class="panel" aria-labelledby="reconciliation-detail-heading">
+        <section ref="detailPanel" class="panel detail-panel" :style="{ minHeight: detailMinHeight ? `${detailMinHeight}px` : undefined }"
+          :aria-busy="detailLoading" aria-labelledby="reconciliation-detail-heading">
           <div class="line">
             <h2 id="reconciliation-detail-heading" tabindex="-1">核对请求</h2>
             <a-tag v-if="selected" :color="selected.state === 'RESOLVED' ? 'success' : 'warning'">
@@ -319,12 +338,12 @@ async function confirm() {
           <a-empty v-else-if="!selected" description="从账单清单选择一条请求" />
           <template v-else>
             <dl class="facts">
-              <div><dt>请求标识</dt><dd class="mono">{{ selected.requestId }}</dd></div>
+              <div class="request-id"><dt>请求标识</dt><dd class="mono">{{ selected.requestId }}</dd></div>
               <div><dt>模型</dt><dd>{{ selected.model || selected.serviceId || '—' }}</dd></div>
               <div><dt>请求时间</dt><dd>{{ formatTime(selected.requestedAt) }}</dd></div>
               <div><dt>计费类型</dt><dd>{{ selected.price?.mode === 'TOKEN' ? '按 Token' : selected.price?.mode === 'REQUEST' ? '按次' : '—' }}</dd></div>
             </dl>
-            <p class="note">{{ reason(selected.reason) }}</p>
+            <p class="note request-note">{{ reason(selected.reason) }}</p>
             <p v-if="selected.reviewRequired" class="note">有新的上游证据待运维复核，当前入账结果以此页显示为准。</p>
             <dl v-if="selected.resolution" class="facts result">
               <div><dt>结论</dt><dd>{{ selected.resolution.status === 'NOT_CHARGEABLE' ? '确认不计费' : '费用已确认' }}</dd></div>
@@ -336,7 +355,7 @@ async function confirm() {
                 <dd>{{ selected.resolution.inputTokens }} / {{ selected.resolution.cachedTokens }} / {{ selected.resolution.outputTokens }}</dd>
               </div>
             </dl>
-            <form v-else-if="selected.state === 'PENDING' && selected.price" @submit.prevent="openPreview">
+            <form v-else-if="selected.state === 'PENDING' && selected.price" class="review-form" @submit.prevent="openPreview">
               <fieldset>
                 <legend>核对结论</legend>
                 <a-radio-group v-model:value="draft.decision" class="choices">
@@ -344,21 +363,27 @@ async function confirm() {
                   <a-radio value="NO_CHARGE">确认不计费</a-radio>
                 </a-radio-group>
               </fieldset>
-              <fieldset v-if="usesTokens" class="token-fields">
-                <legend>上游返回的分类 Token</legend>
-                <label>输入 Token<a-input v-model:value="draft.input" inputmode="numeric" :maxlength="12" placeholder="含缓存命中" /></label>
-                <label>缓存命中 Token<a-input v-model:value="draft.cached" inputmode="numeric" :maxlength="12" placeholder="确认无命中填 0" /></label>
-                <label>输出 Token<a-input v-model:value="draft.output" inputmode="numeric" :maxlength="12" /></label>
-              </fieldset>
-              <p class="note">
-                <strong>Verse 历史定价</strong><br />
-                <template v-if="selected.price.mode === 'REQUEST'">{{ money(selected.price.requestFen) }} / 次</template>
-                <template v-else>每百万 Token {{ money(selected.price.inputFen) }} 未命中 · {{ money(selected.price.cachedFen) }} 命中 · {{ money(selected.price.outputFen) }} 输出</template>
-              </p>
-              <a-checkbox v-model:checked="draft.evidence">我已核对该请求的上游证据</a-checkbox>
-              <div class="actions">
-                <a-button @click="feedback = '已保留待补账。'">保留待补账</a-button>
-                <a-button type="primary" html-type="submit">预览入账</a-button>
+              <div class="usage-section">
+                <fieldset v-if="usesTokens">
+                  <legend>上游返回的分类 Token</legend>
+                  <div class="token-fields">
+                    <label>输入 Token<a-input v-model:value="draft.input" inputmode="numeric" :maxlength="12" placeholder="含缓存命中" /></label>
+                    <label>缓存命中 Token<a-input v-model:value="draft.cached" inputmode="numeric" :maxlength="12" placeholder="确认无命中填 0" /></label>
+                    <label>输出 Token<a-input v-model:value="draft.output" inputmode="numeric" :maxlength="12" /></label>
+                  </div>
+                </fieldset>
+                <p class="note pricing-note">
+                  <strong>Verse 历史定价</strong>
+                  <span v-if="selected.price.mode === 'REQUEST'">{{ money(selected.price.requestFen) }} / 次</span>
+                  <span v-else>每百万 Token {{ money(selected.price.inputFen) }} 未命中 · {{ money(selected.price.cachedFen) }} 命中 · {{ money(selected.price.outputFen) }} 输出</span>
+                </p>
+              </div>
+              <div class="form-footer">
+                <a-checkbox v-model:checked="draft.evidence">我已核对该请求的上游证据</a-checkbox>
+                <div class="actions">
+                  <a-button @click="feedback = '已保留待补账。'">保留待补账</a-button>
+                  <a-button type="primary" html-type="submit">预览入账</a-button>
+                </div>
               </div>
             </form>
           </template>
@@ -382,6 +407,7 @@ async function confirm() {
 </template>
 
 <style scoped lang="scss">
+:global(html) { scrollbar-gutter: stable; }
 .surface, .masthead-inner { width: min(1184px, calc(100% - 32px)); margin-inline: auto; }
 .surface { padding-block: clamp(20px, 4vw, 36px) 48px; }
 .masthead { background: $color-bg; border-bottom: 1px solid $color-border; }
@@ -389,14 +415,13 @@ async function confirm() {
 .brand { display: flex; align-items: center; gap: 10px; font-size: $font-size-h3; font-weight: 700; }
 .brand-mark, .page-icon { display: inline-grid; flex: none; place-items: center; }
 .brand-mark { width: 32px; height: 32px; background: $color-primary-solid; color: $color-on-primary; border-radius: $radius-input; font-size: 22px; font-weight: 800; }
-.brand-section { padding-left: 10px; border-left: 1px solid $color-border; color: $color-text-secondary; font-size: $font-size-caption; font-weight: 500; }
 .intro { display: grid; gap: 10px; margin-bottom: 18px; }
 .intro-title { display: flex; align-items: center; gap: 12px; }
 .page-icon { width: 40px; height: 40px; background: $color-primary-bg; color: $color-primary; border-radius: $radius-card; font-size: 20px; }
 h1 { font-size: $font-size-title; line-height: 1.25; }
 h2 { font-size: $font-size-h3; }
 .muted, dt { color: $color-text-secondary; }
-.batch { display: flex; flex-wrap: wrap; gap: 4px 16px; color: $color-text-secondary; font-size: $font-size-caption; }
+.batch { display: flex; flex-wrap: wrap; gap: 4px 16px; min-height: 18px; color: $color-text-secondary; font-size: $font-size-caption; }
 .batch strong { color: $color-text-primary; }
 .note, .feedback { margin-block: 12px; padding: 12px 14px; border-radius: $radius-input; background: $color-bg-secondary; line-height: 1.6; }
 .feedback { color: $color-success; }
@@ -404,6 +429,8 @@ h2 { font-size: $font-size-h3; }
 .mono { font-family: ui-monospace, Consolas, monospace; overflow-wrap: anywhere; }
 .columns { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.7fr); gap: 16px; align-items: start; }
 .panel, dialog { color: $color-text-primary; background: $color-bg; border: 1px solid $color-border; border-radius: $radius-card; padding: clamp(16px, 3vw, 24px); box-shadow: $shadow-light; }
+.detail-panel { min-height: 360px; padding: clamp(20px, 3vw, 32px); }
+.detail-panel > .line { min-height: 28px; }
 .panel > h2 + p { margin-top: 6px; }
 .session-panel { display: grid; gap: 12px; max-width: 440px; margin: 36px auto; }
 .tabs, .line, .actions { display: flex; gap: 10px; align-items: center; }
@@ -420,19 +447,37 @@ h2 { font-size: $font-size-h3; }
 .queue button:disabled { cursor: default; }
 .queue [aria-current='true'] { border-color: $color-primary; background: $color-primary-bg; }
 .queue span, dt { color: $color-text-secondary; font-size: $font-size-caption; }
-.facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 16px; }
-dt { margin-bottom: 4px; }
+.facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px 24px; margin-top: 24px; }
+.request-id { grid-column: 1 / -1; }
+dt { margin-bottom: 6px; }
 dd { overflow-wrap: anywhere; }
-.result { border-top: 1px solid $color-border; padding-top: 16px; }
-fieldset { min-width: 0; border: 0; margin: 16px 0; }
-legend { margin-bottom: 8px; font-weight: 600; }
-.choices, .token-fields label { display: grid; gap: 6px; }
-.token-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.request-note { margin-block: 24px 0; padding: 14px 16px; }
+.result { grid-template-columns: repeat(2, minmax(0, 1fr)); border-top: 1px solid $color-border; padding-top: 24px; }
+.review-form { display: grid; gap: 28px; margin-top: 28px; padding-top: 24px; border-top: 1px solid $color-border; }
+fieldset { min-width: 0; border: 0; }
+legend { margin-bottom: 14px; font-weight: 600; }
+.choices { display: flex; flex-wrap: wrap; gap: 12px 24px; }
+.choices :deep(.ant-radio-wrapper) { margin-inline-end: 0; }
+.usage-section { display: grid; gap: 20px; }
+.token-fields label { display: grid; gap: 10px; }
+.token-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.token-fields :deep(.ant-input) { min-height: 40px; }
+.pricing-note { display: grid; gap: 6px; margin: 0; padding: 16px; font-size: $font-size-caption; color: $color-text-secondary; }
+.pricing-note strong { color: $color-text-primary; font-size: $font-size-body; }
+.form-footer { display: grid; gap: 24px; padding-top: 24px; border-top: 1px solid $color-border; }
+.form-footer .actions { margin-top: 0; }
+.form-footer .actions :deep(.ant-btn) { min-height: 40px; }
 .error { color: $color-danger; margin-top: 10px; }
 dialog { width: min(440px, calc(100% - 32px)); margin: auto; }
 dialog h2 { margin-bottom: 8px; }
 dialog::backdrop { background: var(--verse-overlay); }
 @media (max-width: 740px) {
   .columns, .token-fields { grid-template-columns: minmax(0, 1fr); }
+  .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .review-form { gap: 24px; }
+}
+@media (max-width: 420px) {
+  .facts { grid-template-columns: minmax(0, 1fr); }
+  .form-footer .actions :deep(.ant-btn) { flex: 1; }
 }
 </style>
