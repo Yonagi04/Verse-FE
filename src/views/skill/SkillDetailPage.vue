@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { DownloadOutlined, ArrowLeftOutlined } from '@ant-design/icons-vue'
+import { DownloadOutlined, ArrowLeftOutlined, HistoryOutlined, PlusOutlined } from '@ant-design/icons-vue'
 import { skillDetail, skillDownload, skillOptions, readSkillArchive } from '@/api/skill'
 import type { SkillDetail, SkillOptions } from '@/types/skill'
 import { apiErrorDetails } from '@/utils/apiError'
@@ -94,7 +94,19 @@ onBeforeUnmount(() => { sequence++; controller?.abort() })
     <a-alert v-if="error" show-icon type="error" :message="error"><template #action><a-button @click="load">重试</a-button></template></a-alert>
     <a-spin :spinning="loading"><div v-if="detail" class="detail-layout">
       <div class="main-panel">
-        <header><a-tag>{{ options?.categories.find(item => item.id === detail?.skill.categoryId)?.name || detail.skill.categoryId }}</a-tag><h1>{{ detail.skill.name }}</h1><p class="summary">{{ detail.skill.summary }}</p>
+        <header><a-tag>{{ options?.categories.find(item => item.id === detail?.skill.categoryId)?.name || detail.skill.categoryId }}</a-tag>
+          <div class="detail-title-row">
+            <h1>{{ detail.skill.name }}</h1>
+            <div v-if="detail.canManage" class="owner-actions">
+              <router-link :to="`/skills/${detail.skill.skillId}/versions`" custom v-slot="{ href, navigate }">
+                <a-button :href="href" @click="navigate"><HistoryOutlined />版本管理</a-button>
+              </router-link>
+              <router-link :to="`/skills/${detail.skill.skillId}/publish`" custom v-slot="{ href, navigate }">
+                <a-button type="primary" :href="href" @click="navigate"><PlusOutlined />发布新版</a-button>
+              </router-link>
+            </div>
+          </div>
+          <p class="summary">{{ detail.skill.summary }}</p>
           <router-link :to="{ path: '/skills', query: { publisherId: detail.skill.publisher.publisherId } }">{{ detail.skill.publisher.publicName }}</router-link>
           <div class="tags"><a-tag v-for="tag in detail.skill.tags" :key="tag">{{ options?.tags.find(item => item.id === tag)?.name || tag }}</a-tag></div>
         </header>
@@ -116,7 +128,7 @@ onBeforeUnmount(() => { sequence++; controller?.abort() })
           </div>
         </section>
       </div>
-      <aside>
+      <aside class="detail-sidebar">
         <div class="download-panel"><span class="label">当前版本</span><strong>{{ detail.skill.version }}</strong><div>{{ skillBytes(detail.archiveBytes) }} · ZIP</div>
           <a-button block type="primary" size="large" :loading="downloading" :disabled="!available || !options" @click="download"><DownloadOutlined /> 下载 Skill</a-button>
           <a-alert v-if="downloadError" type="error" :message="downloadError" show-icon />
@@ -132,11 +144,12 @@ onBeforeUnmount(() => { sequence++; controller?.abort() })
   </section>
 </template>
 <style lang="scss" scoped>
-.detail-page { max-width: 1200px; margin: 0 auto; }.back { display: inline-flex; align-items: center; gap: 8px; margin: 4px 0 24px; }
-.detail-tabs { display: flex; gap: 24px; border-bottom: 1px solid $color-border; margin-bottom: 24px; }.detail-tabs button { padding: 0 4px 14px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: $color-text-secondary; font-size: 14px; cursor: pointer; }.detail-tabs button[aria-selected="true"] { color: $color-primary; border-bottom-color: $color-primary; font-weight: 600; }.detail-body :deep(.skill-comments) { margin: 0; padding: 0; border: 0; }
-.detail-layout { display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 24px; }.main-panel, .download-panel, .declarations, .source-panel { border: 1px solid $color-border; border-radius: $radius-card; padding: 28px; background: $color-bg; min-width: 0; }
-.source-panel { margin-top: 18px; padding: 22px; }.source-panel h3 { margin: 0 0 14px; }.source-panel :deep(.source-summary) { margin: 0; padding: 0; background: transparent; border-radius: 0; }
-header { margin-bottom: 24px; }h1 { font-size: 32px; line-height: 1.3; margin: 15px 0; overflow-wrap: anywhere; color: $color-text-primary; }.summary { font-size: 15px; line-height: 1.8; color: $color-text-secondary; }header a span, .reading-note { color: $color-text-tertiary; font-size: 12px; }.tags { margin-top: 18px; }
-h2 { font-size: 17px; color: $color-text-primary; }.download-panel strong { display: block; font-size: 27px; margin: 10px 0; }.label, .download-panel div, .download-panel p, small { color: $color-text-secondary; font-size: 12px; }.download-panel .ant-btn { margin: 22px 0 12px; }.download-panel small { display: block; line-height: 1.7; }.declarations { padding: 22px; margin-top: 18px; }h3 { font-size: 13px; }dl { line-height: 1.7; }dt { color: $color-text-tertiary; font-size: 12px; }dd { margin: 4px 0 16px; overflow-wrap: anywhere; }.declarations code { font-size: 11px; overflow-wrap: anywhere; color: $color-text-secondary; }.loading-space { min-height: 280px; }
+.detail-page { @include skill-page-typography; max-width: 1200px; margin: 0 auto; }.back { display: inline-flex; align-items: center; gap: 8px; margin: 4px 0 24px; }
+.detail-tabs { display: flex; gap: 24px; border-bottom: 1px solid $color-border; margin-bottom: 24px; }.detail-tabs button { padding: 0 4px 14px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: $color-text-secondary; font-size: $skill-font-size-body; cursor: pointer; }.detail-tabs button[aria-selected="true"] { color: $color-primary; border-bottom-color: $color-primary; font-weight: 600; }.detail-body :deep(.skill-comments) { margin: 0; padding: 0; border: 0; }
+.detail-title-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px 24px; margin: 15px 0; }.detail-title-row h1 { flex: 1; min-width: 220px; margin: 0; }.owner-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }.detail-sidebar { display: grid; gap: 20px; align-content: start; }
+.detail-layout { display: grid; grid-template-columns: minmax(0, 1fr) 310px; gap: 24px; }.main-panel, .download-panel, .declarations, .source-panel { border: 1px solid $color-border; border-radius: $radius-card; padding: 28px; background: $color-bg; min-width: 0; }
+.source-panel { padding: 22px; }.source-panel h3 { margin: 0 0 14px; }.source-panel :deep(.source-summary) { margin: 0; padding: 0; background: transparent; border-radius: 0; }
+header { margin-bottom: 24px; }h1 { font-size: 32px; line-height: 1.3; margin: 15px 0; overflow-wrap: anywhere; color: $color-text-primary; }.summary { font-size: $skill-font-size-body; line-height: 1.8; color: $color-text-secondary; }header a span, .reading-note { color: $color-text-tertiary; font-size: $skill-font-size-secondary; }.tags { margin-top: 18px; }
+h2 { font-size: 22px; color: $color-text-primary; }.download-panel strong { display: block; font-size: 27px; margin: 10px 0; }.label, .download-panel div, .download-panel p, small { color: $color-text-secondary; font-size: $skill-font-size-secondary; }.download-panel .ant-btn { margin: 22px 0 12px; }.download-panel small { display: block; line-height: 1.7; }.declarations { padding: 22px; }h3 { font-size: 18px; }dl { line-height: 1.7; }dt { color: $color-text-tertiary; font-size: $skill-font-size-secondary; }dd { margin: 4px 0 16px; overflow-wrap: anywhere; }.declarations code { font-size: $skill-font-size-secondary; overflow-wrap: anywhere; color: $color-text-secondary; }.loading-space { min-height: 280px; }
 @media(max-width: 850px) { .detail-layout { grid-template-columns: 1fr; }aside { grid-row: 1; }.main-panel { padding: 20px; } }
 </style>

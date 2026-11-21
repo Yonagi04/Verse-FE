@@ -49,3 +49,28 @@ $font-size-title: 24px;
 $font-size-h2: 20px;
 $font-size-h3: 16px;
 $font-size-caption: 12px;
+
+// Skill 页面以阅读和文件比对为主，正文与辅助信息使用独立字号。
+$skill-font-size-body: 16px;
+$skill-font-size-secondary: 14px;
+$skill-font-size-code: 14px;
+
+@mixin skill-page-typography($body-size: $skill-font-size-body, $secondary-size: $skill-font-size-secondary) {
+  font-size: $body-size;
+  line-height: 1.5;
+
+  :deep(button), :deep(input), :deep(textarea), :deep(select) {
+    font-family: inherit;
+    font-size: inherit;
+  }
+
+  :deep(small) { font-size: $secondary-size; }
+
+  :deep(.ant-btn), :deep(.ant-input), :deep(.ant-select-selection-item),
+  :deep(.ant-form-item-label > label), :deep(.ant-radio-wrapper),
+  :deep(.ant-radio-button-wrapper), :deep(.ant-checkbox-wrapper),
+  :deep(.ant-alert-message) { font-size: $body-size; }
+
+  :deep(.ant-form-item-explain), :deep(.ant-alert-description),
+  :deep(.ant-tag) { font-size: $secondary-size; }
+}

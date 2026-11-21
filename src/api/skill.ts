@@ -28,7 +28,14 @@ export const createSkillDraft = (slug: string, key: string, signal?: AbortSignal
   http.post(`${base}/drafts`, { slug }, command(key, signal))
 export const getSkillDraft = (id: string, signal?: AbortSignal): Promise<SkillDraft> => http.get(`${base}/drafts/${id}`, personal(signal))
 export const saveSkillDraft = (id: string, revision: number, metadata: SkillMetadata, signal?: AbortSignal): Promise<SkillDraft> =>
-  http.put(`${base}/drafts/${id}`, { revision, metadata }, personal(signal))
+  http.put(`${base}/drafts/${id}`, { revision, metadata: creationMetadata(metadata) }, personal(signal))
+function creationMetadata(value: SkillMetadata) {
+  // 响应中的历史版本字段不进入新的创建契约。
+  const { name, summary, categoryId, tags, releaseNotes, license, originalAuthor, sourceUrl,
+    compatibility, dependencies, distributionAuthorized, declarationsConfirmed } = value
+  return { name, summary, categoryId, tags, releaseNotes, license, originalAuthor, sourceUrl,
+    compatibility, dependencies, distributionAuthorized, declarationsConfirmed }
+}
 export const abandonSkillDraft = (id: string, revision: number, signal?: AbortSignal): Promise<void> =>
   http.delete(`${base}/drafts/${id}`, { ...personal(signal), params: { revision } })
 export const createSkillImport = (id: string, revision: number, key: string, signal?: AbortSignal): Promise<SkillImportTask> =>

@@ -14,7 +14,7 @@ export interface SkillDetail {
   skill: SkillCard; availability: string; skillMarkdown: string | null; license: string | null
   originalAuthor: string | null; sourceUrl: string | null; compatibility: string | null; dependencies: string | null
   archiveBytes: number | null; sha256: string | null
-  source?: SkillSource | null
+  source?: SkillSource | null; canManage?: boolean
 }
 export interface SkillSearch {
   keyword?: string; category?: string; tags?: string[]; source?: string; publisherId?: string
@@ -45,10 +45,11 @@ export interface SkillPublication {
 export interface SkillMine {
   skillId: string; draftId: string | null; name: string; slug: string; status: string; draftStatus: string
   jobStatus: string | null; version: string | null; revision: number; updatedAt: string
+  latestReleaseAt?: string | null; latestDraftVersion?: string | null; latestDraftAt?: string | null
 }
 export interface SkillDownloadGrant { downloadUrl: string; expiresAt: string; sha256: string; archiveBytes: number }
 export interface SkillSource {
-  schemaVersion: number; type: 'ZIP' | 'GITHUB'; repositoryUrl: string | null; repositoryId: string | null
+  fetchedAt?: string | null; schemaVersion: number; type: 'ZIP' | 'GITHUB'; repositoryUrl: string | null; repositoryId: string | null
   requestedRef: string | null; resolvedRefType: string | null; commitSha: string | null; directory: string | null
 }
 export interface SkillGithubInput {

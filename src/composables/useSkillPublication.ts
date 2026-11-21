@@ -10,7 +10,7 @@ import { getStoredUser } from '@/utils/auth'
 import { useUserStore } from '@/stores/user'
 
 function emptyMetadata(): SkillMetadata {
-  return { name: '', summary: '', categoryId: '', tags: [], version: '1.0.0', releaseNotes: '', license: '',
+  return { name: '', summary: '', categoryId: '', tags: [], version: 'v1', releaseNotes: '', license: '',
     originalAuthor: '', sourceUrl: '', compatibility: '', dependencies: '', distributionAuthorized: false, declarationsConfirmed: false }
 }
 const volatileKeys = new Map<string, { payload: string; key: string }>()
@@ -248,7 +248,10 @@ export function useSkillPublication() {
   async function completeSubmission(intent: { draftId: string; revision: number; key: string }, turn: number, signal: AbortSignal) {
     try {
       const result = await submitSkillDraft(intent.draftId, intent.revision, intent.key, signal)
-      if (current(turn, signal)) { publication.value = result; await refreshDraft() }
+      if (current(turn, signal)) {
+        publication.value = result; await refreshDraft()
+        if (current(turn, signal)) await router.replace(`/skills/${result.skillId}/versions`)
+      }
     } catch (failure) {
       // 明确的字段/许可拒绝没有发布副作用；网络中断或冲突保留原始意图，不能换键重发。
       const code = apiErrorDetails(failure).code

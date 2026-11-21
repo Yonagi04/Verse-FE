@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { defineComponent, h, reactive, ref, ssrContextKey, type App } from 'vue'
-import { Form, Input, type FormInstance } from 'ant-design-vue'
+import { Form, Input } from 'ant-design-vue'
 import Publish from '../src/views/skill/SkillPublishPage.vue'
 import RequiredFormItem from '../src/components/form/RequiredFormItem.vue'
 import { attachClientRender, hostNode, hostNodes, hostRenderer, hostText, settleHost } from './helpers/vueHost'
@@ -44,11 +44,11 @@ function mount(stage: 'create' | 'READY' = 'READY') {
     h(Input, { ...attrs, value: Array.isArray(attrs.value) ? attrs.value.join(',') : attrs.value }) }))
   const passthrough = defineComponent({ inheritAttrs: false, setup: (_, { slots }) => () => slots.default?.() })
   for (const name of ['router-link', 'a-spin', 'a-tag', 'a-checkbox', 'a-radio-group', 'a-radio-button']) app.component(name, passthrough)
-  app.component('a-modal', defineComponent({ render: () => null }))
+  app.component('a-modal', defineComponent({ setup: (_, { attrs, slots }) => () => attrs.open ? h('modal', attrs, slots.default?.()) : null }))
   for (const name of ['a-button', 'a-alert', 'a-result']) {
     app.component(name, defineComponent({ setup: (_, { attrs, slots }) => () => h(name, attrs, slots.default?.()) }))
   }
-  const instance = app.mount(root)
+  app.mount(root)
   const button = (label: string) => hostNodes(root).find(node => node.type === 'a-button' && hostText(node).includes(label))!
   const click = (label: string) => (button(label).props.onClick as () => Promise<void>)()
   const create = async () => {
@@ -58,8 +58,8 @@ function mount(stage: 'create' | 'READY' = 'READY') {
   }
   const invalidFields = () => hostNodes(root).filter(node => node.type === 'input'
     && String(node.props.class).includes('ant-input-status-error')).map(node => String(node.props.id).replace(/^form_item_/, ''))
-  const validateVersion = () => (instance.$refs.editorForm as FormInstance).validateFields(['version'])
-  return { state, root, create, click, invalidFields, validateVersion }
+  const confirm = () => (hostNodes(root).find(node => node.type === 'modal' && node.props.title === '确认首次正式发布')!.props.onOk as () => Promise<void>)()
+  return { state, root, create, click, invalidFields, confirm }
 }
 
 it.each(['', ' \t ', 'Bad--Slug'])('创建标识%j无效时拒绝下一步并标红', async slug => {
@@ -80,68 +80,27 @@ it('完整草稿缺必填信息时不保存，修正后允许保存', async () =
   const page = mount()
   Object.assign(page.state.form, { name: '', summary: '   ', categoryId: '', version: '', releaseNotes: '',
     originalAuthor: '', compatibility: '', dependencies: '' })
-  await page.click('保存完整草稿'); await settleHost()
+  await page.click('保存待发布内容'); await settleHost()
   expect(page.state.save).not.toHaveBeenCalled()
   expect(page.invalidFields()).toEqual(expect.arrayContaining([
-    'name', 'summary', 'categoryId', 'version', 'releaseNotes', 'originalAuthor', 'compatibility', 'dependencies',
+    'name', 'summary', 'categoryId', 'releaseNotes', 'originalAuthor', 'compatibility', 'dependencies',
   ]))
   Object.assign(page.state.form, { name: '名称', summary: '简介', categoryId: 'general', version: '1.0.0',
     releaseNotes: '首版', originalAuthor: '本人', compatibility: '通用', dependencies: '无' })
-  await page.click('保存完整草稿'); await settleHost()
+  await page.click('保存待发布内容'); await settleHost()
   expect(page.state.save).toHaveBeenCalledTimes(1)
   expect(page.invalidFields()).toEqual([])
 })
 
-it.each(['0', '0.1', '0..2', 'v1.0.0', '01.0.0', '1.01.0', '1.0.01', '1.0.0-01',
-  '1.0.0-', '1.0.0+', '1.0.0-alpha..1', '1.0.0+build..1', ' 1.0.0', '1.0.0\n'])(
-  '版本%j不符合SemVer时阻止保存和发布，并显示具体提示', async version => {
-    const page = mount(); page.state.form.version = version
-    for (const action of ['保存完整草稿', '确认声明并发布']) {
-      await page.click(action); await settleHost()
-      expect(page.state.save).not.toHaveBeenCalled()
-      expect(page.state.submit).not.toHaveBeenCalled()
-      expect(page.invalidFields()).toEqual(['version'])
-      await expect(page.validateVersion()).rejects.toMatchObject({ errorFields: [{ name: ['version'],
-        errors: [expect.stringContaining('请填写合法的 SemVer 版本，如 1.0.0')] }] })
-    }
-  },
-)
-
-it.each(['', '   '])('版本%j为空时保留必填提示', async version => {
-  const page = mount(); page.state.form.version = version
+it('平台只读目标v1取代手填SemVer，最终确认前不提交', async () => {
+  const page = mount(); page.state.form.version = 'legacy-1.2.3'
+  expect(hostNodes(page.root).some(node => node.type === 'input' && node.props.id === 'form_item_version')).toBe(false)
+  expect(hostText(page.root)).toContain('由平台生成')
+  await page.click('保存待发布内容'); expect(page.state.save).toHaveBeenCalledOnce()
   await page.click('确认声明并发布'); await settleHost()
   expect(page.state.submit).not.toHaveBeenCalled()
-  expect(page.invalidFields()).toEqual(['version'])
-  await expect(page.validateVersion()).rejects.toMatchObject({ errorFields: [{ errors: ['请填写版本'] }] })
-})
-
-it.each(['0.0.0', '0.1.2', '1.0.0', '1.0.0-alpha.1', '1.0.0-0', '1.0.0-01a',
-  '1.0.0+001', '1.0.0-rc.1+build.001'])(
-  '合法版本%j可以保存和发布', async version => {
-    const page = mount(); page.state.form.version = version
-    await page.click('保存完整草稿')
-    expect(page.state.save).toHaveBeenCalledTimes(1)
-    await page.click('确认声明并发布'); await settleHost()
-    expect(page.state.submit).toHaveBeenCalledTimes(1)
-    expect(page.invalidFields()).toEqual([])
-    expect(page.state.form.version).toBe(version)
-  },
-)
-
-it('版本失焦时提示格式错误，修正后清除错误并允许发布', async () => {
-  const page = mount(); page.state.form.version = '0.1'
-  await settleHost()
-  const input = hostNodes(page.root).find(node => node.type === 'input' && node.props.id === 'form_item_version')!
-  ;(input.props.onBlur as (event: object) => void)({ target: { value: '0.1' } })
-  await settleHost()
-  expect(page.invalidFields()).toEqual(['version'])
-  await expect(page.validateVersion()).rejects.toMatchObject({ errorFields: [{ name: ['version'],
-    errors: [expect.stringContaining('请填写合法的 SemVer 版本')] }] })
-  page.state.form.version = '0.1.0'
-  await page.click('确认声明并发布'); await settleHost()
-  expect(page.state.submit).toHaveBeenCalledTimes(1)
-  expect(page.invalidFields()).toEqual([])
-  await expect(page.validateVersion()).resolves.toEqual({ version: '0.1.0' })
+  expect(hostText(page.root)).toContain('v1 · 正式版')
+  await page.confirm(); expect(page.state.submit).toHaveBeenCalledOnce()
 })
 
 it('许可和声明只阻止发布，允许保存草稿；补齐后可发布', async () => {
@@ -150,11 +109,13 @@ it('许可和声明只阻止发布，允许保存草稿；补齐后可发布', a
   await page.click('确认声明并发布'); await settleHost()
   expect(page.state.submit).not.toHaveBeenCalled()
   expect(page.invalidFields()).toContain('license')
-  await page.click('保存完整草稿'); await settleHost()
+  await page.click('保存待发布内容'); await settleHost()
   expect(page.state.save).toHaveBeenCalledTimes(1)
   expect(page.invalidFields()).toEqual([])
   Object.assign(page.state.form, { license: 'MIT', distributionAuthorized: true, declarationsConfirmed: true })
-  await page.click('确认声明并发布')
+  await page.click('确认声明并发布'); await settleHost()
+  expect(page.state.submit).not.toHaveBeenCalled()
+  await page.confirm()
   expect(page.state.submit).toHaveBeenCalledTimes(1)
 })
 
