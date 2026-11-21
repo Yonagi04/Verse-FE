@@ -13,5 +13,5 @@ const emit = defineEmits<{ page: [page: number] }>()
   </section>
 </template>
 <style scoped lang="scss">
-.file-preview { margin-top: 18px; }.file-preview h3 { color: $color-text-primary; font-size: 14px; }.file-preview ul { padding: 0; list-style: none; max-height: 320px; overflow: auto; }.file-preview li { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid $color-border; font-size: 12px; }.file-preview code { overflow-wrap: anywhere; color: $color-text-primary; }.file-preview li span { flex: none; color: $color-text-tertiary; }
+.file-preview { margin-top: 18px; }.file-preview h3 { color: $color-text-primary; font-size: 14px; }.file-preview ul { padding: 0; list-style: none; max-height: 320px; overflow: auto; }.file-preview li { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid $color-border; font-size: $skill-font-size-secondary; }.file-preview code { overflow-wrap: anywhere; color: $color-text-primary; }.file-preview li span { flex: none; color: $color-text-tertiary; }
 </style>

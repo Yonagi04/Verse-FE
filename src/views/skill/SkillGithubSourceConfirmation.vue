@@ -20,5 +20,5 @@ watch(() => props.options, values => { selected.value = values.length === 1 ? va
   </section>
 </template>
 <style scoped lang="scss">
-.source-confirmation h3 { color: $color-text-primary; }.source-confirmation p { color: $color-text-secondary; line-height: 1.8; }.source-options { display: grid; gap: 12px; margin-bottom: 18px; }.source-option { display: grid; gap: 8px; padding: 16px; border: 1px solid $color-border; border-radius: $radius-input; min-width: 0; }.source-option span, .source-option code { overflow-wrap: anywhere; font-size: 12px; color: $color-text-secondary; }.source-option .ant-radio-wrapper { color: $color-text-primary; }
+.source-confirmation h3 { color: $color-text-primary; }.source-confirmation p { color: $color-text-secondary; line-height: 1.8; }.source-options { display: grid; gap: 12px; margin-bottom: 18px; }.source-option { display: grid; gap: 8px; padding: 16px; border: 1px solid $color-border; border-radius: $radius-input; min-width: 0; }.source-option span, .source-option code { overflow-wrap: anywhere; font-size: $skill-font-size-secondary; color: $color-text-secondary; }.source-option .ant-radio-wrapper { color: $color-text-primary; }
 </style>

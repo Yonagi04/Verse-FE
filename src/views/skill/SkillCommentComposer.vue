@@ -21,6 +21,6 @@ const length = computed(() => commentLength(props.modelValue))
 <style lang="scss" scoped>
 .comment-composer textarea { resize: none; overflow-y: auto; height: 108px; }
 .composer-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
-.composer-actions span { color: $color-text-tertiary; font-size: 12px; }
+.composer-actions span { color: $color-text-tertiary; font-size: $skill-font-size-secondary; }
 .composer-actions .excessive { color: $color-danger; }
 </style>

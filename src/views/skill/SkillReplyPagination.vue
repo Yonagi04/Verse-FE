@@ -32,7 +32,7 @@ function change(page: number) {
   </nav>
 </template>
 <style lang="scss" scoped>
-.reply-pagination { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 8px; font-size: 13px; line-height: 24px; }
+.reply-pagination { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 8px; font-size: $skill-font-size-body; line-height: 24px; }
 .page-total { margin-right: 8px; color: $color-text-secondary; }
 button { padding: 0; border: 0; background: transparent; color: $color-text-secondary; font: inherit; cursor: pointer; }
 button.current, button:hover { color: $color-primary; }

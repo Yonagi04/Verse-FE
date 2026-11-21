@@ -100,7 +100,7 @@ onBeforeUnmount(() => { listTurn++; previewTurn++; listController?.abort(); prev
 .file-browser { min-width: 0; }
 .files-heading { display: flex; align-items: baseline; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
 .files-heading h2 { margin: 0; font-size: 20px; color: $color-text-primary; }
-.files-heading > span { font-size: 12px; color: $color-text-tertiary; }
+.files-heading > span { font-size: $skill-font-size-secondary; color: $color-text-tertiary; }
 .files-layout { display: grid; grid-template-columns: 210px minmax(0, 1fr); min-height: 380px; }
 .file-tree { min-width: 0; padding-right: 12px; border-right: 1px solid $color-border; }
 .file-tree button { border: 0; padding: 8px 6px; background: transparent; color: inherit; cursor: pointer; border-radius: 4px; }
@@ -113,7 +113,7 @@ onBeforeUnmount(() => { listTurn++; previewTurn++; listController?.abort(); prev
 .tree-list li.selected { background: $color-primary-bg; color: $color-primary; }
 .node-name { flex: 1; min-width: 0; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; }
 .preview-panel { min-width: 0; padding-left: 16px; }
-.preview-placeholder { min-height: 330px; display: grid; place-items: center; padding: 24px; font-size: 13px; color: $color-text-tertiary; }
-.tree-empty { padding: 10px 12px; color: $color-text-tertiary; font-size: 11px; }
+.preview-placeholder { min-height: 330px; display: grid; place-items: center; padding: 24px; font-size: $skill-font-size-body; color: $color-text-tertiary; }
+.tree-empty { padding: 10px 12px; color: $color-text-tertiary; font-size: $skill-font-size-secondary; }
 @media(max-width: 650px) { .files-layout { grid-template-columns: 1fr; }.file-tree { padding-right: 0; padding-bottom: 16px; border-right: 0; border-bottom: 1px solid $color-border; }.preview-panel { padding-left: 0; padding-top: 16px; }.tree-list { max-height: 220px; } }
 </style>

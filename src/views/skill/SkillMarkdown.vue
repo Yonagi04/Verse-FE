@@ -20,7 +20,7 @@ const html = computed(() => DOMPurify.sanitize(parser.parse(props.text, { async:
   <article class="skill-markdown" v-html="html" />
 </template>
 <style lang="scss" scoped>
-.skill-markdown { overflow-wrap: anywhere; line-height: 1.8; color: $color-text-primary; }
+.skill-markdown { font-size: $skill-font-size-body; overflow-wrap: anywhere; line-height: 1.8; color: $color-text-primary; }
 .skill-markdown :deep(pre) { padding: 16px; border-radius: $radius-input; background: $color-bg-secondary; overflow-x: auto; }
 .skill-markdown :deep(code) { white-space: pre-wrap; }
 .skill-markdown :deep(table) { display: block; overflow-x: auto; border-collapse: collapse; }

@@ -53,9 +53,9 @@ function react(value: CommentReaction) {
 .comment-item { display: flex; align-items: flex-start; gap: 12px; padding: 18px 0; min-width: 0; }
 .comment-body { flex: 1; min-width: 0; }.comment-name { color: $color-text-primary; font-weight: 600; }
 .comment-content { white-space: pre-wrap; overflow-wrap: anywhere; margin: 8px 0; line-height: 1.8; }
-.reply-target { color: $color-text-tertiary; font-size: 13px; margin: 6px 0; }
+.reply-target { color: $color-text-tertiary; font-size: $skill-font-size-body; margin: 6px 0; }
 .deleted-avatar { background: $color-bg-secondary; color: $color-text-tertiary; flex-shrink: 0; }
 .deleted-comment .comment-name, .deleted-comment .comment-content { color: $color-text-tertiary; }
 .comment-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
-time { color: $color-text-tertiary; font-size: 12px; margin-right: 8px; }.comment-actions .selected { color: $color-primary; }
+time { color: $color-text-tertiary; font-size: $skill-font-size-secondary; margin-right: 8px; }.comment-actions .selected { color: $color-primary; }
 </style>

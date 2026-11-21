@@ -79,9 +79,9 @@ onBeforeUnmount(() => { sequence++; current?.abort() })
   </section>
 </template>
 <style lang="scss" scoped>
-.plaza { max-width: 1200px; margin: 0 auto; }
+.plaza { @include skill-page-typography; max-width: 1200px; margin: 0 auto; }
 .heading { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin: 20px 0 30px; }
-.eyebrow { color: $color-primary; letter-spacing: .16em; font-size: 11px; font-weight: 700; }
+.eyebrow { color: $color-primary; letter-spacing: .16em; font-size: $skill-font-size-secondary; font-weight: 700; }
 h1 { font-size: clamp(24px, 2.7vw, 34px); margin: 12px 0; font-weight: 650; letter-spacing: -.04em; color: $color-text-primary; }
 .heading p { color: $color-text-secondary; margin: 0; }
 .toolbar { display: flex; align-items: center; gap: 12px; padding: 18px; background: $color-bg; border: 1px solid $color-border; border-radius: $radius-card; }
@@ -89,14 +89,14 @@ h1 { font-size: clamp(24px, 2.7vw, 34px); margin: 12px 0; font-weight: 650; lett
 .filters { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 20px 0; }
 .filters > .ant-select { flex: 0 0 auto; min-width: 0; max-width: 100%; }
 .source-filter { width: 150px; }.category-filter { width: 230px; }.tag-filter { width: 320px; }
-.count { margin-left: auto; font-size: 12px; color: $color-text-tertiary; }
+.count { margin-left: auto; font-size: $skill-font-size-secondary; color: $color-text-tertiary; }
 .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin-bottom: 24px; }
 .skill-card { display: flex; flex-direction: column; min-width: 0; padding: 22px; border: 1px solid $color-border; border-radius: $radius-card; background: $color-bg; color: $color-text-primary; transition: border-color .15s; }
 .skill-card:hover, .skill-card:focus-visible { border-color: $color-primary; }
-.card-top { display: flex; justify-content: space-between; align-items: center; color: $color-text-secondary; font-size: 12px; }
+.card-top { display: flex; justify-content: space-between; align-items: center; color: $color-text-secondary; font-size: $skill-font-size-secondary; }
 .skill-icon { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 10px; background: $color-primary-bg; color: $color-primary; font-size: 20px; }
 h2 { font-size: 17px; margin: 18px 0 10px; overflow-wrap: anywhere; }.skill-card > p { color: $color-text-secondary; line-height: 1.7; min-height: 48px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-.tags { margin: auto 0 18px; padding-top: 6px; }footer { display: flex; justify-content: space-between; gap: 10px; padding-top: 16px; border-top: 1px solid $color-border; font-size: 12px; }footer small { display: block; color: $color-text-tertiary; }
+.tags { margin: auto 0 18px; padding-top: 6px; }footer { display: flex; justify-content: space-between; gap: 10px; padding-top: 16px; border-top: 1px solid $color-border; font-size: $skill-font-size-secondary; }footer small { display: block; color: $color-text-tertiary; }
 .empty { min-height: 240px; padding: 50px 0; }
 @media(max-width: 1050px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media(max-width: 600px) { .heading { align-items: flex-start; flex-direction: column; }.grid { grid-template-columns: 1fr; }.toolbar { padding: 12px; }.toolbar > .ant-select { width: 108px; }.filters > .ant-select { flex-basis: 100%; width: 100%; }.count { width: 100%; margin: 0; } }

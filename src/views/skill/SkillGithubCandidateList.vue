@@ -25,5 +25,5 @@ watch(() => props.result.scanDigest, () => { selected.value = '' })
   </section>
 </template>
 <style scoped lang="scss">
-h3 { color: $color-text-primary; }p { color: $color-text-secondary; line-height: 1.8; }.candidate-list { display: grid; gap: 12px; margin-bottom: 18px; }.candidate { display: grid; gap: 8px; padding: 16px; border: 1px solid $color-border; border-radius: $radius-input; min-width: 0; }.candidate code, .candidate span { overflow-wrap: anywhere; color: $color-text-secondary; font-size: 12px; }.candidate small { color: $color-text-tertiary; }.ant-pagination { margin-bottom: 18px; }section > .ant-btn { margin-top: 12px; }
+h3 { color: $color-text-primary; }p { color: $color-text-secondary; line-height: 1.8; }.candidate-list { display: grid; gap: 12px; margin-bottom: 18px; }.candidate { display: grid; gap: 8px; padding: 16px; border: 1px solid $color-border; border-radius: $radius-input; min-width: 0; }.candidate code, .candidate span { overflow-wrap: anywhere; color: $color-text-secondary; font-size: $skill-font-size-secondary; }.candidate small { font-size: $skill-font-size-secondary; color: $color-text-tertiary; }.ant-pagination { margin-bottom: 18px; }section > .ant-btn { margin-top: 12px; }
 </style>

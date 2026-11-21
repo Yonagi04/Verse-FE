@@ -30,5 +30,5 @@ const update = (value: Partial<SkillGithubInput>) => emit('update:modelValue', {
   </div>
 </template>
 <style scoped lang="scss">
-.github-form { display: grid; gap: 10px; }.github-form label { color: $color-text-primary; font-size: 13px; }.github-form p { margin: 2px 0; color: $color-text-secondary; font-size: 12px; line-height: 1.8; }.ref-row { display: grid; grid-template-columns: 150px 1fr; gap: 12px; }.ref-row > div { position: relative; display: grid; gap: 8px; }.github-form > .ant-btn { justify-self: start; margin-top: 8px; }@media(max-width: 600px) { .ref-row { grid-template-columns: 1fr; } }
+.github-form { display: grid; gap: 10px; }.github-form label { color: $color-text-primary; font-size: $skill-font-size-body; }.github-form p { margin: 2px 0; color: $color-text-secondary; font-size: $skill-font-size-secondary; line-height: 1.8; }.ref-row { display: grid; grid-template-columns: 150px 1fr; gap: 12px; }.ref-row > div { position: relative; display: grid; gap: 8px; }.github-form > .ant-btn { justify-self: start; margin-top: 8px; }@media(max-width: 600px) { .ref-row { grid-template-columns: 1fr; } }
 </style>
