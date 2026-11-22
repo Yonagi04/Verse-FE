@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({ detail: vi.fn(), options: vi.fn(), grant: vi.f
   session: 'session-a', identity: { token: 'session-a' } }))
 vi.mock('vue-router', () => ({ useRoute: () => ({ params: { skillId: '20' } }) }))
 vi.mock('@/stores/user', () => ({ useUserStore: () => Vue.reactive(mocks.identity) }))
+vi.mock('@/stores/skillFavorite', () => ({ useSkillFavoriteStore: () => ({ statuses: {}, revision: 0, readError: '', locked: false, loadStatuses: vi.fn().mockResolvedValue(true) }) }))
 vi.mock('@/utils/auth', () => ({ getToken: () => mocks.session }))
 vi.mock('@/api/request', () => ({ handleExpiredSession: vi.fn() }))
 vi.mock('@/api/skill', () => ({ skillDetail: mocks.detail, skillOptions: mocks.options,

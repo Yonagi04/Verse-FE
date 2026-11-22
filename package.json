@@ -8,6 +8,7 @@
   },
   "scripts": {
     "dev": "vite",
+    "dev:skill-mock": "node scripts/skill-preview.mjs",
     "typecheck": "vue-tsc --noEmit",
     "lint": "eslint . --cache --cache-location node_modules/.cache/eslint --max-warnings 0",
     "audit:prod": "npm audit --omit=dev --audit-level=high",

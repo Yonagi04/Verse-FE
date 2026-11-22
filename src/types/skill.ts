@@ -6,7 +6,7 @@ export interface SkillOptions {
 }
 export interface SkillCard {
   skillId: string; publisher: SkillPublisher; slug: string; name: string; summary: string; categoryId: string
-  tags: string[]; version: string; versionId: string; publishedAt: string
+  tags: string[]; version: string; versionId: string; publishedAt: string | null
   sourceType?: 'ZIP' | 'GITHUB'
 }
 export interface SkillPage<T> { page: number; size: number; total: number; items: T[] }

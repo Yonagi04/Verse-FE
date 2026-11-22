@@ -6,6 +6,12 @@ import { searchSkills, skillOptions } from '@/api/skill'
 import type { SkillCard, SkillOptions, SkillPage } from '@/types/skill'
 import { skillSearchFromUrl, skillSearchToUrl } from '@/utils/skill'
 import { apiErrorDetails } from '@/utils/apiError'
+import { useSkillFavoriteStore } from '@/stores/skillFavorite'
+import { useUserStore } from '@/stores/user'
+import { getToken } from '@/utils/auth'
+import SkillFavoriteButton from './favorites/SkillFavoriteButton.vue'
+const favorites = useSkillFavoriteStore()
+const user = useUserStore()
 const route = useRoute()
 const router = useRouter()
 const options = ref<SkillOptions>()
@@ -20,6 +26,8 @@ async function load() {
   current?.abort()
   current = new AbortController()
   const turn = ++sequence
+  const token = getToken()
+  page.value = undefined
   loading.value = true
   error.value = ''
   search.value = query.value.keyword || ''
@@ -28,7 +36,7 @@ async function load() {
       searchSkills(query.value, current.signal),
       options.value ? Promise.resolve(options.value) : skillOptions(current.signal),
     ])
-    if (turn === sequence) { page.value = result; options.value = taxonomy }
+    if (turn === sequence && token === getToken()) { page.value = result; options.value = taxonomy; void favorites.loadStatuses(result.items.map(item => item.skillId)) }
   } catch (failure) {
     const detail = apiErrorDetails(failure)
     if (turn === sequence && !detail.cancelled) {
@@ -41,11 +49,12 @@ function filter(values: Partial<ReturnType<typeof skillSearchFromUrl>>) {
   void router.push({ path: '/skills', query: skillSearchToUrl({ ...query.value, ...values, page: values.page || 1 }) })
 }
 const nameFor = (id: string) => options.value?.categories.find(item => item.id === id)?.name || id
-watch(() => route.fullPath, load, { immediate: true })
+watch([() => route.fullPath, () => user.token, () => favorites.revision], load, { immediate: true })
 onBeforeUnmount(() => { sequence++; current?.abort() })
 </script>
 <template>
   <section class="plaza">
+    <nav class="module-nav" aria-label="SkillHub"><router-link to="/skills" aria-current="page">Skill 广场</router-link><router-link to="/skills/favorites">我的收藏</router-link></nav>
     <header class="heading"><div><div class="eyebrow">SKILLS</div><h1>Skill 广场</h1><p>发现、阅读并下载社区分享的 Skill，给你的智能体更多可能。</p></div>
       <router-link to="/skills/publish" custom v-slot="{ href, navigate }"><a-button type="primary" :href="href" @click="navigate">发布 Skill <ArrowRightOutlined /></a-button></router-link>
     </header>
@@ -63,14 +72,15 @@ onBeforeUnmount(() => { sequence++; current?.abort() })
       <span class="count" aria-live="polite">{{ loading ? '正在查找…' : error ? '' : `${page?.total || 0} 个 Skill` }}</span>
     </div>
     <a-alert v-if="error" type="error" show-icon :message="error"><template #action><a-button size="small" @click="load">重试</a-button></template></a-alert>
+    <a-alert v-if="favorites.readError" type="error" :message="favorites.readError"><template #action><a-button @click="favorites.loadStatuses(page?.items.map(item => item.skillId) || [])">重试收藏状态</a-button></template></a-alert>
     <a-spin :spinning="loading">
       <div v-if="!error && page?.items.length" class="grid">
-        <router-link v-for="skill in page.items" :key="skill.skillId" class="skill-card" :to="`/skills/${skill.skillId}`">
+        <article v-for="skill in page.items" :key="skill.skillId" class="skill-card">
           <div class="card-top"><span class="skill-icon"><CodeOutlined /></span><span>{{ nameFor(skill.categoryId) }}</span></div>
-          <h2>{{ skill.name }}</h2><p>{{ skill.summary }}</p>
+          <h2><router-link :to="{ path: `/skills/${skill.skillId}`, query: { returnTo: route.fullPath } }">{{ skill.name }}</router-link></h2><p>{{ skill.summary }}</p>
           <div class="tags"><a-tag v-for="tag in skill.tags" :key="tag">{{ options?.tags.find(item => item.id === tag)?.name || tag }}</a-tag></div>
-          <footer><span>{{ skill.publisher.publicName }}</span><span>{{ skill.version }}</span></footer>
-        </router-link>
+          <footer><span class="publisher">{{ skill.publisher.publicName }}</span><span>{{ skill.version }}</span><SkillFavoriteButton :skill-id="skill.skillId" :name="skill.name" compact /></footer>
+        </article>
       </div>
       <a-empty v-else-if="!loading && !error" description="暂无匹配的 Skill，试试其他关键词或分类" class="empty" />
       <div v-else class="empty" />
@@ -80,6 +90,7 @@ onBeforeUnmount(() => { sequence++; current?.abort() })
 </template>
 <style lang="scss" scoped>
 .plaza { @include skill-page-typography; max-width: 1200px; margin: 0 auto; }
+.module-nav { display: flex; gap: 24px; border-bottom: 1px solid $color-border; margin-bottom: 28px; }.module-nav a { padding: 0 2px 14px; color: $color-text-secondary; font-size: $skill-font-size-secondary; }.module-nav a[aria-current] { color: $color-primary; border-bottom: 2px solid $color-primary; }h2 a { color: inherit; }
 .heading { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin: 20px 0 30px; }
 .eyebrow { color: $color-primary; letter-spacing: .16em; font-size: $skill-font-size-secondary; font-weight: 700; }
 h1 { font-size: clamp(24px, 2.7vw, 34px); margin: 12px 0; font-weight: 650; letter-spacing: -.04em; color: $color-text-primary; }
@@ -96,7 +107,7 @@ h1 { font-size: clamp(24px, 2.7vw, 34px); margin: 12px 0; font-weight: 650; lett
 .card-top { display: flex; justify-content: space-between; align-items: center; color: $color-text-secondary; font-size: $skill-font-size-secondary; }
 .skill-icon { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 10px; background: $color-primary-bg; color: $color-primary; font-size: 20px; }
 h2 { font-size: 17px; margin: 18px 0 10px; overflow-wrap: anywhere; }.skill-card > p { color: $color-text-secondary; line-height: 1.7; min-height: 48px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-.tags { margin: auto 0 18px; padding-top: 6px; }footer { display: flex; justify-content: space-between; gap: 10px; padding-top: 16px; border-top: 1px solid $color-border; font-size: $skill-font-size-secondary; }footer small { display: block; color: $color-text-tertiary; }
+.tags { margin: auto 0 18px; padding-top: 6px; }footer { display: flex; align-items: center; gap: 12px; padding-top: 12px; border-top: 1px solid $color-border; font-size: $skill-font-size-secondary; }footer .publisher { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .empty { min-height: 240px; padding: 50px 0; }
 @media(max-width: 1050px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media(max-width: 600px) { .heading { align-items: flex-start; flex-direction: column; }.grid { grid-template-columns: 1fr; }.toolbar { padding: 12px; }.toolbar > .ant-select { width: 108px; }.filters > .ant-select { flex-basis: 100%; width: 100%; }.count { width: 100%; margin: 0; } }

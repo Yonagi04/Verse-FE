@@ -19,6 +19,7 @@ app.use(router)
 app.use(Antd)
 
 void router.isReady().then(() => app.mount('#app'))
+window.addEventListener('verse-session-expired', () => useUserStore().synchronizeStorage())
 window.addEventListener('storage', (event) => {
   if (event.key !== 'verse_token' || event.oldValue === event.newValue) return
   useUserStore().synchronizeStorage()

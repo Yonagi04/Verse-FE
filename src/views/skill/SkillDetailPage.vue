@@ -13,8 +13,13 @@ import SkillFileBrowser from './SkillFileBrowser.vue'
 import { getToken } from '@/utils/auth'
 import { handleExpiredSession } from '@/api/request'
 import { useUserStore } from '@/stores/user'
+import { useSkillFavoriteStore } from '@/stores/skillFavorite'
+import { skillReturnPath } from '@/utils/skillFavorite'
+import SkillFavoriteButton from './favorites/SkillFavoriteButton.vue'
 const route = useRoute()
 const user = useUserStore()
+const favorites = useSkillFavoriteStore()
+const returnTo = computed(() => skillReturnPath(route.query?.returnTo))
 const detail = ref<SkillDetail>()
 const options = ref<SkillOptions>()
 const loading = ref(false)
@@ -48,11 +53,13 @@ const available = computed(() => detail.value?.availability === 'AVAILABLE')
 async function load() {
   controller?.abort(); controller = new AbortController()
   const turn = ++sequence
+  const token = getToken()
+  void favorites.loadStatuses([String(route.params.skillId)])
   loading.value = true; error.value = ''; detail.value = undefined; downloadError.value = ''; downloading.value = false
   activeTab.value = 'introduction'; visitedFiles.value = false; visitedComments.value = false
   try {
     const [value, vocabulary] = await Promise.all([skillDetail(String(route.params.skillId), controller.signal), skillOptions(controller.signal)])
-    if (turn === sequence) { detail.value = value; options.value = vocabulary }
+    if (turn === sequence && token === getToken()) { detail.value = value; options.value = vocabulary }
   } catch (failure) { const parsed = apiErrorDetails(failure); if (turn === sequence && !parsed.cancelled) error.value = parsed.message }
   finally { if (turn === sequence) loading.value = false }
 }
@@ -85,16 +92,16 @@ async function download() {
   } catch (failure) { const parsed = apiErrorDetails(failure); if (turn === sequence && !parsed.cancelled) downloadError.value = parsed.message }
   finally { if (turn === sequence) downloading.value = false }
 }
-watch([() => route.params.skillId, () => user.token], load, { immediate: true })
+watch([() => route.params.skillId, () => user.token, () => favorites.revision], load, { immediate: true })
 onBeforeUnmount(() => { sequence++; controller?.abort() })
 </script>
 <template>
   <section class="detail-page">
-    <router-link to="/skills" class="back"><ArrowLeftOutlined /> 返回 Skill 广场</router-link>
+    <router-link :to="returnTo" class="back"><ArrowLeftOutlined /> {{ returnTo.startsWith('/skills/favorites') ? '返回我的收藏' : '返回 Skill 广场' }}</router-link>
     <a-alert v-if="error" show-icon type="error" :message="error"><template #action><a-button @click="load">重试</a-button></template></a-alert>
     <a-spin :spinning="loading"><div v-if="detail" class="detail-layout">
       <div class="main-panel">
-        <header><a-tag>{{ options?.categories.find(item => item.id === detail?.skill.categoryId)?.name || detail.skill.categoryId }}</a-tag>
+        <header v-if="available"><a-tag>{{ options?.categories.find(item => item.id === detail?.skill.categoryId)?.name || detail.skill.categoryId }}</a-tag>
           <div class="detail-title-row">
             <h1>{{ detail.skill.name }}</h1>
             <div v-if="detail.canManage" class="owner-actions">
@@ -129,11 +136,16 @@ onBeforeUnmount(() => { sequence++; controller?.abort() })
         </section>
       </div>
       <aside class="detail-sidebar">
-        <div class="download-panel"><span class="label">当前版本</span><strong>{{ detail.skill.version }}</strong><div>{{ skillBytes(detail.archiveBytes) }} · ZIP</div>
-          <a-button block type="primary" size="large" :loading="downloading" :disabled="!available || !options" @click="download"><DownloadOutlined /> 下载 Skill</a-button>
+        <div v-if="available" class="download-panel"><span class="label">当前版本</span><strong>{{ detail.skill.version }}</strong><div>{{ skillBytes(detail.archiveBytes) }} · ZIP</div>
+          <div class="download-actions">
+            <a-button block type="primary" size="large" :loading="downloading" :disabled="!available || !options" @click="download"><DownloadOutlined /> 下载 Skill</a-button>
+            <SkillFavoriteButton :skill-id="detail.skill.skillId" :name="detail.skill.name" />
+          </div>
           <a-alert v-if="downloadError" type="error" :message="downloadError" show-icon />
           <small>下载前会重新检查版本可用性。</small>
         </div>
+        <SkillFavoriteButton v-else :skill-id="String(route.params.skillId)" :available="false" />
+        <a-alert v-if="favorites.readError" type="error" :message="favorites.readError"><template #action><a-button @click="favorites.loadStatuses([String(route.params.skillId)])">重试</a-button></template></a-alert>
         <section v-if="available && detail.source" class="source-panel">
           <h3>Skill 来源</h3>
           <SkillSourceSummary :source="detail.source" />
@@ -148,8 +160,8 @@ onBeforeUnmount(() => { sequence++; controller?.abort() })
 .detail-tabs { display: flex; gap: 24px; border-bottom: 1px solid $color-border; margin-bottom: 24px; }.detail-tabs button { padding: 0 4px 14px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: $color-text-secondary; font-size: $skill-font-size-body; cursor: pointer; }.detail-tabs button[aria-selected="true"] { color: $color-primary; border-bottom-color: $color-primary; font-weight: 600; }.detail-body :deep(.skill-comments) { margin: 0; padding: 0; border: 0; }
 .detail-title-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px 24px; margin: 15px 0; }.detail-title-row h1 { flex: 1; min-width: 220px; margin: 0; }.owner-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }.detail-sidebar { display: grid; gap: 20px; align-content: start; }
 .detail-layout { display: grid; grid-template-columns: minmax(0, 1fr) 310px; gap: 24px; }.main-panel, .download-panel, .declarations, .source-panel { border: 1px solid $color-border; border-radius: $radius-card; padding: 28px; background: $color-bg; min-width: 0; }
-.source-panel { padding: 22px; }.source-panel h3 { margin: 0 0 14px; }.source-panel :deep(.source-summary) { margin: 0; padding: 0; background: transparent; border-radius: 0; }
+.source-panel { padding: 22px; }.source-panel h3 { margin: 0 0 14px; }.source-panel :deep(.source-summary) { margin: 0; padding: 0; border: 0; background: transparent; border-radius: 0; }
 header { margin-bottom: 24px; }h1 { font-size: 32px; line-height: 1.3; margin: 15px 0; overflow-wrap: anywhere; color: $color-text-primary; }.summary { font-size: $skill-font-size-body; line-height: 1.8; color: $color-text-secondary; }header a span, .reading-note { color: $color-text-tertiary; font-size: $skill-font-size-secondary; }.tags { margin-top: 18px; }
-h2 { font-size: 22px; color: $color-text-primary; }.download-panel strong { display: block; font-size: 27px; margin: 10px 0; }.label, .download-panel div, .download-panel p, small { color: $color-text-secondary; font-size: $skill-font-size-secondary; }.download-panel .ant-btn { margin: 22px 0 12px; }.download-panel small { display: block; line-height: 1.7; }.declarations { padding: 22px; }h3 { font-size: 18px; }dl { line-height: 1.7; }dt { color: $color-text-tertiary; font-size: $skill-font-size-secondary; }dd { margin: 4px 0 16px; overflow-wrap: anywhere; }.declarations code { font-size: $skill-font-size-secondary; overflow-wrap: anywhere; color: $color-text-secondary; }.loading-space { min-height: 280px; }
+h2 { font-size: 22px; color: $color-text-primary; }.download-panel strong { display: block; font-size: 27px; margin: 10px 0; }.label, .download-panel div, .download-panel p, small { color: $color-text-secondary; font-size: $skill-font-size-secondary; }.download-actions { display: grid; gap: 10px; margin: 22px 0 12px; }.download-panel small { display: block; line-height: 1.7; }.declarations { padding: 22px; }h3 { font-size: 18px; }dl { line-height: 1.7; }dt { color: $color-text-tertiary; font-size: $skill-font-size-secondary; }dd { margin: 4px 0 16px; overflow-wrap: anywhere; }.declarations code { font-size: $skill-font-size-secondary; overflow-wrap: anywhere; color: $color-text-secondary; }.loading-space { min-height: 280px; }
 @media(max-width: 850px) { .detail-layout { grid-template-columns: 1fr; }aside { grid-row: 1; }.main-panel { padding: 20px; } }
 </style>

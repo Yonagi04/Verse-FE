@@ -5,6 +5,7 @@ import { login as loginApi, logout as logoutApi, getCurrentUser } from '@/api/us
 import type { UserLoginReqDTO, UserRespDTO, UserLoginRespDTO } from '@/types/user'
 import { useTenantStore } from './tenant'
 import { usePlaygroundStore } from './playground'
+import { useSkillFavoriteStore } from './skillFavorite'
 import { resetAuthRequests } from '@/api/request'
 import { useWebSocketNotification, unreadCount, newNotification } from '@/composables/useWebSocketNotification'
 
@@ -16,6 +17,7 @@ export const useUserStore = defineStore('user', () => {
   function resetIdentity() {
     generation++; resetAuthRequests(); user.value = null
     useTenantStore().reset(); usePlaygroundStore().reset(null)
+    useSkillFavoriteStore().reset()
     useWebSocketNotification().disconnect(); unreadCount.value = 0; newNotification.value = null
   }
   function acceptLogin(res: UserLoginRespDTO) {

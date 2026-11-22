@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({ detail: vi.fn(), options: vi.fn(), fileMounts:
   route: { params: { skillId: '20' } }, identity: { token: 'session-a' } }))
 vi.mock('vue-router', () => ({ useRoute: () => Vue.reactive(mocks.route) }))
 vi.mock('@/stores/user', () => ({ useUserStore: () => Vue.reactive(mocks.identity) }))
+vi.mock('@/stores/skillFavorite', () => ({ useSkillFavoriteStore: () => ({ statuses: {}, revision: 0, readError: '', locked: false, loadStatuses: vi.fn().mockResolvedValue(true) }) }))
 vi.mock('@/utils/auth', () => ({ getToken: () => mocks.identity.token }))
 vi.mock('@/api/request', () => ({ handleExpiredSession: vi.fn() }))
 vi.mock('@/api/skill', () => ({ skillDetail: mocks.detail, skillOptions: mocks.options, skillDownload: vi.fn(), readSkillArchive: vi.fn() }))

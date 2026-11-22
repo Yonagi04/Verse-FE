@@ -6,6 +6,7 @@ import { hasStoredFlow, cancelAbandonedFlows, readFlow, storedFlowReconciliation
 import { getFlow } from '@/api/externalAuth'
 
 const routes: RouteRecordRaw[] = [
+  { path: '/skills/favorites', name: 'SkillFavorites', component: () => import('@/views/skill/SkillFavoritesPage.vue'), meta: { requiresAuth: true, accountScoped: true } },
   { path: '/skills', name: 'SkillPlaza', component: () => import('@/views/skill/SkillPlazaPage.vue'), meta: { requiresAuth: true, layout: 'app', accountScoped: true } },
   { path: '/skills/mine', name: 'SkillMine', component: () => import('@/views/skill/SkillMinePage.vue'), meta: { requiresAuth: true, accountScoped: true } },
   { path: '/skills/publish/:draftId?', name: 'SkillPublish', component: () => import('@/views/skill/SkillPublishPage.vue'), meta: { requiresAuth: true, accountScoped: true } },

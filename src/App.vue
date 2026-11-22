@@ -5,6 +5,7 @@ import AppLayout from '@/layouts/AppLayout.vue'
 import { useThemeStore } from '@/stores/theme'
 import { createAntTheme } from '@/utils/antTheme'
 import { getPopupContainer } from '@/utils/popupContainer'
+import SkillFavoriteHost from '@/views/skill/favorites/SkillFavoriteHost.vue'
 
 const route = useRoute()
 const themeStore = useThemeStore()
@@ -23,5 +24,6 @@ const isPublic = computed(() => route.meta.layout === 'auth')
       </AppLayout>
       <component v-else :is="RouteComponent" />
     </router-view>
+    <SkillFavoriteHost />
   </a-config-provider>
 </template>
